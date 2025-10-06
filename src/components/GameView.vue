@@ -248,7 +248,9 @@ export default {
         developer: '',
         executablePath: '',
         imagePath: ''
-      }
+      },
+      isScreenshotInProgress: false, // 防止重复截图
+      lastScreenshotTime: 0 // 记录上次截图时间
     }
   },
   computed: {
@@ -616,6 +618,146 @@ export default {
     },
     isGameRunning(game) {
       return this.runningGames.has(game.id)
+    },
+    async takeScreenshot() {
+      // 防止重复截图：检查是否正在截图或距离上次截图时间太短
+      const now = Date.now()
+      if (this.isScreenshotInProgress || (now - this.lastScreenshotTime < 1000)) {
+        console.log('截图请求被忽略：正在截图或距离上次截图时间太短')
+        return
+      }
+      
+      this.isScreenshotInProgress = true
+      this.lastScreenshotTime = now
+      
+      console.log('开始截图，时间戳:', now)
+      
+      try {
+        // 获取当前正在运行的游戏
+        const runningGame = this.games.find(game => this.runningGames.has(game.id))
+        const gameName = runningGame ? runningGame.name : 'Screenshot'
+        
+        // 获取用户设置的截图选项
+        const settings = JSON.parse(localStorage.getItem('butter-manager-settings') || '{}')
+        const screenshotsPath = settings.screenshotsPath || ''
+        const screenshotFormat = settings.screenshotFormat || 'png'
+        const screenshotQuality = settings.screenshotQuality || 90
+        const showNotification = settings.screenshotNotification !== false
+        const autoOpenFolder = settings.autoOpenScreenshotFolder || false
+        const smartWindowDetection = settings.smartWindowDetection !== false
+        
+        console.log('截图设置:', {
+          gameName,
+          screenshotsPath,
+          format: screenshotFormat,
+          quality: screenshotQuality,
+          smartWindowDetection
+        })
+        
+        if (window.electronAPI && window.electronAPI.takeScreenshot) {
+          const result = await window.electronAPI.takeScreenshot(
+            gameName, 
+            screenshotsPath, 
+            screenshotFormat, 
+            screenshotQuality
+          )
+          
+          if (result.success) {
+            console.log('截图成功:', result.filepath, '窗口:', result.windowName)
+            
+            if (showNotification) {
+              // 延迟显示通知，避免通知被包含在截图中
+              setTimeout(() => {
+                this.showNotification(
+                  '截图成功', 
+                  `截图已保存为: ${result.filename}\n游戏文件夹: ${result.gameFolder}\n窗口: ${result.windowName}`
+                )
+              }, 100) // 延迟1秒显示通知
+            }
+            
+            // 自动打开截图文件夹
+            if (autoOpenFolder && window.electronAPI && window.electronAPI.openFolder) {
+              try {
+                await window.electronAPI.openFolder(result.filepath)
+              } catch (error) {
+                console.error('打开文件夹失败:', error)
+              }
+            }
+          } else {
+            console.error('截图失败:', result.error)
+            if (showNotification) {
+              // 延迟显示失败通知
+              setTimeout(() => {
+                this.showNotification('截图失败', result.error)
+              }, 100)
+            }
+          }
+        } else {
+          console.log('Electron API不可用，无法截图')
+          if (showNotification) {
+            // 延迟显示API不可用通知
+            setTimeout(() => {
+              this.showNotification('截图失败', '当前环境不支持截图功能')
+            }, 100)
+          }
+        }
+      } catch (error) {
+        console.error('截图过程中发生错误:', error)
+        const settings = JSON.parse(localStorage.getItem('butter-manager-settings') || '{}')
+        if (settings.screenshotNotification !== false) {
+          // 延迟显示异常通知
+          setTimeout(() => {
+            this.showNotification('截图失败', error.message)
+          }, 100)
+        }
+      } finally {
+        // 无论成功还是失败，都要重置截图状态
+        this.isScreenshotInProgress = false
+      }
+    },
+    // 应用内快捷键功能已禁用，只使用全局快捷键
+    // handleKeyDown(event) {
+    //   // 获取用户设置的截图快捷键
+    //   const settings = JSON.parse(localStorage.getItem('butter-manager-settings') || '{}')
+    //   const screenshotKey = settings.screenshotKey || 'F12'
+    //   
+    //   // 检查是否匹配用户设置的快捷键
+    //   if (this.isKeyMatch(event, screenshotKey)) {
+    //     event.preventDefault()
+    //     this.takeScreenshot()
+    //   }
+    // },
+    // isKeyMatch(event, keySetting) {
+    //   // 只支持F12键
+    //   if (keySetting === 'F12') {
+    //     return event.key === 'F12' && !event.ctrlKey && !event.altKey && !event.shiftKey
+    //   }
+    //   
+    //   return false
+    // },
+    async initializeGlobalShortcut() {
+      try {
+        // 获取用户设置的截图快捷键
+        const settings = JSON.parse(localStorage.getItem('butter-manager-settings') || '{}')
+        const screenshotKey = settings.screenshotKey || 'F12'
+        
+        console.log('初始化全局快捷键:', screenshotKey)
+        
+        if (window.electronAPI && window.electronAPI.updateGlobalShortcut) {
+          const result = await window.electronAPI.updateGlobalShortcut(screenshotKey)
+          if (result.success) {
+            console.log('全局快捷键更新成功:', result.key)
+          } else {
+            console.error('全局快捷键更新失败:', result.error)
+            this.showNotification(
+              '快捷键设置', 
+              `全局快捷键注册失败: ${result.error}。请检查快捷键是否被其他应用占用。`
+            )
+          }
+        }
+      } catch (error) {
+        console.error('初始化全局快捷键失败:', error)
+      }
     }
   },
   mounted() {
@@ -632,6 +774,31 @@ export default {
         console.log('游戏进程结束，数据:', data)
         this.updateGamePlayTime(data)
       })
+    }
+    
+    // 监听全局截图触发事件（只使用全局快捷键）
+    if (window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
+      window.electronAPI.onGlobalScreenshotTrigger(() => {
+        console.log('全局快捷键触发截图')
+        this.takeScreenshot()
+      })
+    } else {
+      // 应用内快捷键功能已禁用
+      console.log('全局快捷键不可用，应用内快捷键已禁用')
+    }
+    
+    // 初始化全局快捷键
+    this.initializeGlobalShortcut()
+  },
+  beforeUnmount() {
+    // 应用内快捷键功能已禁用，无需清理
+    // document.removeEventListener('keydown', this.handleKeyDown)
+    
+    // 清理全局截图事件监听器
+    if (window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
+      // 移除所有全局截图事件监听器
+      window.electronAPI.onGlobalScreenshotTrigger(() => {})
+      console.log('清理全局截图事件监听器')
     }
   }
 }

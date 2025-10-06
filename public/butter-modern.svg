@@ -1,0 +1,28 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景圆形 -->
+  <circle cx="32" cy="32" r="30" fill="#FFD700" stroke="#FFA500" stroke-width="2"/>
+  
+  <!-- 黄油主体 -->
+  <ellipse cx="32" cy="36" rx="18" ry="12" fill="#FFF8DC"/>
+  
+  <!-- 黄油顶部 -->
+  <ellipse cx="32" cy="28" rx="16" ry="10" fill="#FFFFFF"/>
+  
+  <!-- 黄油纹理线条 -->
+  <path d="M16 36 Q32 32 48 36" stroke="#FFA500" stroke-width="1.5" fill="none" opacity="0.7"/>
+  <path d="M18 40 Q32 36 46 40" stroke="#FFA500" stroke-width="1.5" fill="none" opacity="0.5"/>
+  <path d="M20 44 Q32 40 44 44" stroke="#FFA500" stroke-width="1.5" fill="none" opacity="0.3"/>
+  
+  <!-- 光泽效果 -->
+  <ellipse cx="26" cy="24" rx="8" ry="5" fill="#FFFFFF" opacity="0.6"/>
+  
+  <!-- 包装纸边缘 -->
+  <path d="M14 28 Q32 24 50 28" stroke="#8B4513" stroke-width="2" fill="none"/>
+  <path d="M14 28 L14 44 Q32 48 50 44 L50 28" stroke="#8B4513" stroke-width="2" fill="none"/>
+  <path d="M14 44 Q32 46 50 44" stroke="#8B4513" stroke-width="2" fill="none"/>
+  
+  <!-- 包装纸纹理 -->
+  <path d="M18 30 Q32 28 46 30" stroke="#8B4513" stroke-width="1" fill="none" opacity="0.6"/>
+  <path d="M18 32 Q32 30 46 32" stroke="#8B4513" stroke-width="1" fill="none" opacity="0.6"/>
+  <path d="M18 34 Q32 32 46 34" stroke="#8B4513" stroke-width="1" fill="none" opacity="0.6"/>
+</svg>

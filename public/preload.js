@@ -28,10 +28,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 通知
   showNotification: (title, body) => ipcRenderer.invoke('show-notification', title, body),
   
+  // 截图功能
+  takeScreenshot: (gameName, directory, format, quality) => ipcRenderer.invoke('take-screenshot', gameName, directory, format, quality),
+  getScreenshotsDirectory: () => ipcRenderer.invoke('get-screenshots-directory'),
+  setScreenshotsDirectory: () => ipcRenderer.invoke('set-screenshots-directory'),
+  openFolder: (filePath) => ipcRenderer.invoke('open-folder', filePath),
+  getAvailableWindows: () => ipcRenderer.invoke('get-available-windows'),
+  getActiveWindow: () => ipcRenderer.invoke('get-active-window'),
+  updateGlobalShortcut: (newKey) => ipcRenderer.invoke('update-global-shortcut', newKey),
+  checkGlobalShortcutAvailable: (key) => ipcRenderer.invoke('check-global-shortcut-available', key),
+  
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
   onAppUpdate: (callback) => ipcRenderer.on('app-update', callback),
-  onGameProcessEnded: (callback) => ipcRenderer.on('game-process-ended', callback)
+  onGameProcessEnded: (callback) => ipcRenderer.on('game-process-ended', callback),
+  onGlobalScreenshotTrigger: (callback) => ipcRenderer.on('global-screenshot-trigger', callback)
 })
 
 // 监听来自主进程的消息

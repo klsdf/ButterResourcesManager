@@ -1,6 +1,7 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell, screen, desktopCapturer, globalShortcut } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
+const fs = require('fs')
 
 // 判断是否为开发环境
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -70,6 +71,8 @@ function createWindow() {
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
 app.whenReady().then(() => {
   createWindow()
+  createMenu()
+  registerGlobalShortcuts()
 
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建窗口
@@ -329,11 +332,409 @@ ipcMain.handle('get-system-info', () => {
 })
 
 ipcMain.handle('show-notification', (event, title, body) => {
-  // 这里可以添加系统通知功能
-  console.log('通知:', title, body)
+  try {
+    // 使用Electron的Notification API显示系统通知
+    const { Notification } = require('electron')
+    
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: title,
+        body: body,
+        icon: path.join(__dirname, 'icon.png'), // 使用应用图标
+        silent: false // 允许声音
+      })
+      
+      notification.show()
+      
+      // 可选：点击通知时的处理
+      notification.on('click', () => {
+        console.log('通知被点击')
+        // 可以在这里添加点击通知后的行为，比如打开应用窗口
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      })
+      
+      console.log('系统通知已显示:', title, body)
+    } else {
+      console.log('系统不支持通知:', title, body)
+    }
+  } catch (error) {
+    console.error('显示通知失败:', error)
+    console.log('通知内容:', title, body)
+  }
 })
 
-// 在应用准备就绪时创建菜单
-app.whenReady().then(() => {
-  createMenu()
+// 截图功能
+ipcMain.handle('take-screenshot', async (event, gameName, customDirectory, format = 'png', quality = 90) => {
+  try {
+    console.log('开始截图，游戏:', gameName, '格式:', format, '质量:', quality)
+    
+    // 获取所有可用的窗口源
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 1920, height: 1080 }
+    })
+    
+    if (sources.length === 0) {
+      throw new Error('无法获取窗口源')
+    }
+    
+    // 过滤掉系统窗口和通知窗口
+    const nonSystemWindows = sources.filter(source => {
+      const name = source.name.toLowerCase()
+      return !name.includes('desktop') && 
+             !name.includes('taskbar') && 
+             !name.includes('start menu') &&
+             !name.includes('butter manager') &&
+             !name.includes('electron') &&
+             !name.includes('chrome') &&
+             !name.includes('browser') &&
+             !name.includes('system') &&
+             !name.includes('windows') &&
+             !name.includes('notification') &&
+             !name.includes('通知') &&
+             !name.includes('新通知') &&
+             !name.includes('electron.app.electron')
+    })
+    
+    let targetSource = null
+    
+    // 始终优先选择游戏窗口，如果没有游戏窗口则使用激活窗口
+    if (gameName && gameName !== 'Screenshot') {
+      targetSource = nonSystemWindows.find(source => {
+        const name = source.name.toLowerCase()
+        const gameNameLower = gameName.toLowerCase()
+        return name.includes(gameNameLower) || gameNameLower.includes(name)
+      })
+      if (targetSource) {
+        console.log('找到匹配的游戏窗口:', targetSource.name)
+      }
+    }
+    
+    // 如果没找到游戏窗口，选择当前激活窗口
+    if (!targetSource && nonSystemWindows.length > 0) {
+      targetSource = nonSystemWindows[0]
+      console.log('未找到游戏窗口，选择当前激活窗口:', targetSource.name)
+    } else if (!targetSource) {
+      targetSource = sources[0]
+      console.log('使用默认窗口:', targetSource.name)
+    }
+    
+    if (!targetSource) {
+      throw new Error('未找到可截图的窗口')
+    }
+    
+    console.log('最终选择截图窗口:', targetSource.name)
+    const thumbnail = targetSource.thumbnail
+    
+    // 确定截图保存目录
+    let baseScreenshotsDir
+    if (customDirectory && customDirectory.trim()) {
+      baseScreenshotsDir = customDirectory.trim()
+    } else {
+      baseScreenshotsDir = path.join(app.getPath('documents'), 'Butter Manager', 'Screenshots')
+    }
+    
+    // 为每个游戏创建单独的文件夹
+    let gameFolderName = 'Screenshots'
+    if (gameName && gameName !== 'Screenshot') {
+      // 清理游戏名称，移除非法字符
+      gameFolderName = gameName.replace(/[<>:"/\\|?*]/g, '_').trim()
+      if (!gameFolderName) {
+        gameFolderName = 'Screenshots'
+      }
+    }
+    
+    const screenshotsDir = path.join(baseScreenshotsDir, gameFolderName)
+    
+    // 创建截图保存目录
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir, { recursive: true })
+      console.log('创建游戏截图文件夹:', screenshotsDir)
+    }
+    
+    // 生成文件名
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const filename = `${gameName || 'Screenshot'}_${timestamp}.${format}`
+    const filepath = path.join(screenshotsDir, filename)
+    
+    // 根据格式保存截图
+    let buffer
+    switch (format.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+        buffer = thumbnail.toJPEG(quality)
+        break
+      case 'webp':
+        buffer = thumbnail.toWebP(quality)
+        break
+      case 'png':
+      default:
+        buffer = thumbnail.toPNG()
+        break
+    }
+    
+    fs.writeFileSync(filepath, buffer)
+    
+    console.log('截图已保存:', filepath, '窗口:', targetSource.name)
+    
+    return {
+      success: true,
+      filepath: filepath,
+      filename: filename,
+      windowName: targetSource.name,
+      gameFolder: gameFolderName,
+      screenshotsDir: screenshotsDir
+    }
+  } catch (error) {
+    console.error('截图失败:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 获取截图保存目录
+ipcMain.handle('get-screenshots-directory', () => {
+  return path.join(app.getPath('documents'), 'Butter Manager', 'Screenshots')
+})
+
+// 设置截图保存目录
+ipcMain.handle('set-screenshots-directory', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择截图保存目录',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择截图目录失败:', error)
+    throw error
+  }
+})
+
+// 打开文件夹
+ipcMain.handle('open-folder', async (event, filePath) => {
+  try {
+    const folderPath = path.dirname(filePath)
+    shell.openPath(folderPath)
+    return { success: true }
+  } catch (error) {
+    console.error('打开文件夹失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取可用窗口列表
+ipcMain.handle('get-available-windows', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 200, height: 150 }
+    })
+    
+    // 过滤掉系统窗口和通知窗口
+    const windows = sources
+      .filter(source => {
+        const name = source.name.toLowerCase()
+        return !name.includes('desktop') && 
+               !name.includes('taskbar') && 
+               !name.includes('start menu') &&
+               !name.includes('butter manager') &&
+               !name.includes('electron') &&
+               !name.includes('chrome') &&
+               !name.includes('browser') &&
+               !name.includes('system') &&
+               !name.includes('windows') &&
+               !name.includes('notification') &&
+               !name.includes('通知') &&
+               !name.includes('新通知') &&
+               !name.includes('electron.app.electron')
+      })
+      .map(source => ({
+        id: source.id,
+        name: source.name,
+        thumbnail: source.thumbnail.toDataURL()
+      }))
+    
+    return { success: true, windows }
+  } catch (error) {
+    console.error('获取窗口列表失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取当前激活的窗口信息
+ipcMain.handle('get-active-window', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['window'],
+      thumbnailSize: { width: 200, height: 150 }
+    })
+    
+    if (sources.length === 0) {
+      return { success: false, error: '无法获取窗口信息' }
+    }
+    
+    // 过滤掉系统窗口和通知窗口，选择第一个（通常是当前激活的）
+    const activeWindows = sources.filter(source => {
+      const name = source.name.toLowerCase()
+      return !name.includes('desktop') && 
+             !name.includes('taskbar') && 
+             !name.includes('start menu') &&
+             !name.includes('butter manager') &&
+             !name.includes('electron') &&
+             !name.includes('chrome') &&
+             !name.includes('browser') &&
+             !name.includes('system') &&
+             !name.includes('windows') &&
+             !name.includes('notification') &&
+             !name.includes('通知') &&
+             !name.includes('新通知') &&
+             !name.includes('electron.app.electron')
+    })
+    
+    if (activeWindows.length > 0) {
+      return {
+        success: true,
+        window: {
+          id: activeWindows[0].id,
+          name: activeWindows[0].name,
+          thumbnail: activeWindows[0].thumbnail.toDataURL()
+        }
+      }
+    } else {
+      return {
+        success: true,
+        window: {
+          id: sources[0].id,
+          name: sources[0].name,
+          thumbnail: sources[0].thumbnail.toDataURL()
+        }
+      }
+    }
+  } catch (error) {
+    console.error('获取当前激活窗口失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 更新全局快捷键
+ipcMain.handle('update-global-shortcut', async (event, newKey) => {
+  try {
+    const result = updateGlobalShortcut(newKey)
+    return result
+  } catch (error) {
+    console.error('更新全局快捷键失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 检查全局快捷键是否可用
+ipcMain.handle('check-global-shortcut-available', async (event, key) => {
+  try {
+    // 尝试注册快捷键来检查是否可用
+    const testRegistered = globalShortcut.register(key, () => {})
+    if (testRegistered) {
+      // 立即注销测试快捷键
+      globalShortcut.unregister(key)
+      return { success: true, available: true }
+    } else {
+      return { success: true, available: false }
+    }
+  } catch (error) {
+    console.error('检查全局快捷键可用性失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 存储当前注册的快捷键
+let currentGlobalShortcut = null
+
+// 注册全局快捷键
+function registerGlobalShortcuts() {
+  try {
+    // 先注销所有已注册的快捷键
+    globalShortcut.unregisterAll()
+    
+    // 只尝试注册F12
+    try {
+      const result = globalShortcut.register('F12', () => {
+        console.log('全局快捷键 F12 被按下')
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('global-screenshot-trigger')
+        }
+      })
+      
+      if (result) {
+        console.log('全局快捷键 F12 注册成功')
+        currentGlobalShortcut = 'F12'
+      } else {
+        console.log('全局快捷键 F12 注册失败，可能被其他应用占用')
+        currentGlobalShortcut = null
+      }
+    } catch (error) {
+      console.log('注册快捷键 F12 时出错:', error.message)
+      currentGlobalShortcut = null
+    }
+  } catch (error) {
+    console.error('注册全局快捷键失败:', error)
+    currentGlobalShortcut = null
+  }
+}
+
+// 注销全局快捷键
+function unregisterGlobalShortcuts() {
+  try {
+    globalShortcut.unregisterAll()
+    console.log('所有全局快捷键已注销')
+  } catch (error) {
+    console.error('注销全局快捷键失败:', error)
+  }
+}
+
+// 更新全局快捷键
+function updateGlobalShortcut(newKey) {
+  try {
+    // 先注销所有快捷键
+    globalShortcut.unregisterAll()
+    currentGlobalShortcut = null
+    
+    // 注册新的快捷键
+    if (newKey) {
+      const registered = globalShortcut.register(newKey, () => {
+        console.log('全局快捷键', newKey, '被按下')
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('global-screenshot-trigger')
+        }
+      })
+      
+      if (registered) {
+        console.log('全局快捷键', newKey, '注册成功')
+        currentGlobalShortcut = newKey
+        return { success: true, key: newKey }
+      } else {
+        console.log('全局快捷键', newKey, '注册失败，可能被其他应用占用')
+        return { success: false, error: '快捷键被其他应用占用' }
+      }
+    }
+    
+    return { success: true, key: null }
+  } catch (error) {
+    console.error('更新全局快捷键失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+
+// 应用退出时注销快捷键
+app.on('will-quit', () => {
+  unregisterGlobalShortcuts()
 })

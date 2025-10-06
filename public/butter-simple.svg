@@ -1,0 +1,19 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 黄油主体 -->
+  <ellipse cx="32" cy="40" rx="20" ry="14" fill="#FFD700"/>
+  
+  <!-- 黄油顶部 -->
+  <ellipse cx="32" cy="30" rx="18" ry="12" fill="#FFF8DC"/>
+  
+  <!-- 黄油纹理 -->
+  <path d="M14 40 Q32 36 50 40" stroke="#FFA500" stroke-width="2" fill="none" opacity="0.6"/>
+  <path d="M16 44 Q32 40 48 44" stroke="#FFA500" stroke-width="2" fill="none" opacity="0.4"/>
+  
+  <!-- 光泽 -->
+  <ellipse cx="26" cy="26" rx="8" ry="5" fill="#FFFFFF" opacity="0.5"/>
+  
+  <!-- 包装纸 -->
+  <path d="M12 30 Q32 26 52 30" stroke="#8B4513" stroke-width="3" fill="none"/>
+  <path d="M12 30 L12 46 Q32 50 52 46 L52 30" stroke="#8B4513" stroke-width="3" fill="none"/>
+  <path d="M12 46 Q32 48 52 46" stroke="#8B4513" stroke-width="3" fill="none"/>
+</svg>

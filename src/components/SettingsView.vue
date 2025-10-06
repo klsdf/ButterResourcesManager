@@ -80,6 +80,134 @@
               </label>
             </div>
           </div>
+          
+        </div>
+      </div>
+
+      <!-- 截图设置 -->
+      <div class="settings-section">
+        <h4>📸 截图设置</h4>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">截图快捷键</span>
+              <span class="setting-desc">设置截图功能的快捷键</span>
+            </label>
+            <div class="setting-control">
+              <select v-model="settings.screenshotKey" @change="onScreenshotKeyChange" class="setting-select">
+                <option value="F12">F12</option>
+                <option value="F9">F9</option>
+                <option value="F10">F10</option>
+                <option value="F11">F11</option>
+                <option value="PrintScreen">Print Screen</option>
+                <option value="Ctrl+F12">Ctrl + F12</option>
+                <option value="Alt+F12">Alt + F12</option>
+                <option value="Ctrl+Shift+S">Ctrl + Shift + S</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">截图保存目录</span>
+              <span class="setting-desc">截图文件保存的文件夹位置</span>
+            </label>
+            <div class="setting-control">
+              <div class="path-input-group">
+                <input 
+                  type="text" 
+                  v-model="settings.screenshotsPath" 
+                  class="path-input"
+                  readonly
+                >
+                <button class="btn-browse" @click="selectScreenshotsDirectory">浏览</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">截图文件格式</span>
+              <span class="setting-desc">选择截图保存的图片格式</span>
+            </label>
+            <div class="setting-control">
+              <select v-model="settings.screenshotFormat" class="setting-select">
+                <option value="png">PNG (推荐)</option>
+                <option value="jpg">JPG</option>
+                <option value="webp">WebP</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">截图质量</span>
+              <span class="setting-desc">JPG格式的图片质量 (1-100)</span>
+            </label>
+            <div class="setting-control">
+              <input 
+                type="range" 
+                v-model="settings.screenshotQuality" 
+                min="1" 
+                max="100" 
+                class="setting-slider"
+                :disabled="settings.screenshotFormat !== 'jpg'"
+              >
+              <span class="setting-value">{{ settings.screenshotQuality }}%</span>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">截图后显示通知</span>
+              <span class="setting-desc">截图完成后显示系统通知</span>
+            </label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settings.screenshotNotification">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">自动打开截图文件夹</span>
+              <span class="setting-desc">截图后自动打开保存文件夹</span>
+            </label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settings.autoOpenScreenshotFolder">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">智能窗口检测</span>
+              <span class="setting-desc">自动检测游戏窗口，关闭后需要手动选择窗口</span>
+            </label>
+            <div class="setting-control">
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="settings.smartWindowDetection">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
+              <span class="setting-title">测试通知</span>
+              <span class="setting-desc">测试系统通知功能是否正常工作</span>
+            </label>
+            <div class="setting-control">
+              <button class="btn-test-notification" @click="testNotification">
+                测试通知
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -194,7 +322,15 @@ export default {
         safetyKey: 'Ctrl+Alt+Q',
         safetyAppPath: '',
         dataPath: 'C:\\Users\\User\\Documents\\ButterManager',
-        autoBackup: true
+        autoBackup: true,
+        // 截图设置
+        screenshotKey: 'F12',
+        screenshotsPath: '',
+        screenshotFormat: 'png',
+        screenshotQuality: 90,
+        screenshotNotification: true,
+        autoOpenScreenshotFolder: false,
+        smartWindowDetection: true
       }
     }
   },
@@ -202,6 +338,28 @@ export default {
     onThemeChange() {
       // 实时应用主题变化
       this.applyTheme(this.settings.theme)
+    },
+    async onScreenshotKeyChange() {
+      // 实时更新全局快捷键
+      try {
+        if (window.electronAPI && window.electronAPI.updateGlobalShortcut) {
+          const result = await window.electronAPI.updateGlobalShortcut(this.settings.screenshotKey)
+          if (result.success) {
+            if (result.fallback) {
+              console.log('使用备用全局快捷键:', result.key)
+              alert(`快捷键 ${this.settings.screenshotKey} 被占用，已自动使用 ${result.key}`)
+            } else {
+              console.log('全局快捷键更新成功:', result.key)
+            }
+          } else {
+            console.error('全局快捷键更新失败:', result.error)
+            alert(`快捷键设置失败: ${result.error}\n将使用应用内快捷键。`)
+          }
+        }
+      } catch (error) {
+        console.error('更新全局快捷键失败:', error)
+        alert('更新快捷键失败: ' + error.message)
+      }
     },
     applyTheme(theme) {
       // 处理跟随系统主题
@@ -237,9 +395,65 @@ export default {
           safetyKey: 'Ctrl+Alt+Q',
           safetyAppPath: '',
           dataPath: 'C:\\Users\\User\\Documents\\ButterManager',
-          autoBackup: true
+          autoBackup: true,
+          // 截图设置
+          screenshotKey: 'F12',
+          screenshotsPath: '',
+          screenshotFormat: 'png',
+          screenshotQuality: 90,
+          screenshotNotification: true,
+          autoOpenScreenshotFolder: false,
+          smartWindowDetection: true
         }
         alert('设置已重置！')
+      }
+    },
+    async selectScreenshotsDirectory() {
+      try {
+        if (window.electronAPI && window.electronAPI.setScreenshotsDirectory) {
+          const directory = await window.electronAPI.setScreenshotsDirectory()
+          if (directory) {
+            this.settings.screenshotsPath = directory
+            this.saveSettings()
+          }
+        } else {
+          alert('当前环境不支持选择目录功能')
+        }
+      } catch (error) {
+        console.error('选择截图目录失败:', error)
+        alert('选择目录失败: ' + error.message)
+      }
+    },
+    async testNotification() {
+      try {
+        if (window.electronAPI && window.electronAPI.showNotification) {
+          await window.electronAPI.showNotification(
+            '测试通知', 
+            '这是一个测试通知，用于验证通知功能是否正常工作。'
+          )
+        } else {
+          // 降级处理：使用浏览器通知
+          if (Notification.permission === 'granted') {
+            new Notification('测试通知', { 
+              body: '这是一个测试通知，用于验证通知功能是否正常工作。' 
+            })
+          } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(permission => {
+              if (permission === 'granted') {
+                new Notification('测试通知', { 
+                  body: '这是一个测试通知，用于验证通知功能是否正常工作。' 
+                })
+              } else {
+                alert('通知权限被拒绝')
+              }
+            })
+          } else {
+            alert('通知权限被拒绝，无法显示测试通知')
+          }
+        }
+      } catch (error) {
+        console.error('测试通知失败:', error)
+        alert('测试通知失败: ' + error.message)
       }
     },
     exportSettings() {
@@ -257,11 +471,22 @@ export default {
       alert('文件路径选择功能需要Electron API支持')
     }
   },
-  mounted() {
+  async mounted() {
     // 从本地存储加载设置
     const savedSettings = localStorage.getItem('butter-manager-settings')
     if (savedSettings) {
       this.settings = { ...this.settings, ...JSON.parse(savedSettings) }
+    }
+    
+    // 初始化截图目录（如果未设置）
+    if (!this.settings.screenshotsPath) {
+      try {
+        if (window.electronAPI && window.electronAPI.getScreenshotsDirectory) {
+          this.settings.screenshotsPath = await window.electronAPI.getScreenshotsDirectory()
+        }
+      } catch (error) {
+        console.error('获取默认截图目录失败:', error)
+      }
     }
   }
 }
@@ -361,6 +586,22 @@ export default {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.btn-test-notification {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.btn-test-notification:hover {
+  background: var(--accent-hover);
 }
 
 .setting-input {

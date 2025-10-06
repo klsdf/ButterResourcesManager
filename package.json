@@ -1,5 +1,5 @@
 {
-  "name": "butter-manager-vue",
+  "name": "butter-manager",
   "version": "1.0.0",
   "description": "A Vue + Electron desktop application",
   "main": "public/electron.js",
@@ -19,7 +19,7 @@
     "desktop",
     "app"
   ],
-  "author": "Your Name",
+  "author": "Yan",
   "license": "MIT",
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.0",
