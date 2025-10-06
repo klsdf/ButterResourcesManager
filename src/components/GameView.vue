@@ -33,7 +33,7 @@
         v-for="game in filteredGames" 
         :key="game.id"
         class="game-card"
-        @click="launchGame(game)"
+        @click="showGameDetail(game)"
         @contextmenu="showGameContextMenu($event, game)"
       >
         <div class="game-image">
@@ -136,12 +136,72 @@
       </div>
     </div>
 
+    <!-- 游戏详情页面 -->
+    <div v-if="showDetailModal" class="game-detail-overlay" @click="closeGameDetail">
+      <div class="game-detail-content" @click.stop>
+        <div class="detail-header">
+          <button class="detail-close" @click="closeGameDetail">✕</button>
+        </div>
+        <div class="detail-body" v-if="currentGame">
+          <div class="detail-image">
+            <img 
+              :src="currentGame.image || '/default-game.png'" 
+              :alt="currentGame.name"
+              @error="handleImageError"
+            >
+          </div>
+          <div class="detail-info">
+            <h2 class="detail-title">{{ currentGame.name }}</h2>
+            <p class="detail-developer">{{ currentGame.developer }}</p>
+            
+            <div class="detail-stats">
+              <div class="stat-item">
+                <span class="stat-label">总游戏时长</span>
+                <span class="stat-value">{{ formatPlayTime(currentGame.playTime) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">运行次数</span>
+                <span class="stat-value">{{ currentGame.playCount || 0 }} 次</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">最后游玩</span>
+                <span class="stat-value">{{ formatLastPlayed(currentGame.lastPlayed) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">添加时间</span>
+                <span class="stat-value">{{ formatDate(currentGame.addedDate) }}</span>
+              </div>
+            </div>
+            
+            <div class="detail-actions">
+              <button class="btn-play-game" @click="launchGame(currentGame)">
+                <span class="btn-icon">▶️</span>
+                开始游戏
+              </button>
+              <button class="btn-edit-game" @click="editGame(currentGame)">
+                <span class="btn-icon">✏️</span>
+                编辑信息
+              </button>
+              <button class="btn-remove-game" @click="removeGame(currentGame)">
+                <span class="btn-icon">🗑️</span>
+                删除游戏
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 右键菜单 -->
     <div 
       v-if="showContextMenu" 
       class="context-menu"
       :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
     >
+      <div class="context-item" @click="showGameDetail(selectedGame)">
+        <span class="context-icon">👁️</span>
+        查看详情
+      </div>
       <div class="context-item" @click="launchGame(selectedGame)">
         <span class="context-icon">▶️</span>
         启动游戏
@@ -170,6 +230,8 @@ export default {
       showContextMenu: false,
       contextMenuPos: { x: 0, y: 0 },
       selectedGame: null,
+      showDetailModal: false,
+      currentGame: null,
       newGame: {
         name: '',
         developer: '',
@@ -321,6 +383,7 @@ export default {
         executablePath: this.newGame.executablePath.trim(),
         image: this.newGame.imagePath.trim(),
         playTime: 0,
+        playCount: 0,
         lastPlayed: null,
         addedDate: new Date().toISOString()
       }
@@ -332,6 +395,18 @@ export default {
     async launchGame(game) {
       try {
         console.log('启动游戏:', game.name, game.executablePath)
+        console.log('更新前 - lastPlayed:', game.lastPlayed)
+        console.log('更新前 - playCount:', game.playCount)
+        
+        // 立即更新游戏统计（记录尝试启动的时间）
+        game.lastPlayed = new Date().toISOString()
+        game.playCount = (game.playCount || 0) + 1
+        
+        console.log('更新后 - lastPlayed:', game.lastPlayed)
+        console.log('更新后 - playCount:', game.playCount)
+        
+        this.saveGames()
+        console.log('游戏数据已保存')
         
         if (window.electronAPI && window.electronAPI.launchGame) {
           const result = await window.electronAPI.launchGame(game.executablePath)
@@ -351,9 +426,8 @@ export default {
           return
         }
         
-        // 更新游戏统计
-        game.lastPlayed = new Date().toISOString()
-        this.saveGames()
+        // 关闭详情页面
+        this.closeGameDetail()
       } catch (error) {
         console.error('启动游戏失败:', error)
         alert(`启动游戏失败: ${error.message}`)
@@ -375,6 +449,15 @@ export default {
           })
         }
       }
+    },
+    showGameDetail(game) {
+      this.currentGame = game
+      this.showDetailModal = true
+      this.showContextMenu = false
+    },
+    closeGameDetail() {
+      this.showDetailModal = false
+      this.currentGame = null
     },
     showGameContextMenu(event, game) {
       event.preventDefault()
@@ -408,12 +491,46 @@ export default {
       const date = new Date(dateString)
       const now = new Date()
       const diffTime = Math.abs(now - date)
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
+      const diffMinutes = Math.floor(diffTime / (1000 * 60))
       
+      console.log('formatLastPlayed 调试:')
+      console.log('  dateString:', dateString)
+      console.log('  date:', date)
+      console.log('  now:', now)
+      console.log('  diffTime (ms):', diffTime)
+      console.log('  diffDays:', diffDays)
+      console.log('  diffHours:', diffHours)
+      console.log('  diffMinutes:', diffMinutes)
+      
+      // 如果是今天（同一天）
+      if (diffDays === 0) {
+        if (diffMinutes < 1) return '刚刚'
+        if (diffMinutes < 60) return `${diffMinutes}分钟前`
+        if (diffHours < 24) return `${diffHours}小时前`
+      }
+      
+      // 如果是昨天
       if (diffDays === 1) return '昨天'
       if (diffDays < 7) return `${diffDays}天前`
       if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
-      return date.toLocaleDateString()
+      return this.formatDateTime(date)
+    },
+    formatDate(dateString) {
+      if (!dateString) return '未知'
+      const date = new Date(dateString)
+      return this.formatDateTime(date)
+    },
+    formatDateTime(date) {
+      // 格式化为：YYYY-MM-DD HH:mm:ss
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     },
     handleImageError(event) {
       event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
@@ -425,6 +542,13 @@ export default {
       const saved = localStorage.getItem('butter-manager-games')
       if (saved) {
         this.games = JSON.parse(saved)
+        console.log('加载游戏数据:', this.games)
+        // 检查每个游戏的 lastPlayed 值
+        this.games.forEach((game, index) => {
+          console.log(`游戏 ${index + 1} (${game.name}):`)
+          console.log('  lastPlayed:', game.lastPlayed)
+          console.log('  playCount:', game.playCount)
+        })
       }
     }
   },
@@ -869,6 +993,182 @@ export default {
   font-size: 1rem;
 }
 
+/* 游戏详情页面样式 */
+.game-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.game-detail-content {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  width: 800px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px var(--shadow-medium);
+  transition: background-color 0.3s ease;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.detail-close:hover {
+  color: var(--text-primary);
+}
+
+.detail-body {
+  display: flex;
+  gap: 30px;
+  padding: 30px;
+}
+
+.detail-image {
+  flex-shrink: 0;
+  width: 300px;
+  height: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px var(--shadow-medium);
+}
+
+.detail-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-title {
+  color: var(--text-primary);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.detail-developer {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  padding: 20px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.stat-value {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.btn-play-game {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.3s ease;
+  flex: 1;
+  justify-content: center;
+}
+
+.btn-play-game:hover {
+  background: var(--accent-hover);
+}
+
+.btn-edit-game, .btn-remove-game {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-edit-game:hover {
+  background: var(--bg-secondary);
+}
+
+.btn-remove-game {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.btn-remove-game:hover {
+  background: #fecaca;
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .games-grid {
@@ -893,6 +1193,24 @@ export default {
   .modal-content {
     width: 95vw;
     margin: 20px;
+  }
+  
+  .detail-body {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .detail-image {
+    width: 100%;
+    height: 250px;
+  }
+  
+  .detail-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .detail-actions {
+    flex-direction: column;
   }
 }
 </style>
