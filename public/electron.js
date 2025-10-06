@@ -226,6 +226,45 @@ ipcMain.handle('select-folder', async () => {
   return null
 })
 
+// 获取文件URL，用于在渲染进程中正确显示本地文件
+ipcMain.handle('get-file-url', async (event, filePath) => {
+  try {
+    if (!filePath || filePath.trim() === '') {
+      return null
+    }
+    
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      console.warn('文件不存在:', filePath)
+      return null
+    }
+    
+    // 在Electron中，使用file://协议来访问本地文件
+    const fileUrl = `file://${path.resolve(filePath).replace(/\\/g, '/')}`
+    console.log('生成文件URL:', fileUrl)
+    return fileUrl
+  } catch (error) {
+    console.error('获取文件URL失败:', error)
+    return null
+  }
+})
+
+// 将本地图片转为 data:URL 返回，避免 http(s) 环境下直接加载 file:// 被拦截
+ipcMain.handle('read-file-as-data-url', async (event, filePath) => {
+  try {
+    if (!filePath || filePath.trim() === '') return null
+    if (!fs.existsSync(filePath)) return null
+    const ext = path.extname(filePath).toLowerCase()
+    const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : ext === '.gif' ? 'image/gif' : 'application/octet-stream'
+    const buf = fs.readFileSync(filePath)
+    const base64 = buf.toString('base64')
+    return `data:${mime};base64,${base64}`
+  } catch (e) {
+    console.error('read-file-as-data-url 失败:', e)
+    return null
+  }
+})
+
 // 存储游戏进程信息
 const gameProcesses = new Map()
 
@@ -521,10 +560,38 @@ ipcMain.handle('set-screenshots-directory', async () => {
 })
 
 // 打开文件夹
-ipcMain.handle('open-folder', async (event, filePath) => {
+ipcMain.handle('open-folder', async (event, folderPath) => {
   try {
-    const folderPath = path.dirname(filePath)
-    shell.openPath(folderPath)
+    console.log('尝试打开文件夹:', folderPath)
+    
+    // 处理空路径或无效路径
+    if (!folderPath || folderPath.trim() === '' || folderPath === '.') {
+      return { success: false, error: '无效的文件夹路径' }
+    }
+    
+    // 如果是相对路径，转换为绝对路径
+    let absolutePath = folderPath
+    if (!path.isAbsolute(folderPath)) {
+      absolutePath = path.resolve(process.cwd(), folderPath)
+    }
+    
+    console.log('解析后的绝对路径:', absolutePath)
+    
+    // 确保文件夹存在
+    if (!fs.existsSync(absolutePath)) {
+      console.error('文件夹不存在:', absolutePath)
+      return { success: false, error: `文件夹不存在: ${absolutePath}` }
+    }
+    
+    // 检查是否为文件夹
+    const stats = fs.statSync(absolutePath)
+    if (!stats.isDirectory()) {
+      return { success: false, error: '指定路径不是文件夹' }
+    }
+    
+    // 打开文件夹
+    console.log('正在打开文件夹:', absolutePath)
+    await shell.openPath(absolutePath)
     return { success: true }
   } catch (error) {
     console.error('打开文件夹失败:', error)
@@ -733,6 +800,90 @@ function updateGlobalShortcut(newKey) {
   }
 }
 
+
+// JSON 文件操作 IPC 处理程序
+ipcMain.handle('write-json-file', async (event, filePath, data) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    console.log('开始写入 JSON 文件:', filePath)
+    console.log('数据类型:', typeof data)
+    console.log('数据内容:', data)
+    
+    // 确保目录存在
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+      console.log('创建目录:', dir)
+    }
+    
+    // 验证数据是否可以序列化
+    let jsonString
+    try {
+      jsonString = JSON.stringify(data, null, 2)
+    } catch (serializeError) {
+      console.error('数据序列化失败:', serializeError)
+      return { success: false, error: `数据序列化失败: ${serializeError.message}` }
+    }
+    
+    // 写入 JSON 文件
+    fs.writeFileSync(filePath, jsonString, 'utf8')
+    console.log('JSON 文件写入成功:', filePath)
+    return { success: true }
+  } catch (error) {
+    console.error('写入 JSON 文件失败:', error)
+    console.error('错误堆栈:', error.stack)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('read-json-file', async (event, filePath) => {
+  try {
+    const fs = require('fs')
+    
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+    
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+    console.log('JSON 文件读取成功:', filePath)
+    return { success: true, data }
+  } catch (error) {
+    console.error('读取 JSON 文件失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('delete-file', async (event, filePath) => {
+  try {
+    const fs = require('fs')
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath)
+      console.log('文件删除成功:', filePath)
+    }
+    return { success: true }
+  } catch (error) {
+    console.error('删除文件失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('ensure-directory', async (event, dirPath) => {
+  try {
+    const fs = require('fs')
+    
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true })
+      console.log('目录创建成功:', dirPath)
+    }
+    return { success: true }
+  } catch (error) {
+    console.error('创建目录失败:', error)
+    return { success: false, error: error.message }
+  }
+})
 
 // 应用退出时注销快捷键
 app.on('will-quit', () => {

@@ -14,10 +14,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: () => ipcRenderer.invoke('open-file'),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
   
+  // JSON 文件操作
+  writeJsonFile: (filePath, data) => ipcRenderer.invoke('write-json-file', filePath, data),
+  readJsonFile: (filePath) => ipcRenderer.invoke('read-json-file', filePath),
+  deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
+  ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),
+  
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   selectImageFile: () => ipcRenderer.invoke('select-image-file'),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+  
+  // 文件URL处理
+  getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
+  // 将本地文件读为 data:URL（用于在 http 源下安全显示本地图片）
+  readFileAsDataUrl: (filePath) => ipcRenderer.invoke('read-file-as-data-url', filePath),
   
   // 游戏启动
   launchGame: (executablePath) => ipcRenderer.invoke('launch-game', executablePath),

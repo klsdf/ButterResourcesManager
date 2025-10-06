@@ -199,6 +199,19 @@
           
           <div class="setting-item">
             <label class="setting-label">
+              <span class="setting-title">打开截图文件夹</span>
+              <span class="setting-desc">在文件管理器中打开截图保存文件夹</span>
+            </label>
+            <div class="setting-control">
+              <button class="btn-open-screenshot-folder" @click="openScreenshotFolder">
+                <span class="btn-icon">📸</span>
+                打开文件夹
+              </button>
+            </div>
+          </div>
+          
+          <div class="setting-item">
+            <label class="setting-label">
               <span class="setting-title">测试通知</span>
               <span class="setting-desc">测试系统通知功能是否正常工作</span>
             </label>
@@ -266,32 +279,14 @@
         <div class="settings-grid">
           <div class="setting-item">
             <label class="setting-label">
-              <span class="setting-title">数据存储路径</span>
-              <span class="setting-desc">设置应用数据的存储位置</span>
+              <span class="setting-title">打开存档文件夹</span>
+              <span class="setting-desc">在文件管理器中打开存档数据文件夹，包含游戏数据和设置文件</span>
             </label>
             <div class="setting-control">
-              <div class="path-input-group">
-                <input 
-                  type="text" 
-                  v-model="settings.dataPath" 
-                  class="setting-input"
-                  readonly
-                >
-                <button class="path-button" @click="selectDataPath">浏览</button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="setting-item">
-            <label class="setting-label">
-              <span class="setting-title">自动备份</span>
-              <span class="setting-desc">定期备份应用数据</span>
-            </label>
-            <div class="setting-control">
-              <label class="toggle-switch">
-                <input type="checkbox" v-model="settings.autoBackup">
-                <span class="toggle-slider"></span>
-              </label>
+              <button class="btn-open-folder" @click="openSaveDataFolder">
+                <span class="btn-icon">📁</span>
+                打开文件夹
+              </button>
             </div>
           </div>
         </div>
@@ -308,6 +303,8 @@
 </template>
 
 <script>
+import saveManager from '../utils/SaveManager.js'
+
 export default {
   name: 'SettingsView',
   data() {
@@ -321,8 +318,6 @@ export default {
         sageMode: false,
         safetyKey: 'Ctrl+Alt+Q',
         safetyAppPath: '',
-        dataPath: 'C:\\Users\\User\\Documents\\ButterManager',
-        autoBackup: true,
         // 截图设置
         screenshotKey: 'F12',
         screenshotsPath: '',
@@ -377,11 +372,15 @@ export default {
       // 通知父组件主题变化
       this.$emit('theme-changed', actualTheme)
     },
-    saveSettings() {
-      // 保存设置到本地存储
-      localStorage.setItem('butter-manager-settings', JSON.stringify(this.settings))
-      this.$emit('settings-saved', this.settings)
-      alert('设置已保存！')
+    async saveSettings() {
+      // 使用 SaveManager 保存设置
+      const success = await saveManager.saveSettings(this.settings)
+      if (success) {
+        this.$emit('settings-saved', this.settings)
+        alert('设置已保存！')
+      } else {
+        alert('设置保存失败！')
+      }
     },
     resetSettings() {
       if (confirm('确定要重置所有设置吗？')) {
@@ -394,8 +393,6 @@ export default {
           sageMode: false,
           safetyKey: 'Ctrl+Alt+Q',
           safetyAppPath: '',
-          dataPath: 'C:\\Users\\User\\Documents\\ButterManager',
-          autoBackup: true,
           // 截图设置
           screenshotKey: 'F12',
           screenshotsPath: '',
@@ -456,27 +453,101 @@ export default {
         alert('测试通知失败: ' + error.message)
       }
     },
-    exportSettings() {
-      const dataStr = JSON.stringify(this.settings, null, 2)
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = URL.createObjectURL(dataBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'butter-manager-settings.json'
-      link.click()
-      URL.revokeObjectURL(url)
+    async showNotification(title, message) {
+      // 简单的通知实现
+      if (window.electronAPI && window.electronAPI.showNotification) {
+        window.electronAPI.showNotification(title, message)
+      } else {
+        // 降级处理：使用浏览器通知
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body: message })
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification(title, { body: message })
+            }
+          })
+        }
+      }
     },
-    selectDataPath() {
-      // 这里应该调用Electron的文件选择对话框
-      alert('文件路径选择功能需要Electron API支持')
+    async exportSettings() {
+      // 使用 SaveManager 导出设置
+      const success = await saveManager.exportData('settings')
+      if (success) {
+        alert('设置导出成功！')
+      } else {
+        alert('设置导出失败！')
+      }
+    },
+    async openSaveDataFolder() {
+      try {
+        if (window.electronAPI && window.electronAPI.openFolder) {
+          // 在Electron环境中，直接打开SaveData文件夹
+          // 使用绝对路径，避免相对路径问题
+          const result = await window.electronAPI.openFolder('SaveData')
+          if (result.success) {
+            console.log('存档文件夹已打开')
+            // 显示成功提示
+            this.showNotification('文件夹已打开', '存档文件夹已在文件管理器中打开')
+          } else {
+            console.error('打开存档文件夹失败:', result.error)
+            alert(`打开存档文件夹失败: ${result.error}`)
+          }
+        } else {
+          // 降级处理：在浏览器中显示路径信息
+          alert(`存档文件夹路径: SaveData\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+        }
+      } catch (error) {
+        console.error('打开存档文件夹失败:', error)
+        alert(`打开存档文件夹失败: ${error.message}`)
+      }
+    },
+    async openScreenshotFolder() {
+      try {
+        if (window.electronAPI && window.electronAPI.openFolder) {
+          // 获取截图文件夹路径
+          let screenshotPath = this.settings.screenshotsPath
+          
+          // 如果没有设置截图路径，使用默认路径
+          if (!screenshotPath || screenshotPath.trim() === '') {
+            try {
+              if (window.electronAPI.getScreenshotsDirectory) {
+                screenshotPath = await window.electronAPI.getScreenshotsDirectory()
+              } else {
+                // 使用默认的截图文件夹路径
+                screenshotPath = 'Screenshots'
+              }
+            } catch (error) {
+              console.warn('获取默认截图目录失败，使用默认路径:', error)
+              screenshotPath = 'Screenshots'
+            }
+          }
+          
+          console.log('尝试打开截图文件夹:', screenshotPath)
+          
+          const result = await window.electronAPI.openFolder(screenshotPath)
+          if (result.success) {
+            console.log('截图文件夹已打开')
+            // 显示成功提示
+            this.showNotification('文件夹已打开', '截图文件夹已在文件管理器中打开')
+          } else {
+            console.error('打开截图文件夹失败:', result.error)
+            alert(`打开截图文件夹失败: ${result.error}`)
+          }
+        } else {
+          // 降级处理：在浏览器中显示路径信息
+          const screenshotPath = this.settings.screenshotsPath || 'Screenshots'
+          alert(`截图文件夹路径: ${screenshotPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+        }
+      } catch (error) {
+        console.error('打开截图文件夹失败:', error)
+        alert(`打开截图文件夹失败: ${error.message}`)
+      }
     }
   },
   async mounted() {
-    // 从本地存储加载设置
-    const savedSettings = localStorage.getItem('butter-manager-settings')
-    if (savedSettings) {
-      this.settings = { ...this.settings, ...JSON.parse(savedSettings) }
-    }
+    // 使用 SaveManager 加载设置
+    this.settings = await saveManager.loadSettings()
     
     // 初始化截图目录（如果未设置）
     if (!this.settings.screenshotsPath) {
@@ -602,6 +673,50 @@ export default {
 
 .btn-test-notification:hover {
   background: var(--accent-hover);
+}
+
+.btn-open-folder {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-open-folder:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-open-screenshot-folder {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-open-screenshot-folder:hover {
+  background: #7c3aed;
+  transform: translateY(-1px);
+}
+
+.btn-icon {
+  font-size: 1rem;
 }
 
 .setting-input {

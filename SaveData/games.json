@@ -1,0 +1,25 @@
+{
+  "games": [
+    {
+      "id": "1759744369185",
+      "name": "Sukumizu Shoujo v1.0",
+      "developer": "不知道啊",
+      "publisher": "Publisher Inc.",
+      "description": "这是一款模拟游戏，玩家可以体验不同的游戏场景和互动。游戏具有精美的画面和丰富的游戏内容。",
+      "tags": [
+        "模拟",
+        "休闲",
+        "日系"
+      ],
+      "executablePath": "F:\\others\\Gameスク水少女快楽拷問シミュレーション\\スク水少女快楽拷問シミュレーション\\Sukumizu-Shoujo_v1.0.exe",
+      "image": "E:\\creation\\APP\\save\\Screenshots\\Screenshot_2025-10-06T09-27-16-626Z.png",
+      "playTime": 25,
+      "playCount": 1,
+      "lastPlayed": "2025-10-06T09:53:04.284Z",
+      "firstPlayed": "2025-10-06T09:53:04.284Z",
+      "addedDate": "2025-10-06T09:52:49.185Z"
+    }
+  ],
+  "timestamp": "2025-10-06T13:57:56.604Z",
+  "version": "1.0.0"
+}

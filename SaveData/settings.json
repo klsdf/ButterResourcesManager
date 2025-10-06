@@ -1,0 +1,23 @@
+{
+  "settings": {
+    "theme": "dark",
+    "sidebarWidth": 280,
+    "autoStart": false,
+    "minimizeToTray": true,
+    "showWelcome": true,
+    "sageMode": false,
+    "safetyKey": "Ctrl+Alt+Q",
+    "safetyAppPath": "",
+    "dataPath": "C:\\Users\\User\\Documents\\ButterManager",
+    "autoBackup": true,
+    "screenshotKey": "Ctrl+F12",
+    "screenshotsPath": "E:\\creation\\APP\\save",
+    "screenshotFormat": "png",
+    "screenshotQuality": 90,
+    "screenshotNotification": true,
+    "autoOpenScreenshotFolder": false,
+    "smartWindowDetection": true
+  },
+  "timestamp": "2025-10-06T14:01:51.530Z",
+  "version": "1.0.0"
+}

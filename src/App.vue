@@ -50,6 +50,12 @@
         <!-- 视频页面 -->
         <VideoView v-if="currentView === 'videos'" />
         
+        <!-- 小说页面 -->
+        <NovelView v-if="currentView === 'novels'" />
+        
+        <!-- 网站页面 -->
+        <WebsiteView v-if="currentView === 'websites'" />
+        
         <!-- 设置页面 -->
         <SettingsView 
           v-if="currentView === 'settings'" 
@@ -64,6 +70,8 @@
 import GameView from './components/GameView.vue'
 import ImageView from './components/ImageView.vue'
 import VideoView from './components/VideoView.vue'
+import NovelView from './components/NovelView.vue'
+import WebsiteView from './components/WebsiteView.vue'
 import SettingsView from './components/SettingsView.vue'
 
 export default {
@@ -72,6 +80,8 @@ export default {
     GameView,
     ImageView,
     VideoView,
+    NovelView,
+    WebsiteView,
     SettingsView
   },
   data() {
@@ -96,6 +106,18 @@ export default {
           name: '视频',
           icon: '🎬',
           description: '管理你的视频资源'
+        },
+        {
+          id: 'novels',
+          name: '小说',
+          icon: '📚',
+          description: '管理你的小说资源'
+        },
+        {
+          id: 'websites',
+          name: '网站',
+          icon: '🌐',
+          description: '管理你的网站收藏'
         }
       ]
     }

@@ -38,7 +38,7 @@
       >
         <div class="game-image">
           <img 
-            :src="game.image || '/default-game.png'" 
+            :src="resolveImage(game.image)" 
             :alt="game.name"
             @error="handleImageError"
           >
@@ -51,6 +51,16 @@
         <div class="game-info">
           <h3 class="game-title">{{ game.name }}</h3>
           <p class="game-developer">{{ game.developer }}</p>
+          <p class="game-publisher" v-if="game.publisher && game.publisher !== '未知发行商'">{{ game.publisher }}</p>
+          <p class="game-description" v-if="game.description">{{ game.description }}</p>
+          <div class="game-tags" v-if="game.tags && game.tags.length > 0">
+            <span 
+              v-for="tag in game.tags.slice(0, 3)" 
+              :key="tag" 
+              class="game-tag"
+            >{{ tag }}</span>
+            <span v-if="game.tags.length > 3" class="game-tag-more">+{{ game.tags.length - 3 }}</span>
+          </div>
           <div class="game-stats">
             <span class="play-time">{{ formatPlayTime(game.playTime) }}</span>
             <span class="last-played" :class="{ 'running-status': isGameRunning(game) }">
@@ -109,6 +119,52 @@
             >
           </div>
           <div class="form-group">
+            <label>发行商 (可选)</label>
+            <input 
+              type="text" 
+              v-model="newGame.publisher" 
+              placeholder="输入发行商名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>游戏简介 (可选)</label>
+            <textarea 
+              v-model="newGame.description" 
+              placeholder="输入游戏简介或描述..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>游戏标签 (可选)</label>
+            <div class="tags-input-container">
+              <div class="tags-display">
+                <span 
+                  v-for="(tag, index) in newGame.tags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button 
+                    type="button" 
+                    class="tag-remove" 
+                    @click="removeTag(index)"
+                  >×</button>
+                </span>
+              </div>
+              <input 
+                type="text" 
+                v-model="tagInput" 
+                @keydown.enter.prevent="addTag"
+                @keydown.comma.prevent="addTag"
+                placeholder="输入标签后按回车或逗号添加"
+                class="tag-input"
+              >
+            </div>
+            <div class="tag-hint">提示：输入标签后按回车键或逗号键添加，点击标签上的×号删除</div>
+          </div>
+          <div class="form-group">
             <label>游戏可执行文件 <span class="required">*</span></label>
             <div class="file-input-group">
               <input 
@@ -142,6 +198,111 @@
       </div>
     </div>
 
+    <!-- 编辑游戏对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click="closeEditGameDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>编辑游戏</h3>
+          <button class="modal-close" @click="closeEditGameDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>游戏名称</label>
+            <input 
+              type="text" 
+              v-model="editGameForm.name" 
+              placeholder="输入游戏名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>开发商</label>
+            <input 
+              type="text" 
+              v-model="editGameForm.developer" 
+              placeholder="输入开发商名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>发行商</label>
+            <input 
+              type="text" 
+              v-model="editGameForm.publisher" 
+              placeholder="输入发行商名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>游戏简介</label>
+            <textarea 
+              v-model="editGameForm.description" 
+              placeholder="输入游戏简介或描述..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>游戏标签</label>
+            <div class="tags-input-container">
+              <div class="tags-display">
+                <span 
+                  v-for="(tag, index) in editGameForm.tags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button 
+                    type="button" 
+                    class="tag-remove" 
+                    @click="removeEditTag(index)"
+                  >×</button>
+                </span>
+              </div>
+              <input 
+                type="text" 
+                v-model="editTagInput" 
+                @keydown.enter.prevent="addEditTag"
+                @keydown.comma.prevent="addEditTag"
+                placeholder="输入标签后按回车或逗号添加"
+                class="tag-input"
+              >
+            </div>
+          </div>
+          <div class="form-group">
+            <label>游戏可执行文件</label>
+            <div class="file-input-group">
+              <input 
+                type="text" 
+                v-model="editGameForm.executablePath" 
+                placeholder="选择游戏可执行文件"
+                class="form-input"
+                readonly
+              >
+              <button class="btn-browse" @click="browseForExecutableEdit">浏览</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>游戏图片</label>
+            <div class="file-input-group">
+              <input 
+                type="text" 
+                v-model="editGameForm.imagePath" 
+                placeholder="选择游戏图片"
+                class="form-input"
+                readonly
+              >
+              <button class="btn-browse" @click="browseForImageEdit">浏览</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeEditGameDialog">取消</button>
+          <button class="btn-confirm" @click="saveEditedGame">保存修改</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 游戏详情页面 -->
     <div v-if="showDetailModal" class="game-detail-overlay" @click="closeGameDetail">
       <div class="game-detail-content" @click.stop>
@@ -151,7 +312,7 @@
         <div class="detail-body" v-if="currentGame">
           <div class="detail-image">
             <img 
-              :src="currentGame.image || '/default-game.png'" 
+              :src="resolveImage(currentGame.image)" 
               :alt="currentGame.name"
               @error="handleImageError"
             >
@@ -159,6 +320,22 @@
           <div class="detail-info">
             <h2 class="detail-title">{{ currentGame.name }}</h2>
             <p class="detail-developer">{{ currentGame.developer }}</p>
+            <p class="detail-publisher" v-if="currentGame.publisher && currentGame.publisher !== '未知发行商'">{{ currentGame.publisher }}</p>
+            <div class="detail-description" v-if="currentGame.description">
+              <h4 class="description-title">游戏简介</h4>
+              <p class="description-content">{{ currentGame.description }}</p>
+            </div>
+            
+            <div class="detail-tags" v-if="currentGame.tags && currentGame.tags.length > 0">
+              <h4 class="tags-title">游戏标签</h4>
+              <div class="tags-container">
+                <span 
+                  v-for="tag in currentGame.tags" 
+                  :key="tag" 
+                  class="detail-tag"
+                >{{ tag }}</span>
+              </div>
+            </div>
             
             <div class="detail-stats">
               <div class="stat-item">
@@ -229,6 +406,8 @@
 </template>
 
 <script>
+import saveManager from '../utils/SaveManager.js'
+
 export default {
   name: 'GameView',
   data() {
@@ -246,11 +425,30 @@ export default {
       newGame: {
         name: '',
         developer: '',
+        publisher: '',
+        description: '',
+        tags: [],
         executablePath: '',
         imagePath: ''
       },
       isScreenshotInProgress: false, // 防止重复截图
-      lastScreenshotTime: 0 // 记录上次截图时间
+      lastScreenshotTime: 0, // 记录上次截图时间
+      tagInput: '', // 标签输入框的值
+      // 编辑相关状态
+      showEditDialog: false,
+      editGameForm: {
+        id: '',
+        name: '',
+        developer: '',
+        publisher: '',
+        description: '',
+        tags: [],
+        executablePath: '',
+        imagePath: ''
+      },
+      editTagInput: '',
+      // 图片缓存（原始路径 -> 可显示的URL，如 data:URL 或 file://）
+      imageCache: {}
     }
   },
   computed: {
@@ -288,12 +486,26 @@ export default {
       this.newGame = {
         name: '',
         developer: '',
+        publisher: '',
+        description: '',
+        tags: [],
         executablePath: '',
         imagePath: ''
       }
+      this.tagInput = ''
     },
     closeAddGameDialog() {
       this.showAddDialog = false
+    },
+    addTag() {
+      const tag = this.tagInput.trim()
+      if (tag && !this.newGame.tags.includes(tag)) {
+        this.newGame.tags.push(tag)
+        this.tagInput = ''
+      }
+    },
+    removeTag(index) {
+      this.newGame.tags.splice(index, 1)
     },
     async browseForExecutable() {
       try {
@@ -393,6 +605,9 @@ export default {
         id: Date.now().toString(),
         name: gameName,
         developer: this.newGame.developer.trim() || '未知开发商',
+        publisher: this.newGame.publisher.trim() || '未知发行商',
+        description: this.newGame.description.trim() || '',
+        tags: [...this.newGame.tags], // 复制标签数组
         executablePath: this.newGame.executablePath.trim(),
         image: this.newGame.imagePath.trim(),
         playTime: 0,
@@ -490,9 +705,88 @@ export default {
       this.showContextMenu = true
     },
     editGame(game) {
-      // 编辑游戏信息
+      // 打开编辑对话框并填充表单
       this.showContextMenu = false
-      alert('编辑功能待实现')
+      this.showDetailModal = false
+      if (!game) return
+      this.editGameForm = {
+        id: game.id,
+        name: game.name || '',
+        developer: game.developer || '',
+        publisher: game.publisher || '',
+        description: game.description || '',
+        tags: Array.isArray(game.tags) ? [...game.tags] : [],
+        executablePath: game.executablePath || '',
+        imagePath: game.image || ''
+      }
+      this.editTagInput = ''
+      this.showEditDialog = true
+    },
+    closeEditGameDialog() {
+      this.showEditDialog = false
+    },
+    addEditTag() {
+      const tag = this.editTagInput.trim()
+      if (tag && !this.editGameForm.tags.includes(tag)) {
+        this.editGameForm.tags.push(tag)
+        this.editTagInput = ''
+      }
+    },
+    removeEditTag(index) {
+      this.editGameForm.tags.splice(index, 1)
+    },
+    async browseForExecutableEdit() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectExecutableFile) {
+          const filePath = await window.electronAPI.selectExecutableFile()
+          if (filePath) {
+            this.editGameForm.executablePath = filePath
+            if (!this.editGameForm.name.trim()) {
+              this.editGameForm.name = this.extractGameNameFromPath(filePath)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('选择可执行文件失败:', error)
+        alert(`选择文件失败: ${error.message}`)
+      }
+    },
+    async browseForImageEdit() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectImageFile) {
+          const filePath = await window.electronAPI.selectImageFile()
+          if (filePath) {
+            this.editGameForm.imagePath = filePath
+          }
+        }
+      } catch (error) {
+        console.error('选择图片文件失败:', error)
+        alert(`选择文件失败: ${error.message}`)
+      }
+    },
+    async saveEditedGame() {
+      try {
+        const index = this.games.findIndex(g => g.id === this.editGameForm.id)
+        if (index === -1) {
+          alert('未找到要编辑的游戏')
+          return
+        }
+        const target = this.games[index]
+        target.name = this.editGameForm.name.trim() || target.name
+        target.developer = this.editGameForm.developer.trim() || target.developer
+        target.publisher = this.editGameForm.publisher.trim() || target.publisher
+        target.description = this.editGameForm.description.trim()
+        target.tags = [...this.editGameForm.tags]
+        target.executablePath = this.editGameForm.executablePath.trim() || target.executablePath
+        target.image = (this.editGameForm.imagePath || '').trim()
+
+        await this.saveGames()
+        this.showNotification('保存成功', '游戏信息已更新')
+        this.closeEditGameDialog()
+      } catch (error) {
+        console.error('保存编辑失败:', error)
+        alert('保存编辑失败: ' + error.message)
+      }
     },
     removeGame(game) {
       if (confirm(`确定要删除游戏 "${game.name}" 吗？`)) {
@@ -569,26 +863,51 @@ export default {
       const seconds = String(date.getSeconds()).padStart(2, '0')
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
     },
+    resolveImage(imagePath) {
+      // 空值返回默认
+      if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
+        return '/default-game.png'
+      }
+      // 网络资源直接返回
+      if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+        return imagePath
+      }
+      // 已是 data: 或 file: 直接返回
+      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
+        return imagePath
+      }
+      // 命中缓存
+      if (this.imageCache[imagePath]) return this.imageCache[imagePath]
+      
+      // 异步解析为 data:URL（避免 http 上直接加载 file:// 被阻止）
+      if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+        window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
+          if (dataUrl) {
+            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
+          } else {
+            this.$set ? this.$set(this.imageCache, imagePath, '/default-game.png') : (this.imageCache[imagePath] = '/default-game.png')
+          }
+        }).catch(() => {
+          this.$set ? this.$set(this.imageCache, imagePath, '/default-game.png') : (this.imageCache[imagePath] = '/default-game.png')
+        })
+      } else {
+        // 回退：尝试 file://
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+      }
+      
+      // 初次返回默认图，待异步完成后会自动刷新
+      return this.imageCache[imagePath] || '/default-game.png'
+    },
     handleImageError(event) {
       event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
     },
-    saveGames() {
-      localStorage.setItem('butter-manager-games', JSON.stringify(this.games))
+    async saveGames() {
+      return await saveManager.saveGames(this.games)
     },
-    loadGames() {
-      const saved = localStorage.getItem('butter-manager-games')
-      if (saved) {
-        this.games = JSON.parse(saved)
-        console.log('加载游戏数据:', this.games)
-        // 检查每个游戏的统计信息
-        this.games.forEach((game, index) => {
-          console.log(`游戏 ${index + 1} (${game.name}):`)
-          console.log('  lastPlayed:', game.lastPlayed)
-          console.log('  firstPlayed:', game.firstPlayed)
-          console.log('  playCount:', game.playCount)
-          console.log('  playTime:', game.playTime)
-        })
-      }
+    async loadGames() {
+      this.games = await saveManager.loadGames()
     },
     updateGamePlayTime(data) {
       // 根据可执行文件路径找到对应的游戏
@@ -758,10 +1077,119 @@ export default {
       } catch (error) {
         console.error('初始化全局快捷键失败:', error)
       }
+    },
+    
+    // SaveManager 相关方法
+    async exportGames() {
+      try {
+        const success = await saveManager.exportData('games')
+        if (success) {
+          this.showNotification('导出成功', '游戏数据已导出到文件')
+        } else {
+          this.showNotification('导出失败', '游戏数据导出失败')
+        }
+      } catch (error) {
+        console.error('导出游戏数据失败:', error)
+        this.showNotification('导出失败', `导出失败: ${error.message}`)
+      }
+    },
+    
+    async importGames() {
+      try {
+        // 创建文件输入元素
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json'
+        input.onchange = async (event) => {
+          const file = event.target.files[0]
+          if (file) {
+            const result = await saveManager.importData(file)
+            if (result.success) {
+              this.games = saveManager.loadGames()
+              this.showNotification(
+                '导入成功', 
+                `成功导入 ${result.imported.games} 个游戏`
+              )
+            } else {
+              this.showNotification('导入失败', result.error || '导入失败')
+            }
+          }
+        }
+        input.click()
+      } catch (error) {
+        console.error('导入游戏数据失败:', error)
+        this.showNotification('导入失败', `导入失败: ${error.message}`)
+      }
+    },
+    
+    async createBackup() {
+      try {
+        const success = await saveManager.createBackup()
+        if (success) {
+          this.showNotification('备份成功', '数据备份已创建')
+        } else {
+          this.showNotification('备份失败', '数据备份创建失败')
+        }
+      } catch (error) {
+        console.error('创建备份失败:', error)
+        this.showNotification('备份失败', `备份失败: ${error.message}`)
+      }
+    },
+    
+    async restoreFromBackup() {
+      try {
+        if (confirm('确定要从备份恢复数据吗？这将覆盖当前数据。')) {
+          const result = await saveManager.restoreFromBackup()
+          if (result.success) {
+            this.games = await saveManager.loadGames()
+            this.showNotification(
+              '恢复成功', 
+              `成功恢复 ${result.restored.games} 个游戏`
+            )
+          } else {
+            this.showNotification('恢复失败', result.error || '恢复失败')
+          }
+        }
+      } catch (error) {
+        console.error('从备份恢复失败:', error)
+        this.showNotification('恢复失败', `恢复失败: ${error.message}`)
+      }
+    },
+    
+    async getStorageInfo() {
+      const info = await saveManager.getStorageInfo()
+      if (info) {
+        const sizeKB = Math.round(info.total.size / 1024)
+        const sizeMB = Math.round(sizeKB / 1024 * 100) / 100
+        return {
+          totalSize: sizeMB > 1 ? `${sizeMB} MB` : `${sizeKB} KB`,
+          gameCount: info.games.count,
+          settingsCount: info.settings.count,
+          backupCount: info.backup.count
+        }
+      }
+      return null
+    },
+    
+    async parseGameSaveFile(file) {
+      try {
+        const content = await file.text()
+        const result = saveManager.parseGameSaveFile(content)
+        if (result.success) {
+          console.log('游戏存档解析成功:', result.slots)
+          return result
+        } else {
+          console.error('游戏存档解析失败:', result.error)
+          return null
+        }
+      } catch (error) {
+        console.error('读取游戏存档文件失败:', error)
+        return null
+      }
     }
   },
-  mounted() {
-    this.loadGames()
+  async mounted() {
+    await this.loadGames()
     
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {
@@ -989,11 +1417,64 @@ export default {
 .game-developer {
   color: var(--text-secondary);
   font-size: 0.9rem;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color 0.3s ease;
+}
+
+.game-publisher {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+  font-style: italic;
+}
+
+.game-description {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.game-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.game-tag {
+  background: var(--accent-color);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.game-tag-more {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
 }
 
 .game-stats {
@@ -1186,6 +1667,107 @@ export default {
   box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
 }
 
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+/* 标签输入样式 */
+.tags-input-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  padding: 8px;
+  transition: all 0.3s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  gap: 4px;
+  transition: background 0.3s ease;
+}
+
+.tag-item:hover {
+  background: var(--accent-hover);
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 4px 0;
+  outline: none;
+}
+
+.tag-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tag-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .file-input-group {
   display: flex;
   gap: 10px;
@@ -1367,8 +1949,79 @@ export default {
 .detail-developer {
   color: var(--text-secondary);
   font-size: 1.1rem;
-  margin: 0;
+  margin: 0 0 8px 0;
   transition: color 0.3s ease;
+}
+
+.detail-publisher {
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  margin: 0 0 15px 0;
+  font-style: italic;
+  transition: color 0.3s ease;
+}
+
+.detail-description {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+  transition: background-color 0.3s ease;
+}
+
+.description-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.description-content {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  transition: color 0.3s ease;
+}
+
+.detail-tags {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+  transition: background-color 0.3s ease;
+}
+
+.tags-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  transition: color 0.3s ease;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-tag {
+  background: var(--accent-color);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.detail-tag:hover {
+  background: var(--accent-hover);
 }
 
 .detail-stats {
