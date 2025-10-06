@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openFile: () => ipcRenderer.invoke('open-file'),
   saveFile: (data) => ipcRenderer.invoke('save-file', data),
   
+  // 文件选择对话框
+  selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
+  selectImageFile: () => ipcRenderer.invoke('select-image-file'),
+  selectFolder: () => ipcRenderer.invoke('select-folder'),
+  
+  // 游戏启动
+  launchGame: (executablePath) => ipcRenderer.invoke('launch-game', executablePath),
+  
   // 系统信息
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   

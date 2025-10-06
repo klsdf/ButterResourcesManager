@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const path = require('path')
+const { spawn } = require('child_process')
 
 // 判断是否为开发环境
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
@@ -166,6 +167,128 @@ function createMenu() {
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
 }
+
+// IPC处理程序
+ipcMain.handle('select-executable-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择游戏可执行文件',
+      filters: [
+        { name: '可执行文件', extensions: ['exe', 'app', 'sh'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择可执行文件失败:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('select-image-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择游戏图片',
+      filters: [
+        { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择图片文件失败:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('select-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择文件夹',
+    properties: ['openDirectory']
+  })
+  
+  if (!result.canceled && result.filePaths.length > 0) {
+    return result.filePaths[0]
+  }
+  return null
+})
+
+ipcMain.handle('launch-game', async (event, executablePath) => {
+  try {
+    console.log('启动游戏:', executablePath)
+    
+    // 检查文件是否存在
+    const fs = require('fs')
+    if (!fs.existsSync(executablePath)) {
+      throw new Error('游戏文件不存在')
+    }
+    
+    // 启动游戏进程
+    const gameProcess = spawn(executablePath, [], {
+      detached: true,
+      stdio: 'ignore'
+    })
+    
+    // 分离进程，让游戏独立运行
+    gameProcess.unref()
+    
+    console.log('游戏已启动，进程ID:', gameProcess.pid)
+    return { success: true, pid: gameProcess.pid }
+  } catch (error) {
+    console.error('启动游戏失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
+})
+
+ipcMain.handle('minimize-window', () => {
+  if (mainWindow) {
+    mainWindow.minimize()
+  }
+})
+
+ipcMain.handle('maximize-window', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  }
+})
+
+ipcMain.handle('close-window', () => {
+  if (mainWindow) {
+    mainWindow.close()
+  }
+})
+
+ipcMain.handle('get-system-info', () => {
+  return {
+    platform: process.platform,
+    arch: process.arch,
+    version: process.version,
+    electronVersion: process.versions.electron
+  }
+})
+
+ipcMain.handle('show-notification', (event, title, body) => {
+  // 这里可以添加系统通知功能
+  console.log('通知:', title, body)
+})
 
 // 在应用准备就绪时创建菜单
 app.whenReady().then(() => {
