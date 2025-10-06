@@ -53,7 +53,13 @@
           <p class="game-developer">{{ game.developer }}</p>
           <div class="game-stats">
             <span class="play-time">{{ formatPlayTime(game.playTime) }}</span>
-            <span class="last-played">{{ formatLastPlayed(game.lastPlayed) }}</span>
+            <span class="last-played" :class="{ 'running-status': isGameRunning(game) }">
+              <span v-if="isGameRunning(game)" class="running-indicator">
+                <span class="running-icon">▶️</span>
+                <span class="running-text">运行中</span>
+              </span>
+              <span v-else>{{ formatLastPlayed(game.lastPlayed) }}</span>
+            </span>
           </div>
         </div>
       </div>
@@ -168,6 +174,10 @@
                 <span class="stat-value">{{ formatLastPlayed(currentGame.lastPlayed) }}</span>
               </div>
               <div class="stat-item">
+                <span class="stat-label">第一次游玩</span>
+                <span class="stat-value">{{ formatFirstPlayed(currentGame.firstPlayed) }}</span>
+              </div>
+              <div class="stat-item">
                 <span class="stat-label">添加时间</span>
                 <span class="stat-value">{{ formatDate(currentGame.addedDate) }}</span>
               </div>
@@ -232,6 +242,7 @@ export default {
       selectedGame: null,
       showDetailModal: false,
       currentGame: null,
+      runningGames: new Set(), // 存储正在运行的游戏ID
       newGame: {
         name: '',
         developer: '',
@@ -385,6 +396,7 @@ export default {
         playTime: 0,
         playCount: 0,
         lastPlayed: null,
+        firstPlayed: null,
         addedDate: new Date().toISOString()
       }
       
@@ -402,6 +414,12 @@ export default {
         game.lastPlayed = new Date().toISOString()
         game.playCount = (game.playCount || 0) + 1
         
+        // 如果是第一次启动，记录第一次游玩时间
+        if (!game.firstPlayed) {
+          game.firstPlayed = new Date().toISOString()
+          console.log(`游戏 ${game.name} 第一次启动，记录时间:`, game.firstPlayed)
+        }
+        
         console.log('更新后 - lastPlayed:', game.lastPlayed)
         console.log('更新后 - playCount:', game.playCount)
         
@@ -413,7 +431,11 @@ export default {
           
           if (result.success) {
             console.log('游戏启动成功，进程ID:', result.pid)
-            // 可以显示成功提示
+            
+            // 将游戏添加到运行列表中
+            this.runningGames.add(game.id)
+            
+            // 显示成功提示
             this.showNotification('游戏启动成功', `${game.name} 已启动`)
           } else {
             console.error('游戏启动失败:', result.error)
@@ -530,6 +552,11 @@ export default {
       const date = new Date(dateString)
       return this.formatDateTime(date)
     },
+    formatFirstPlayed(dateString) {
+      if (!dateString) return '从未游玩'
+      const date = new Date(dateString)
+      return this.formatDateTime(date)
+    },
     formatDateTime(date) {
       // 格式化为：YYYY-MM-DD HH:mm:ss
       const year = date.getFullYear()
@@ -551,10 +578,11 @@ export default {
       if (saved) {
         this.games = JSON.parse(saved)
         console.log('加载游戏数据:', this.games)
-        // 检查每个游戏的 lastPlayed 值
+        // 检查每个游戏的统计信息
         this.games.forEach((game, index) => {
           console.log(`游戏 ${index + 1} (${game.name}):`)
           console.log('  lastPlayed:', game.lastPlayed)
+          console.log('  firstPlayed:', game.firstPlayed)
           console.log('  playCount:', game.playCount)
           console.log('  playTime:', game.playTime)
         })
@@ -569,6 +597,9 @@ export default {
         // 累加游戏时长
         game.playTime = (game.playTime || 0) + data.playTime
         
+        // 从运行列表中移除
+        this.runningGames.delete(game.id)
+        
         // 保存更新后的数据
         this.saveGames()
         
@@ -582,6 +613,9 @@ export default {
       } else {
         console.warn('未找到对应的游戏:', data.executablePath)
       }
+    },
+    isGameRunning(game) {
+      return this.runningGames.has(game.id)
     }
   },
   mounted() {
@@ -805,6 +839,55 @@ export default {
   color: var(--text-tertiary);
   font-size: 0.8rem;
   transition: color 0.3s ease;
+}
+
+/* 游戏运行状态指示器 */
+.running-status {
+  color: #059669 !important;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .running-status {
+  color: #10b981 !important;
+}
+
+.running-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: pulse 2s infinite;
+}
+
+.running-icon {
+  font-size: 0.8rem;
+  animation: bounce 1s infinite;
+}
+
+.running-text {
+  letter-spacing: 0.5px;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* 弹跳动画 */
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-1px);
+  }
+  60% {
+    transform: translateY(-0.5px);
+  }
 }
 
 /* 空状态样式 */
