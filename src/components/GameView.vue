@@ -85,16 +85,16 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>游戏名称</label>
+            <label>游戏名称 (可选)</label>
             <input 
               type="text" 
               v-model="newGame.name" 
-              placeholder="输入游戏名称"
+              placeholder="留空将自动从文件名提取"
               class="form-input"
             >
           </div>
           <div class="form-group">
-            <label>开发商</label>
+            <label>开发商 (可选)</label>
             <input 
               type="text" 
               v-model="newGame.developer" 
@@ -103,7 +103,7 @@
             >
           </div>
           <div class="form-group">
-            <label>游戏可执行文件</label>
+            <label>游戏可执行文件 <span class="required">*</span></label>
             <div class="file-input-group">
               <input 
                 type="text" 
@@ -204,7 +204,7 @@ export default {
       return filtered
     },
     canAddGame() {
-      return this.newGame.name.trim() && this.newGame.executablePath.trim()
+      return this.newGame.executablePath.trim()
     }
   },
   methods: {
@@ -228,6 +228,11 @@ export default {
           if (filePath) {
             this.newGame.executablePath = filePath
             console.log('选择的文件路径:', filePath)
+            
+            // 自动提取游戏名称（如果名称字段为空）
+            if (!this.newGame.name.trim()) {
+              this.newGame.name = this.extractGameNameFromPath(filePath)
+            }
           }
         } else {
           console.log('Electron API不可用，使用HTML5文件选择器')
@@ -268,6 +273,10 @@ export default {
         if (file) {
           if (type === 'executable') {
             this.newGame.executablePath = file.path || file.name
+            // 自动提取游戏名称（如果名称字段为空）
+            if (!this.newGame.name.trim()) {
+              this.newGame.name = this.extractGameNameFromPath(file.path || file.name)
+            }
           } else {
             this.newGame.imagePath = file.path || file.name
           }
@@ -275,13 +284,40 @@ export default {
       }
       input.click()
     },
+    extractGameNameFromPath(filePath) {
+      // 从文件路径中提取游戏名称
+      const fileName = filePath.split(/[\\/]/).pop() // 获取文件名
+      const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '') // 移除扩展名
+      
+      // 清理名称：移除常见的后缀和前缀
+      let cleanName = nameWithoutExt
+        .replace(/\.exe$/i, '') // 移除 .exe
+        .replace(/\.app$/i, '') // 移除 .app
+        .replace(/^game[-_\s]*/i, '') // 移除开头的 "game"
+        .replace(/[-_\s]+/g, ' ') // 将下划线和连字符替换为空格
+        .trim()
+      
+      // 如果清理后为空，使用原始文件名
+      if (!cleanName) {
+        cleanName = nameWithoutExt
+      }
+      
+      // 首字母大写
+      return cleanName.charAt(0).toUpperCase() + cleanName.slice(1)
+    },
     addGame() {
       if (!this.canAddGame) return
       
+      // 如果没有输入名称，从文件路径自动提取
+      let gameName = this.newGame.name.trim()
+      if (!gameName) {
+        gameName = this.extractGameNameFromPath(this.newGame.executablePath)
+      }
+      
       const game = {
         id: Date.now().toString(),
-        name: this.newGame.name.trim(),
-        developer: this.newGame.developer.trim(),
+        name: gameName,
+        developer: this.newGame.developer.trim() || '未知开发商',
         executablePath: this.newGame.executablePath.trim(),
         image: this.newGame.imagePath.trim(),
         playTime: 0,
@@ -713,6 +749,11 @@ export default {
   font-weight: 600;
   margin-bottom: 8px;
   transition: color 0.3s ease;
+}
+
+.required {
+  color: #ef4444;
+  font-weight: bold;
 }
 
 .form-input {

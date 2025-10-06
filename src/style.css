@@ -56,6 +56,7 @@ body {
 
 #app {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   background: var(--bg-primary);
   transition: background-color 0.3s ease;
