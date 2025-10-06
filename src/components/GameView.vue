@@ -484,7 +484,15 @@ export default {
       if (!seconds) return '未游玩'
       const hours = Math.floor(seconds / 3600)
       const minutes = Math.floor((seconds % 3600) / 60)
-      return `${hours}小时 ${minutes}分钟`
+      const remainingSeconds = seconds % 60
+      
+      if (hours > 0) {
+        return `${hours}小时 ${minutes}分钟 ${remainingSeconds}秒`
+      } else if (minutes > 0) {
+        return `${minutes}分钟 ${remainingSeconds}秒`
+      } else {
+        return `${remainingSeconds}秒`
+      }
     },
     formatLastPlayed(dateString) {
       if (!dateString) return '从未游玩'
@@ -548,7 +556,31 @@ export default {
           console.log(`游戏 ${index + 1} (${game.name}):`)
           console.log('  lastPlayed:', game.lastPlayed)
           console.log('  playCount:', game.playCount)
+          console.log('  playTime:', game.playTime)
         })
+      }
+    },
+    updateGamePlayTime(data) {
+      // 根据可执行文件路径找到对应的游戏
+      const game = this.games.find(g => g.executablePath === data.executablePath)
+      if (game) {
+        console.log(`更新游戏 ${game.name} 的时长:`, data.playTime, '秒')
+        
+        // 累加游戏时长
+        game.playTime = (game.playTime || 0) + data.playTime
+        
+        // 保存更新后的数据
+        this.saveGames()
+        
+        // 显示通知
+        this.showNotification(
+          '游戏时长已更新', 
+          `${game.name} 本次游玩 ${this.formatPlayTime(data.playTime)}，总时长 ${this.formatPlayTime(game.playTime)}`
+        )
+        
+        console.log(`游戏 ${game.name} 总时长更新为:`, game.playTime, '秒')
+      } else {
+        console.warn('未找到对应的游戏:', data.executablePath)
       }
     }
   },
@@ -559,6 +591,14 @@ export default {
     document.addEventListener('click', () => {
       this.showContextMenu = false
     })
+    
+    // 监听游戏进程结束事件
+    if (window.electronAPI && window.electronAPI.onGameProcessEnded) {
+      window.electronAPI.onGameProcessEnded((event, data) => {
+        console.log('游戏进程结束，数据:', data)
+        this.updateGamePlayTime(data)
+      })
+    }
   }
 }
 </script>

@@ -30,7 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
-  onAppUpdate: (callback) => ipcRenderer.on('app-update', callback)
+  onAppUpdate: (callback) => ipcRenderer.on('app-update', callback),
+  onGameProcessEnded: (callback) => ipcRenderer.on('game-process-ended', callback)
 })
 
 // 监听来自主进程的消息

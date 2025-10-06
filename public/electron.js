@@ -223,6 +223,9 @@ ipcMain.handle('select-folder', async () => {
   return null
 })
 
+// 存储游戏进程信息
+const gameProcesses = new Map()
+
 ipcMain.handle('launch-game', async (event, executablePath) => {
   try {
     console.log('启动游戏:', executablePath)
@@ -237,6 +240,46 @@ ipcMain.handle('launch-game', async (event, executablePath) => {
     const gameProcess = spawn(executablePath, [], {
       detached: true,
       stdio: 'ignore'
+    })
+    
+    // 记录游戏启动时间
+    const startTime = Date.now()
+    const gameInfo = {
+      process: gameProcess,
+      startTime: startTime,
+      executablePath: executablePath
+    }
+    
+    // 存储进程信息
+    gameProcesses.set(gameProcess.pid, gameInfo)
+    
+    // 监听进程退出事件
+    gameProcess.on('exit', (code, signal) => {
+      console.log(`游戏进程 ${gameProcess.pid} 已退出，退出码: ${code}, 信号: ${signal}`)
+      
+      // 计算游戏运行时长
+      const endTime = Date.now()
+      const playTime = Math.floor((endTime - startTime) / 1000) // 转换为秒
+      
+      console.log(`游戏运行时长: ${playTime} 秒`)
+      
+      // 通知渲染进程更新游戏时长
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('game-process-ended', {
+          pid: gameProcess.pid,
+          playTime: playTime,
+          executablePath: executablePath
+        })
+      }
+      
+      // 从进程列表中移除
+      gameProcesses.delete(gameProcess.pid)
+    })
+    
+    // 监听进程错误事件
+    gameProcess.on('error', (error) => {
+      console.error(`游戏进程 ${gameProcess.pid} 发生错误:`, error)
+      gameProcesses.delete(gameProcess.pid)
     })
     
     // 分离进程，让游戏独立运行
