@@ -1,31 +1,14 @@
 <template>
   <div class="game-view">
     <!-- 工具栏 -->
-    <div class="game-toolbar">
-      <div class="toolbar-left">
-        <button class="btn-add-game" @click="showAddGameDialog">
-          <span class="btn-icon">➕</span>
-          添加游戏
-        </button>
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索游戏..."
-            class="search-input"
-          >
-          <span class="search-icon">🔍</span>
-        </div>
-      </div>
-      <div class="toolbar-right">
-        <select v-model="sortBy" class="sort-select">
-          <option value="name">按名称排序</option>
-          <option value="lastPlayed">按最后游玩时间</option>
-          <option value="playTime">按游戏时长</option>
-          <option value="added">按添加时间</option>
-        </select>
-      </div>
-    </div>
+    <GameToolbar 
+      v-model:searchQuery="searchQuery"
+      v-model:sortBy="sortBy"
+      add-button-text="添加游戏"
+      search-placeholder="搜索游戏..."
+      :sort-options="gameSortOptions"
+      @add-item="showAddGameDialog"
+    />
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="filteredGames.length > 0">
@@ -415,9 +398,13 @@
 
 <script>
 import saveManager from '../utils/SaveManager.js'
+import GameToolbar from '../components/Toolbar.vue'
 
 export default {
   name: 'GameView',
+  components: {
+    GameToolbar
+  },
   data() {
     return {
       games: [],
@@ -456,7 +443,14 @@ export default {
       },
       editTagInput: '',
       // 图片缓存（原始路径 -> 可显示的URL，如 data:URL 或 file://）
-      imageCache: {}
+      imageCache: {},
+      // 排序选项
+      gameSortOptions: [
+        { value: 'name', label: '按名称排序' },
+        { value: 'lastPlayed', label: '按最后游玩时间' },
+        { value: 'playTime', label: '按游戏时长' },
+        { value: 'added', label: '按添加时间' }
+      ]
     }
   },
   computed: {
@@ -1273,87 +1267,6 @@ export default {
   overflow-y: auto;
 }
 
-/* 工具栏样式 */
-.game-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.btn-add-game {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.3s ease;
-}
-
-.btn-add-game:hover {
-  background: var(--accent-hover);
-}
-
-.btn-icon {
-  font-size: 1.2rem;
-}
-
-.search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-input {
-  padding: 8px 35px 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  width: 250px;
-  transition: all 0.3s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
-}
-
-.search-icon {
-  position: absolute;
-  right: 10px;
-  color: var(--text-tertiary);
-  pointer-events: none;
-}
-
-.sort-select {
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.sort-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
 
 /* 游戏网格样式 */
 .games-grid {
@@ -2175,15 +2088,6 @@ export default {
     height: 200px;
   }
   
-  .toolbar-left {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
   
   .modal-content {
     width: 95vw;

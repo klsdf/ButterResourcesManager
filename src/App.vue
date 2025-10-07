@@ -70,13 +70,13 @@
 </template>
 
 <script>
-import GameView from './components/GameView.vue'
-import ImageView from './components/ImageView.vue'
-import VideoView from './components/VideoView.vue'
-import NovelView from './components/NovelView.vue'
-import WebsiteView from './components/WebsiteView.vue'
-import AudioView from './components/AudioView.vue'
-import SettingsView from './components/SettingsView.vue'
+import GameView from './pages/GameView.vue'
+import ImageView from './pages/ImageView.vue'
+import VideoView from './pages/VideoView.vue'
+import NovelView from './pages/NovelView.vue'
+import WebsiteView from './pages/WebsiteView.vue'
+import AudioView from './pages/AudioView.vue'
+import SettingsView from './pages/SettingsView.vue'
 
 export default {
   name: 'App',

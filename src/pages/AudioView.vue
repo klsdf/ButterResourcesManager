@@ -1,38 +1,21 @@
 <template>
   <div class="audio-view">
     <!-- 工具栏 -->
-    <div class="audio-toolbar">
-      <div class="toolbar-left">
-        <button class="btn-add-audio" @click="showAddDialog = true">
-          <span class="btn-icon">➕</span>
-          添加音频
-        </button>
-        <button class="btn-refresh" @click="loadAudios">
-          <span class="btn-icon">🔄</span>
-          刷新
-        </button>
-      </div>
-      
-      <div class="toolbar-center">
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索音频..."
-            class="search-input"
-          >
-          <span class="search-icon">🔍</span>
-        </div>
-      </div>
-      
-      <div class="toolbar-right">
-        <select v-model="sortBy" class="sort-select">
-          <option value="name">按名称</option>
-          <option value="artist">按艺术家</option>
-          <option value="playCount">按播放次数</option>
-          <option value="addedDate">按添加时间</option>
-        </select>
-      </div>
+    <Toolbar 
+      v-model:searchQuery="searchQuery"
+      v-model:sortBy="sortBy"
+      add-button-text="添加音频"
+      search-placeholder="搜索音频..."
+      :sort-options="audioSortOptions"
+      @add-item="showAddDialog = true"
+    />
+    
+    <!-- 刷新按钮 -->
+    <div class="audio-actions" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <button class="btn-refresh" @click="loadAudios" style="padding: 8px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+        <span class="btn-icon">🔄</span>
+        刷新
+      </button>
     </div>
 
 
@@ -281,9 +264,13 @@
 
 <script>
 import audioManager from '../utils/AudioManager.js'
+import Toolbar from '../components/Toolbar.vue'
 
 export default {
   name: 'AudioView',
+  components: {
+    Toolbar
+  },
   data() {
     return {
       audios: [],
@@ -305,7 +292,14 @@ export default {
         filePath: '',
         tagsInput: '',
         notes: ''
-      }
+      },
+      // 排序选项
+      audioSortOptions: [
+        { value: 'name', label: '按名称' },
+        { value: 'artist', label: '按艺术家' },
+        { value: 'playCount', label: '按播放次数' },
+        { value: 'addedDate', label: '按添加时间' }
+      ]
     }
   },
   computed: {
@@ -723,42 +717,6 @@ export default {
 }
 
 /* 工具栏样式 */
-.audio-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px var(--shadow-light);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.toolbar-left, .toolbar-right {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.btn-add-audio, .btn-refresh {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.3s ease;
-}
-
-.btn-add-audio:hover, .btn-refresh:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
 
 .search-box {
   position: relative;
@@ -1284,18 +1242,6 @@ export default {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }
   
-  .audio-toolbar {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .toolbar-center {
-    order: -1;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
   
   .audio-detail-content {
     grid-template-columns: 1fr;

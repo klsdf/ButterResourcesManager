@@ -1,40 +1,26 @@
 <template>
   <div class="video-view">
     <!-- 工具栏 -->
-    <div class="video-toolbar">
-      <div class="toolbar-left">
-        <button class="btn-add-video" @click="showAddVideoDialog">
-          <span class="btn-icon">➕</span>
-          添加视频
-        </button>
-        <button class="btn-test-settings" @click="testSettings" style="margin-left: 10px; padding: 8px 16px; background: #007acc; color: white; border: none; border-radius: 6px; cursor: pointer;">
-          测试设置
-        </button>
-        <button class="btn-test-internal" @click="testInternalPlayer" style="margin-left: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
-          测试内部播放器
-        </button>
-        <button class="btn-test-thumbnail" @click="testThumbnailSave" style="margin-left: 10px; padding: 8px 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer;">
-          测试缩略图保存
-        </button>
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索视频..."
-            class="search-input"
-          >
-          <span class="search-icon">🔍</span>
-        </div>
-      </div>
-      <div class="toolbar-right">
-        <select v-model="sortBy" class="sort-select">
-          <option value="name">按名称排序</option>
-          <option value="lastWatched">按最后观看时间</option>
-          <option value="watchCount">按观看次数</option>
-          <option value="added">按添加时间</option>
-          <option value="rating">按评分排序</option>
-        </select>
-      </div>
+    <GameToolbar 
+      v-model:searchQuery="searchQuery"
+      v-model:sortBy="sortBy"
+      add-button-text="添加视频"
+      search-placeholder="搜索视频..."
+      :sort-options="videoSortOptions"
+      @add-item="showAddVideoDialog"
+    />
+    
+    <!-- 测试按钮组 -->
+    <div class="test-buttons" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+      <button class="btn-test-settings" @click="testSettings" style="padding: 8px 16px; background: #007acc; color: white; border: none; border-radius: 6px; cursor: pointer;">
+        测试设置
+      </button>
+      <button class="btn-test-internal" @click="testInternalPlayer" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
+        测试内部播放器
+      </button>
+      <button class="btn-test-thumbnail" @click="testThumbnailSave" style="padding: 8px 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer;">
+        测试缩略图保存
+      </button>
     </div>
 
     <!-- 视频网格 -->
@@ -437,10 +423,14 @@
 
 <script>
 import VideoManager from '../utils/VideoManager.js'
+import GameToolbar from '../components/Toolbar.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
   name: 'VideoView',
+  components: {
+    GameToolbar
+  },
   data() {
     return {
       videoManager: null,
@@ -486,7 +476,15 @@ export default {
       editActorsInput: '',
       editTagsInput: '',
       // 缩略图 URL 缓存
-      thumbnailUrlCache: new Map()
+      thumbnailUrlCache: new Map(),
+      // 排序选项
+      videoSortOptions: [
+        { value: 'name', label: '按名称排序' },
+        { value: 'lastWatched', label: '按最后观看时间' },
+        { value: 'watchCount', label: '按观看次数' },
+        { value: 'added', label: '按添加时间' },
+        { value: 'rating', label: '按评分排序' }
+      ]
     }
   },
   computed: {
@@ -1713,42 +1711,6 @@ export default {
 }
 
 /* 工具栏样式 */
-.video-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding: 15px 20px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.btn-add-video {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-add-video:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
 
 .search-box {
   position: relative;
@@ -2385,20 +2347,6 @@ export default {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .video-toolbar {
-    flex-direction: column;
-    gap: 15px;
-    align-items: stretch;
-  }
-  
-  .toolbar-left {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
   
   .videos-grid {
     grid-template-columns: 1fr;

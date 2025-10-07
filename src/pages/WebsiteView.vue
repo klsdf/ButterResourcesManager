@@ -1,53 +1,35 @@
 <template>
   <div class="website-view">
     <!-- 工具栏 -->
-    <div class="website-toolbar">
-      <div class="toolbar-left">
-        <button class="btn-add-website" @click="showAddDialog = true">
-          <span class="btn-icon">➕</span>
-          添加网站
-        </button>
-        <button class="btn-refresh" @click="loadWebsites">
-          <span class="btn-icon">🔄</span>
-          刷新
-        </button>
-        <button class="btn-import" @click="importWebsites">
-          <span class="btn-icon">📥</span>
-          导入
-        </button>
-        <button class="btn-export" @click="exportWebsites">
-          <span class="btn-icon">📤</span>
-          导出
-        </button>
-      </div>
-      
-      <div class="toolbar-center">
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索网站..."
-            class="search-input"
-          >
-          <span class="search-icon">🔍</span>
-        </div>
-      </div>
-      
-      <div class="toolbar-right">
-        <select v-model="sortBy" class="sort-select">
-          <option value="name">按名称</option>
-          <option value="category">按分类</option>
-          <option value="visitCount">按访问次数</option>
-          <option value="addedDate">按添加时间</option>
-          <option value="lastVisited">按最后访问</option>
-        </select>
-        <select v-model="filterCategory" class="filter-select">
-          <option value="">所有分类</option>
-          <option v-for="category in categories" :key="category" :value="category">
-            {{ category }}
-          </option>
-        </select>
-      </div>
+    <Toolbar 
+      v-model:searchQuery="searchQuery"
+      v-model:sortBy="sortBy"
+      add-button-text="添加网站"
+      search-placeholder="搜索网站..."
+      :sort-options="websiteSortOptions"
+      @add-item="showAddDialog = true"
+    />
+    
+    <!-- 额外的操作按钮和过滤器 -->
+    <div class="website-actions" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <button class="btn-refresh" @click="loadWebsites" style="padding: 8px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+        <span class="btn-icon">🔄</span>
+        刷新
+      </button>
+      <button class="btn-import" @click="importWebsites" style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+        <span class="btn-icon">📥</span>
+        导入
+      </button>
+      <button class="btn-export" @click="exportWebsites" style="padding: 8px 12px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+        <span class="btn-icon">📤</span>
+        导出
+      </button>
+      <select v-model="filterCategory" class="filter-select" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+        <option value="">所有分类</option>
+        <option v-for="category in categories" :key="category" :value="category">
+          {{ category }}
+        </option>
+      </select>
     </div>
 
     <!-- 网站统计 -->
@@ -393,9 +375,13 @@
 
 <script>
 import websiteManager from '../utils/WebsiteManager.js'
+import Toolbar from '../components/Toolbar.vue'
 
 export default {
   name: 'WebsiteView',
+  components: {
+    Toolbar
+  },
   data() {
     return {
       websites: [],
@@ -423,7 +409,15 @@ export default {
         isBookmark: false,
         isPrivate: false
       },
-      urlError: ''
+      urlError: '',
+      // 排序选项
+      websiteSortOptions: [
+        { value: 'name', label: '按名称' },
+        { value: 'category', label: '按分类' },
+        { value: 'visitCount', label: '按访问次数' },
+        { value: 'addedDate', label: '按添加时间' },
+        { value: 'lastVisited', label: '按最后访问' }
+      ]
     }
   },
   computed: {
@@ -676,42 +670,6 @@ export default {
 }
 
 /* 工具栏样式 */
-.website-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px var(--shadow-light);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.toolbar-left, .toolbar-right {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.btn-add-website, .btn-refresh, .btn-import, .btn-export {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.3s ease;
-}
-
-.btn-add-website:hover, .btn-refresh:hover, .btn-import:hover, .btn-export:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
 
 .search-box {
   position: relative;
@@ -1354,18 +1312,6 @@ export default {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   }
   
-  .website-toolbar {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .toolbar-center {
-    order: -1;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
   
   .website-detail-content {
     grid-template-columns: 1fr;

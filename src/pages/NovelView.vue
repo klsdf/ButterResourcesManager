@@ -1,46 +1,34 @@
 <template>
   <div class="novel-view">
     <!-- 工具栏 -->
-    <div class="novel-toolbar">
-      <div class="toolbar-left">
-        <button class="btn-add-novel" @click="showAddNovelDialog">
-          <span class="btn-icon">➕</span>
-          添加小说
-        </button>
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索小说..."
-            class="search-input"
-          >
-          <span class="search-icon">🔍</span>
-        </div>
-      </div>
-      <div class="toolbar-right">
-        <select v-model="sortBy" class="sort-select">
-          <option value="name">按名称排序</option>
-          <option value="author">按作者排序</option>
-          <option value="lastRead">按最后阅读时间</option>
-          <option value="readProgress">按阅读进度</option>
-          <option value="added">按添加时间</option>
-        </select>
-        <select v-model="statusFilter" class="filter-select">
-          <option value="all">全部状态</option>
-          <option value="unread">未读</option>
-          <option value="reading">阅读中</option>
-          <option value="completed">已读完</option>
-          <option value="paused">暂停</option>
-        </select>
-        <button 
-          v-if="currentReadingNovel" 
-          class="btn-close-reader" 
-          @click="closeReader"
-          title="关闭阅读器"
-        >
-          <span class="btn-icon">✕</span>
-        </button>
-      </div>
+    <Toolbar 
+      v-model:searchQuery="searchQuery"
+      v-model:sortBy="sortBy"
+      add-button-text="添加小说"
+      search-placeholder="搜索小说..."
+      :sort-options="novelSortOptions"
+      @add-item="showAddNovelDialog"
+    />
+    
+    <!-- 额外的过滤器 -->
+    <div class="novel-filters" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <select v-model="statusFilter" class="filter-select" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+        <option value="all">全部状态</option>
+        <option value="unread">未读</option>
+        <option value="reading">阅读中</option>
+        <option value="completed">已读完</option>
+        <option value="paused">暂停</option>
+      </select>
+      <button 
+        v-if="currentReadingNovel" 
+        class="btn-close-reader" 
+        @click="closeReader"
+        title="关闭阅读器"
+        style="padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;"
+      >
+        <span class="btn-icon">✕</span>
+        关闭阅读器
+      </button>
     </div>
     
     <!-- 主要内容区域 -->
@@ -499,9 +487,13 @@
 
 <script>
 import novelManager from '../utils/NovelManager.js'
+import Toolbar from '../components/Toolbar.vue'
 
 export default {
   name: 'NovelView',
+  components: {
+    Toolbar
+  },
   data() {
     return {
       novels: [],
@@ -553,7 +545,15 @@ export default {
         backgroundColor: '#ffffff',
         textColor: '#333333',
         showProgress: true
-      }
+      },
+      // 排序选项
+      novelSortOptions: [
+        { value: 'name', label: '按名称排序' },
+        { value: 'author', label: '按作者排序' },
+        { value: 'lastRead', label: '按最后阅读时间' },
+        { value: 'readProgress', label: '按阅读进度' },
+        { value: 'added', label: '按添加时间' }
+      ]
     }
   },
   computed: {
@@ -1393,42 +1393,6 @@ export default {
 }
 
 /* 工具栏样式 */
-.novel-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.btn-add-novel {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.3s ease;
-}
-
-.btn-add-novel:hover {
-  background: var(--accent-hover);
-}
-
-.btn-icon {
-  font-size: 1.2rem;
-}
 
 .search-box {
   position: relative;
@@ -2305,21 +2269,6 @@ export default {
     height: 200px;
   }
   
-  .toolbar-left {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  
-  .search-input {
-    width: 100%;
-  }
-  
-  .toolbar-right {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
   
   .modal-content {
     width: 95vw;

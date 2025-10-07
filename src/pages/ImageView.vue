@@ -1,31 +1,14 @@
 <template>
   <div class="image-view">
     <!-- 工具栏 -->
-    <div class="image-toolbar">
-      <div class="toolbar-left">
-        <button class="btn-add-album" @click="showAddAlbumDialog">
-          <span class="btn-icon">➕</span>
-          添加漫画
-        </button>
-        <div class="search-box">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索漫画..."
-            class="search-input"
-          >
-          <span class="search-icon">🔍</span>
-        </div>
-      </div>
-      <div class="toolbar-right">
-        <select v-model="sortBy" class="sort-select">
-          <option value="name">按名称排序</option>
-          <option value="count">按页数</option>
-          <option value="added">按添加时间</option>
-          <option value="lastViewed">按最后查看</option>
-        </select>
-      </div>
-    </div>
+    <GameToolbar 
+      v-model:searchQuery="searchQuery"
+      v-model:sortBy="sortBy"
+      add-button-text="添加漫画"
+      search-placeholder="搜索漫画..."
+      :sort-options="imageSortOptions"
+      @add-item="showAddAlbumDialog"
+    />
 
     <!-- 专辑网格 -->
     <div class="albums-grid" v-if="filteredAlbums.length > 0">
@@ -224,9 +207,13 @@
 
 <script>
 import saveManager from '../utils/SaveManager.js'
+import GameToolbar from '../components/Toolbar.vue'
 
 export default {
   name: 'ImageView',
+  components: {
+    GameToolbar
+  },
   data() {
     return {
       albums: [],
@@ -248,7 +235,14 @@ export default {
         name: '',
         folderPath: '',
         cover: ''
-      }
+      },
+      // 排序选项
+      imageSortOptions: [
+        { value: 'name', label: '按名称排序' },
+        { value: 'count', label: '按页数' },
+        { value: 'added', label: '按添加时间' },
+        { value: 'lastViewed', label: '按最后查看' }
+      ]
     }
   },
   computed: {
@@ -535,86 +529,6 @@ export default {
   overflow-y: auto;
 }
 
-.image-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding: 15px 0;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.btn-add-album {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.3s ease;
-}
-
-.btn-add-album:hover {
-  background: var(--accent-hover);
-}
-
-.btn-icon {
-  font-size: 1.2rem;
-}
-
-.search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-input {
-  padding: 8px 35px 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  width: 250px;
-  transition: all 0.3s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
-}
-
-.search-icon {
-  position: absolute;
-  right: 10px;
-  color: var(--text-tertiary);
-  pointer-events: none;
-}
-
-.sort-select {
-  padding: 8px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.sort-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
 
 /* 网格 */
 .albums-grid {
