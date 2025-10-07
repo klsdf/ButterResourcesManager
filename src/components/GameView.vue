@@ -43,7 +43,7 @@
             @error="handleImageError"
           >
           <div class="game-overlay">
-            <div class="play-button">
+            <div class="play-button" @click.stop="launchGame(game)">
               <span class="play-icon">▶️</span>
             </div>
           </div>
@@ -365,6 +365,10 @@
                 <span class="btn-icon">▶️</span>
                 开始游戏
               </button>
+              <button class="btn-open-folder" @click="openGameFolder(currentGame)">
+                <span class="btn-icon">📁</span>
+                打开文件夹
+              </button>
               <button class="btn-edit-game" @click="editGame(currentGame)">
                 <span class="btn-icon">✏️</span>
                 编辑信息
@@ -392,6 +396,10 @@
       <div class="context-item" @click="launchGame(selectedGame)">
         <span class="context-icon">▶️</span>
         启动游戏
+      </div>
+      <div class="context-item" @click="openGameFolder(selectedGame)">
+        <span class="context-icon">📁</span>
+        打开文件夹
       </div>
       <div class="context-item" @click="editGame(selectedGame)">
         <span class="context-icon">✏️</span>
@@ -1185,6 +1193,32 @@ export default {
       } catch (error) {
         console.error('读取游戏存档文件失败:', error)
         return null
+      }
+    },
+    
+    async openGameFolder(game) {
+      try {
+        if (!game.executablePath) {
+          alert('游戏文件路径不存在')
+          return
+        }
+        
+        if (window.electronAPI && window.electronAPI.openFileFolder) {
+          const result = await window.electronAPI.openFileFolder(game.executablePath)
+          if (result.success) {
+            console.log('已打开游戏文件夹:', result.folderPath)
+            this.showNotification('文件夹已打开', `已打开游戏文件夹: ${result.folderPath}`)
+          } else {
+            console.error('打开文件夹失败:', result.error)
+            alert(`打开文件夹失败: ${result.error}`)
+          }
+        } else {
+          // 降级处理：在浏览器中显示路径
+          alert(`游戏文件位置:\n${game.executablePath}`)
+        }
+      } catch (error) {
+        console.error('打开游戏文件夹失败:', error)
+        alert(`打开文件夹失败: ${error.message}`)
       }
     }
   },
@@ -2106,6 +2140,24 @@ export default {
 
 .btn-remove-game:hover {
   background: #fecaca;
+}
+
+.btn-open-folder {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-open-folder:hover {
+  background: var(--bg-secondary);
 }
 
 .btn-icon {

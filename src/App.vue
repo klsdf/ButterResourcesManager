@@ -56,6 +56,9 @@
         <!-- 网站页面 -->
         <WebsiteView v-if="currentView === 'websites'" />
         
+        <!-- 声音页面 -->
+        <AudioView v-if="currentView === 'audio'" />
+        
         <!-- 设置页面 -->
         <SettingsView 
           v-if="currentView === 'settings'" 
@@ -72,6 +75,7 @@ import ImageView from './components/ImageView.vue'
 import VideoView from './components/VideoView.vue'
 import NovelView from './components/NovelView.vue'
 import WebsiteView from './components/WebsiteView.vue'
+import AudioView from './components/AudioView.vue'
 import SettingsView from './components/SettingsView.vue'
 
 export default {
@@ -82,6 +86,7 @@ export default {
     VideoView,
     NovelView,
     WebsiteView,
+    AudioView,
     SettingsView
   },
   data() {
@@ -118,6 +123,12 @@ export default {
           name: '网站',
           icon: '🌐',
           description: '管理你的网站收藏'
+        },
+        {
+          id: 'audio',
+          name: '声音',
+          icon: '🎵',
+          description: '管理你的音频资源'
         }
       ]
     }
@@ -139,20 +150,49 @@ export default {
     },
     applyTheme(theme) {
       this.theme = theme
-      document.documentElement.setAttribute('data-theme', theme)
+      
+      // 处理跟随系统主题
+      let actualTheme = theme
+      if (theme === 'auto') {
+        // 检测系统主题偏好
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        actualTheme = prefersDark ? 'dark' : 'light'
+      }
+      
+      // 应用实际主题
+      document.documentElement.setAttribute('data-theme', actualTheme)
       localStorage.setItem('butter-manager-theme', theme)
+      
+      console.log('应用主题:', theme, '实际主题:', actualTheme)
     },
     onThemeChanged(theme) {
       this.theme = theme
     }
   },
-  mounted() {
-    // 从本地存储加载主题设置
+  async mounted() {
+    // 优先从 SaveManager 加载设置
+    try {
+      const saveManager = (await import('./utils/SaveManager.js')).default
+      const settings = await saveManager.loadSettings()
+      if (settings && settings.theme) {
+        console.log('从 SaveManager 加载主题设置:', settings.theme)
+        this.applyTheme(settings.theme)
+        return
+      }
+    } catch (error) {
+      console.warn('从 SaveManager 加载设置失败，使用本地存储:', error)
+    }
+    
+    // 降级到本地存储
     const savedTheme = localStorage.getItem('butter-manager-theme')
     if (savedTheme) {
-      this.theme = savedTheme
+      console.log('从本地存储加载主题设置:', savedTheme)
+      this.applyTheme(savedTheme)
+    } else {
+      // 默认主题
+      console.log('使用默认主题: auto')
+      this.applyTheme('auto')
     }
-    this.applyTheme()
   }
 }
 </script>

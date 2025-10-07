@@ -22,7 +22,7 @@ function createWindow() {
       enableRemoteModule: false,
       preload: path.join(__dirname, 'preload.js')
     },
-    icon: path.join(__dirname, 'icon.png'), // 应用图标
+    icon: path.join(__dirname, 'butter-modern.svg'), // 应用图标
     titleBarStyle: 'default',
     show: false // 先不显示，等加载完成后再显示
   })
@@ -226,6 +226,65 @@ ipcMain.handle('select-folder', async () => {
   return null
 })
 
+// 选择视频文件
+ipcMain.handle('select-video-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择视频文件',
+      filters: [
+        { name: '视频文件', extensions: ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择视频文件失败:', error)
+    throw error
+  }
+})
+
+// 打开本地文件（使用系统默认程序）
+ipcMain.handle('open-external', async (event, filePath) => {
+  try {
+    console.log('=== Electron: 开始打开外部文件 ===')
+    console.log('文件路径:', filePath)
+    
+    if (!filePath) {
+      console.log('❌ 文件路径为空')
+      return { success: false, error: '无效的文件路径' }
+    }
+    
+    // 检查文件是否存在
+    const fs = require('fs')
+    if (!fs.existsSync(filePath)) {
+      console.log('❌ 文件不存在:', filePath)
+      return { success: false, error: '文件不存在' }
+    }
+    
+    console.log('✅ 文件存在，正在调用 shell.openPath...')
+    const result = await shell.openPath(filePath)
+    console.log('shell.openPath 返回结果:', result)
+    
+    if (result) {
+      // openPath 返回非空字符串表示错误信息
+      console.log('❌ 打开文件失败，错误信息:', result)
+      return { success: false, error: result }
+    }
+    
+    console.log('✅ 文件打开成功')
+    return { success: true }
+  } catch (error) {
+    console.error('❌ 打开外部文件失败:', error)
+    console.error('错误堆栈:', error.stack)
+    return { success: false, error: error.message }
+  }
+})
+
 // 获取文件URL，用于在渲染进程中正确显示本地文件
 ipcMain.handle('get-file-url', async (event, filePath) => {
   try {
@@ -379,7 +438,7 @@ ipcMain.handle('show-notification', (event, title, body) => {
       const notification = new Notification({
         title: title,
         body: body,
-        icon: path.join(__dirname, 'icon.png'), // 使用应用图标
+        icon: path.join(__dirname, 'butter-modern.svg'), // 使用应用图标
         silent: false // 允许声音
       })
       
@@ -807,9 +866,10 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
     const fs = require('fs')
     const path = require('path')
     
-    console.log('开始写入 JSON 文件:', filePath)
+    console.log('=== 开始写入 JSON 文件 ===')
+    console.log('文件路径:', filePath)
     console.log('数据类型:', typeof data)
-    console.log('数据内容:', data)
+    console.log('数据长度:', typeof data === 'string' ? data.length : 'N/A')
     
     // 确保目录存在
     const dir = path.dirname(filePath)
@@ -821,15 +881,34 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
     // 验证数据是否可以序列化
     let jsonString
     try {
-      jsonString = JSON.stringify(data, null, 2)
+      if (typeof data === 'string') {
+        jsonString = data
+        console.log('使用传入的字符串数据')
+      } else {
+        jsonString = JSON.stringify(data, null, 2)
+        console.log('序列化对象数据')
+      }
     } catch (serializeError) {
       console.error('数据序列化失败:', serializeError)
       return { success: false, error: `数据序列化失败: ${serializeError.message}` }
     }
     
+    console.log('准备写入的JSON字符串长度:', jsonString.length)
+    console.log('JSON内容预览:', jsonString.substring(0, 200) + '...')
+    
     // 写入 JSON 文件
     fs.writeFileSync(filePath, jsonString, 'utf8')
     console.log('JSON 文件写入成功:', filePath)
+    
+    // 验证文件是否真的写入了
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath)
+      console.log('文件大小:', stats.size, 'bytes')
+    } else {
+      console.error('文件写入后不存在!')
+    }
+    
+    console.log('=== JSON 文件写入完成 ===')
     return { success: true }
   } catch (error) {
     console.error('写入 JSON 文件失败:', error)
@@ -881,6 +960,110 @@ ipcMain.handle('ensure-directory', async (event, dirPath) => {
     return { success: true }
   } catch (error) {
     console.error('创建目录失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 选择音频文件
+ipcMain.handle('select-audio-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择音频文件',
+      filters: [
+        { name: '音频文件', extensions: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma', 'aiff'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择音频文件失败:', error)
+    throw error
+  }
+})
+
+// 选择小说文件
+ipcMain.handle('select-novel-file', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择小说文件',
+      filters: [
+        { name: '文本文件', extensions: ['txt', 'md', 'rtf'] },
+        { name: '电子书', extensions: ['epub', 'mobi', 'azw', 'azw3', 'pdf'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择小说文件失败:', error)
+    throw error
+  }
+})
+
+// 读取文本文件内容
+ipcMain.handle('read-text-file', async (event, filePath) => {
+  try {
+    if (!filePath) {
+      return { success: false, error: '文件路径不能为空' }
+    }
+    
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+    
+    // 获取文件信息
+    const stats = fs.statSync(filePath)
+    const fileSize = stats.size
+    
+    // 读取文件内容
+    const content = fs.readFileSync(filePath, 'utf8')
+    
+    // 计算字数（简单统计）
+    const wordCount = content.length
+    
+    return {
+      success: true,
+      content: content,
+      fileSize: fileSize,
+      wordCount: wordCount,
+      encoding: 'utf-8'
+    }
+  } catch (error) {
+    console.error('读取文本文件失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 打开文件所在文件夹
+ipcMain.handle('open-file-folder', async (event, filePath) => {
+  try {
+    if (!filePath) {
+      return { success: false, error: '文件路径不能为空' }
+    }
+    
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+    
+    // 获取文件所在目录
+    const dirPath = path.dirname(filePath)
+    
+    // 使用shell打开文件夹并选中文件
+    await shell.showItemInFolder(filePath)
+    
+    console.log('已打开文件夹:', dirPath)
+    return { success: true, folderPath: dirPath }
+  } catch (error) {
+    console.error('打开文件夹失败:', error)
     return { success: false, error: error.message }
   }
 })

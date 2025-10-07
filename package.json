@@ -42,16 +42,21 @@
     "files": [
       "dist/**/*",
       "public/electron.js",
+      "public/butter-modern.svg",
       "node_modules/**/*"
     ],
+    "icon": "public/butter-modern.svg",
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "public/butter-modern.svg"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "public/butter-modern.svg"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "public/butter-modern.svg"
     }
   }
 }

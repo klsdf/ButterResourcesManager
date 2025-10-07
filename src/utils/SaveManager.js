@@ -7,7 +7,11 @@ class SaveManager {
     this.dataDirectory = 'SaveData'
     this.filePaths = {
       games: `${this.dataDirectory}/games.json`,
+      videos: `${this.dataDirectory}/videos.json`,
       settings: `${this.dataDirectory}/settings.json`,
+      audios: `${this.dataDirectory}/audios.json`,
+      websites: `${this.dataDirectory}/websites.json`,
+      novels: `${this.dataDirectory}/novels.json`,
       backup: `${this.dataDirectory}/backup.json`
     }
     
@@ -198,6 +202,149 @@ class SaveManager {
     } catch (error) {
       console.error('保存游戏数据失败:', error)
       return false
+    }
+  }
+
+  /**
+   * 保存视频数据到本地 JSON 文件
+   * @param {Array} videos - 视频数据数组
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveVideos(videos) {
+    try {
+      await this.ensureDataDirectory()
+
+      const data = {
+        videos: videos,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+
+      const success = await this.writeJsonFile(this.filePaths.videos, data)
+      if (success) {
+        console.log('视频数据保存成功:', videos.length, '个视频')
+      }
+      return success
+    } catch (error) {
+      console.error('保存视频数据失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从本地 JSON 文件加载视频数据
+   * @returns {Promise<Array>} 视频数据数组
+   */
+  async loadVideos() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.videos)
+      if (data && Array.isArray(data.videos)) {
+        console.log('加载视频数据:', data.videos.length, '个视频')
+        return data.videos
+      }
+      return []
+    } catch (error) {
+      console.error('加载视频数据失败:', error)
+      return []
+    }
+  }
+
+  async saveAudios(audios) {
+    try {
+      await this.ensureDataDirectory()
+      const data = {
+        audios: audios,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+      const success = await this.writeJsonFile(this.filePaths.audios, data)
+      if (success) {
+        console.log('音频数据保存成功:', audios.length, '个音频')
+      }
+      return success
+    } catch (error) {
+      console.error('保存音频数据失败:', error)
+      return false
+    }
+  }
+
+  async loadAudios() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.audios)
+      if (data && Array.isArray(data.audios)) {
+        console.log('加载音频数据:', data.audios.length, '个音频')
+        return data.audios
+      }
+      return []
+    } catch (error) {
+      console.error('加载音频数据失败:', error)
+      return []
+    }
+  }
+
+  async saveWebsites(websites) {
+    try {
+      await this.ensureDataDirectory()
+      const data = {
+        websites: websites,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+      const success = await this.writeJsonFile(this.filePaths.websites, data)
+      if (success) {
+        console.log('网站数据保存成功:', websites.length, '个网站')
+      }
+      return success
+    } catch (error) {
+      console.error('保存网站数据失败:', error)
+      return false
+    }
+  }
+
+  async loadWebsites() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.websites)
+      if (data && Array.isArray(data.websites)) {
+        console.log('加载网站数据:', data.websites.length, '个网站')
+        return data.websites
+      }
+      return []
+    } catch (error) {
+      console.error('加载网站数据失败:', error)
+      return []
+    }
+  }
+
+  async saveNovels(novels) {
+    try {
+      await this.ensureDataDirectory()
+      const data = {
+        novels: novels,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+      const success = await this.writeJsonFile(this.filePaths.novels, data)
+      if (success) {
+        console.log('小说数据保存成功:', novels.length, '本小说')
+      }
+      return success
+    } catch (error) {
+      console.error('保存小说数据失败:', error)
+      return false
+    }
+  }
+
+  async loadNovels() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.novels)
+      if (data && Array.isArray(data.novels)) {
+        console.log('加载小说数据:', data.novels.length, '本小说')
+        return data.novels
+      }
+      return []
+    } catch (error) {
+      console.error('加载小说数据失败:', error)
+      return []
     }
   }
 

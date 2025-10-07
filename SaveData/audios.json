@@ -1,0 +1,52 @@
+{
+  "audios": [
+    {
+      "id": "1759822917616",
+      "name": "20分钟喵喵亲mua纯享版",
+      "artist": "",
+      "album": "",
+      "genre": "",
+      "year": "",
+      "duration": 0,
+      "filePath": "G:\\下载的数据\\telegram\\20分钟喵喵亲mua纯享版.mp3",
+      "thumbnail": "",
+      "playCount": 4,
+      "lastPlayed": "2025-10-07T07:46:53.983Z",
+      "firstPlayed": "2025-10-07T07:43:02.868Z",
+      "addedDate": "2025-10-07T07:41:57.616Z",
+      "rating": 0,
+      "notes": "",
+      "tags": [],
+      "lyrics": "",
+      "bitrate": 0,
+      "sampleRate": 0,
+      "format": "",
+      "size": 0
+    },
+    {
+      "id": "1759822937696",
+      "name": "6.妹妹的寸止催",
+      "artist": "",
+      "album": "",
+      "genre": "",
+      "year": "",
+      "duration": 0,
+      "filePath": "G:\\下载的数据\\telegram\\6.妹妹的寸止催.mp3",
+      "thumbnail": "",
+      "playCount": 2,
+      "lastPlayed": "2025-10-07T07:44:49.337Z",
+      "firstPlayed": "2025-10-07T07:43:47.568Z",
+      "addedDate": "2025-10-07T07:42:17.696Z",
+      "rating": 0,
+      "notes": "",
+      "tags": [],
+      "lyrics": "",
+      "bitrate": 0,
+      "sampleRate": 0,
+      "format": "",
+      "size": 0
+    }
+  ],
+  "timestamp": "2025-10-07T07:46:53.984Z",
+  "version": "1.0.0"
+}

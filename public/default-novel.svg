@@ -1,0 +1,7 @@
+<svg width="200" height="280" viewBox="0 0 200 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="200" height="280" fill="#F3F4F6"/>
+<path d="M100 120H80V160H120V120Z" fill="#9CA3AF"/>
+<path d="M80 120L100 100L120 120L100 140L80 120Z" fill="#9CA3AF"/>
+<text x="100" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6B7280">📚</text>
+<text x="100" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9CA3AF">小说封面</text>
+</svg>

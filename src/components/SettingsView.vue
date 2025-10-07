@@ -549,6 +549,11 @@ export default {
     // 使用 SaveManager 加载设置
     this.settings = await saveManager.loadSettings()
     
+    // 加载设置后立即应用主题
+    if (this.settings.theme) {
+      this.applyTheme(this.settings.theme)
+    }
+    
     // 初始化截图目录（如果未设置）
     if (!this.settings.screenshotsPath) {
       try {

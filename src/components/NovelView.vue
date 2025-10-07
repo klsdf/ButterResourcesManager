@@ -1,31 +1,1164 @@
 <template>
   <div class="novel-view">
-    <div class="view-header">
-      <h3>小说管理</h3>
-      <p>管理你的小说资源</p>
+    <!-- 工具栏 -->
+    <div class="novel-toolbar">
+      <div class="toolbar-left">
+        <button class="btn-add-novel" @click="showAddNovelDialog">
+          <span class="btn-icon">➕</span>
+          添加小说
+        </button>
+        <div class="search-box">
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="搜索小说..."
+            class="search-input"
+          >
+          <span class="search-icon">🔍</span>
+        </div>
+      </div>
+      <div class="toolbar-right">
+        <select v-model="sortBy" class="sort-select">
+          <option value="name">按名称排序</option>
+          <option value="author">按作者排序</option>
+          <option value="lastRead">按最后阅读时间</option>
+          <option value="readProgress">按阅读进度</option>
+          <option value="added">按添加时间</option>
+        </select>
+        <select v-model="statusFilter" class="filter-select">
+          <option value="all">全部状态</option>
+          <option value="unread">未读</option>
+          <option value="reading">阅读中</option>
+          <option value="completed">已读完</option>
+          <option value="paused">暂停</option>
+        </select>
+        <button 
+          v-if="currentReadingNovel" 
+          class="btn-close-reader" 
+          @click="closeReader"
+          title="关闭阅读器"
+        >
+          <span class="btn-icon">✕</span>
+        </button>
+      </div>
     </div>
     
-    <div class="content-area">
-      <div class="placeholder">
-        <div class="placeholder-icon">📚</div>
-        <h4>小说管理功能</h4>
-        <p>这里将显示小说管理功能</p>
-        <p>包括：小说列表、分类管理、阅读进度等</p>
+    <!-- 主要内容区域 -->
+    <div class="novel-main-content">
+      <!-- 左侧：小说列表 -->
+      <div class="novel-list-section" :class="{ 'with-reader': currentReadingNovel }">
+    
+        <!-- 小说网格 -->
+        <div class="novels-grid" v-if="filteredNovels.length > 0">
+          <div 
+            v-for="novel in filteredNovels" 
+            :key="novel.id"
+            class="novel-card"
+            :class="{ 'selected': currentReadingNovel && currentReadingNovel.id === novel.id }"
+            @click="selectNovelForReading(novel)"
+            @contextmenu="showNovelContextMenu($event, novel)"
+          >
+            <div class="novel-cover">
+              <img 
+                :src="resolveCoverImage(novel.coverImage)" 
+                :alt="novel.name"
+                @error="handleImageError"
+              >
+              <div class="novel-overlay">
+                <div class="read-button" @click.stop="selectNovelForReading(novel)">
+                  <span class="read-icon">📖</span>
+                </div>
+              </div>
+              <div class="novel-status" :class="novel.status">
+                <span class="status-text">{{ getStatusText(novel.status) }}</span>
+              </div>
+            </div>
+            <div class="novel-info">
+              <h3 class="novel-title">{{ novel.name }}</h3>
+              <p class="novel-author">{{ novel.author }}</p>
+              <p class="novel-genre" v-if="novel.genre">{{ novel.genre }}</p>
+              <p class="novel-description" v-if="novel.description">{{ novel.description }}</p>
+              <div class="novel-tags" v-if="novel.tags && novel.tags.length > 0">
+                <span 
+                  v-for="tag in novel.tags.slice(0, 3)" 
+                  :key="tag" 
+                  class="novel-tag"
+                >{{ tag }}</span>
+                <span v-if="novel.tags.length > 3" class="novel-tag-more">+{{ novel.tags.length - 3 }}</span>
+              </div>
+              <div class="novel-stats">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: novel.readProgress + '%' }"></div>
+                </div>
+                <div class="stats-row">
+                  <span class="read-progress">{{ novel.readProgress || 0 }}%</span>
+                  <span class="read-time">{{ formatReadTime(novel.readTime) }}</span>
+                </div>
+                <div class="last-read">
+                  <span v-if="novel.lastRead">{{ formatLastRead(novel.lastRead) }}</span>
+                  <span v-else>从未阅读</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div class="empty-state" v-else-if="novels.length === 0">
+          <div class="empty-icon">📚</div>
+          <h3>你的小说库是空的</h3>
+          <p>点击"添加小说"按钮来添加你的第一本小说</p>
+          <button class="btn-add-first-novel" @click="showAddNovelDialog">
+            添加第一本小说
+          </button>
+        </div>
+
+        <!-- 无搜索结果 -->
+        <div class="empty-state" v-else>
+          <div class="empty-icon">🔍</div>
+          <h3>没有找到匹配的小说</h3>
+          <p>尝试使用不同的搜索词</p>
+        </div>
+      </div>
+
+      <!-- 右侧：阅读器区域 -->
+      <div class="reader-section" v-if="currentReadingNovel">
+        <div class="reader-header">
+          <div class="reader-title">
+            <h3>{{ currentReadingNovel.name }}</h3>
+            <p class="reader-author">{{ currentReadingNovel.author }}</p>
+          </div>
+          <div class="reader-controls">
+            <button class="btn-reader-settings" @click="showReaderSettings" title="阅读设置">
+              <span class="btn-icon">⚙️</span>
+            </button>
+            <button class="btn-add-bookmark" @click="addBookmark" title="添加书签">
+              <span class="btn-icon">🔖</span>
+            </button>
+            <button class="btn-external-reader" @click="openNovelReader(currentReadingNovel)" title="用外部程序打开">
+              <span class="btn-icon">📖</span>
+            </button>
+          </div>
+        </div>
+        
+        <div class="reader-progress">
+          <div class="progress-info">
+            <span>阅读进度: {{ currentReadingNovel.readProgress || 0 }}%</span>
+            <span>字数: {{ formatNumber(currentReadingNovel.totalWords) }}</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: currentReadingNovel.readProgress + '%' }"></div>
+          </div>
+        </div>
+
+        <div class="reader-content" ref="readerContent">
+          <div v-if="novelContent" class="novel-text" v-html="formattedContent"></div>
+          <div v-else-if="loadingContent" class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>正在加载小说内容...</p>
+          </div>
+          <div v-else class="no-content">
+            <p>无法加载小说内容</p>
+            <button class="btn-retry" @click="loadNovelContent">重试</button>
+          </div>
+        </div>
+
+        <div class="reader-footer">
+          <div class="reader-navigation">
+            <button class="btn-prev" @click="previousPage" :disabled="!canGoPrevious">
+              <span class="btn-icon">←</span>
+              上一页
+            </button>
+            <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+            <button class="btn-next" @click="nextPage" :disabled="!canGoNext">
+              下一页
+              <span class="btn-icon">→</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加小说对话框 -->
+    <div v-if="showAddDialog" class="modal-overlay" @click="closeAddNovelDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>添加小说</h3>
+          <button class="modal-close" @click="closeAddNovelDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>小说名称 (可选)</label>
+            <input 
+              type="text" 
+              v-model="newNovel.name" 
+              placeholder="留空将自动从文件名提取"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>作者 (可选)</label>
+            <input 
+              type="text" 
+              v-model="newNovel.author" 
+              placeholder="输入作者名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>类型 (可选)</label>
+            <input 
+              type="text" 
+              v-model="newNovel.genre" 
+              placeholder="如：玄幻、都市、历史等"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>小说简介 (可选)</label>
+            <textarea 
+              v-model="newNovel.description" 
+              placeholder="输入小说简介或描述..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>小说标签 (可选)</label>
+            <div class="tags-input-container">
+              <div class="tags-display">
+                <span 
+                  v-for="(tag, index) in newNovel.tags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button 
+                    type="button" 
+                    class="tag-remove" 
+                    @click="removeTag(index)"
+                  >×</button>
+                </span>
+              </div>
+              <input 
+                type="text" 
+                v-model="tagInput" 
+                @keydown.enter.prevent="addTag"
+                @keydown.comma.prevent="addTag"
+                placeholder="输入标签后按回车或逗号添加"
+                class="tag-input"
+              >
+            </div>
+          </div>
+          <div class="form-group">
+            <label>小说文件 <span class="required">*</span></label>
+            <div class="file-input-group">
+              <input 
+                type="text" 
+                v-model="newNovel.filePath" 
+                placeholder="选择小说文本文件"
+                class="form-input"
+                readonly
+              >
+              <button class="btn-browse" @click="browseForNovelFile">浏览</button>
+            </div>
+            <div class="file-hint">支持 .txt, .epub, .mobi 等格式</div>
+          </div>
+          <div class="form-group">
+            <label>封面图片 (可选)</label>
+            <div class="file-input-group">
+              <input 
+                type="text" 
+                v-model="newNovel.coverImage" 
+                placeholder="选择封面图片"
+                class="form-input"
+                readonly
+              >
+              <button class="btn-browse" @click="browseForCoverImage">浏览</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeAddNovelDialog">取消</button>
+          <button class="btn-confirm" @click="addNovel" :disabled="!canAddNovel">添加小说</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑小说对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click="closeEditNovelDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>编辑小说</h3>
+          <button class="modal-close" @click="closeEditNovelDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>小说名称</label>
+            <input 
+              type="text" 
+              v-model="editNovelForm.name" 
+              placeholder="输入小说名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>作者</label>
+            <input 
+              type="text" 
+              v-model="editNovelForm.author" 
+              placeholder="输入作者名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>类型</label>
+            <input 
+              type="text" 
+              v-model="editNovelForm.genre" 
+              placeholder="如：玄幻、都市、历史等"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>小说简介</label>
+            <textarea 
+              v-model="editNovelForm.description" 
+              placeholder="输入小说简介或描述..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>小说标签</label>
+            <div class="tags-input-container">
+              <div class="tags-display">
+                <span 
+                  v-for="(tag, index) in editNovelForm.tags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button 
+                    type="button" 
+                    class="tag-remove" 
+                    @click="removeEditTag(index)"
+                  >×</button>
+                </span>
+              </div>
+              <input 
+                type="text" 
+                v-model="editTagInput" 
+                @keydown.enter.prevent="addEditTag"
+                @keydown.comma.prevent="addEditTag"
+                placeholder="输入标签后按回车或逗号添加"
+                class="tag-input"
+              >
+            </div>
+          </div>
+          <div class="form-group">
+            <label>阅读状态</label>
+            <select v-model="editNovelForm.status" class="form-select">
+              <option value="unread">未读</option>
+              <option value="reading">阅读中</option>
+              <option value="completed">已读完</option>
+              <option value="paused">暂停</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>阅读进度 (%)</label>
+            <input 
+              type="number" 
+              v-model="editNovelForm.readProgress" 
+              min="0" 
+              max="100"
+              class="form-input"
+            >
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeEditNovelDialog">取消</button>
+          <button class="btn-confirm" @click="saveEditedNovel">保存修改</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 小说详情页面 -->
+    <div v-if="showDetailModal" class="novel-detail-overlay" @click="closeNovelDetail">
+      <div class="novel-detail-content" @click.stop>
+        <div class="detail-header">
+          <button class="detail-close" @click="closeNovelDetail">✕</button>
+        </div>
+        <div class="detail-body" v-if="currentNovel">
+          <div class="detail-cover">
+            <img 
+              :src="resolveCoverImage(currentNovel.coverImage)" 
+              :alt="currentNovel.name"
+              @error="handleImageError"
+            >
+          </div>
+          <div class="detail-info">
+            <h2 class="detail-title">{{ currentNovel.name }}</h2>
+            <p class="detail-author">{{ currentNovel.author }}</p>
+            <p class="detail-genre" v-if="currentNovel.genre">{{ currentNovel.genre }}</p>
+            <div class="detail-description" v-if="currentNovel.description">
+              <h4 class="description-title">小说简介</h4>
+              <p class="description-content">{{ currentNovel.description }}</p>
+            </div>
+            
+            <div class="detail-tags" v-if="currentNovel.tags && currentNovel.tags.length > 0">
+              <h4 class="tags-title">小说标签</h4>
+              <div class="tags-container">
+                <span 
+                  v-for="tag in currentNovel.tags" 
+                  :key="tag" 
+                  class="detail-tag"
+                >{{ tag }}</span>
+              </div>
+            </div>
+            
+            <div class="detail-stats">
+              <div class="stat-item">
+                <span class="stat-label">阅读进度</span>
+                <span class="stat-value">{{ currentNovel.readProgress || 0 }}%</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">总字数</span>
+                <span class="stat-value">{{ formatNumber(currentNovel.totalWords) }} 字</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">阅读时长</span>
+                <span class="stat-value">{{ formatReadTime(currentNovel.readTime) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">最后阅读</span>
+                <span class="stat-value">{{ formatLastRead(currentNovel.lastRead) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">添加时间</span>
+                <span class="stat-value">{{ formatDate(currentNovel.addedDate) }}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">文件大小</span>
+                <span class="stat-value">{{ formatFileSize(currentNovel.fileSize) }}</span>
+              </div>
+            </div>
+            
+            <div class="detail-actions">
+              <button class="btn-read-novel" @click="openNovelReader(currentNovel)">
+                <span class="btn-icon">📖</span>
+                开始阅读
+              </button>
+              <button class="btn-open-folder" @click="openNovelFolder(currentNovel)">
+                <span class="btn-icon">📁</span>
+                打开文件夹
+              </button>
+              <button class="btn-edit-novel" @click="editNovel(currentNovel)">
+                <span class="btn-icon">✏️</span>
+                编辑信息
+              </button>
+              <button class="btn-remove-novel" @click="removeNovel(currentNovel)">
+                <span class="btn-icon">🗑️</span>
+                删除小说
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 右键菜单 -->
+    <div 
+      v-if="showContextMenu" 
+      class="context-menu"
+      :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
+    >
+      <div class="context-item" @click="showNovelDetail(selectedNovel)">
+        <span class="context-icon">👁️</span>
+        查看详情
+      </div>
+      <div class="context-item" @click="openNovelReader(selectedNovel)">
+        <span class="context-icon">📖</span>
+        开始阅读
+      </div>
+      <div class="context-item" @click="openNovelFolder(selectedNovel)">
+        <span class="context-icon">📁</span>
+        打开文件夹
+      </div>
+      <div class="context-item" @click="editNovel(selectedNovel)">
+        <span class="context-icon">✏️</span>
+        编辑信息
+      </div>
+      <div class="context-item" @click="removeNovel(selectedNovel)">
+        <span class="context-icon">🗑️</span>
+        删除小说
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import novelManager from '../utils/NovelManager.js'
+
 export default {
   name: 'NovelView',
   data() {
     return {
-      // 小说相关数据
+      novels: [],
+      searchQuery: '',
+      sortBy: 'name',
+      statusFilter: 'all',
+      showAddDialog: false,
+      showContextMenu: false,
+      contextMenuPos: { x: 0, y: 0 },
+      selectedNovel: null,
+      showDetailModal: false,
+      currentNovel: null,
+      newNovel: {
+        name: '',
+        author: '',
+        genre: '',
+        description: '',
+        tags: [],
+        filePath: '',
+        coverImage: ''
+      },
+      tagInput: '',
+      // 编辑相关状态
+      showEditDialog: false,
+      editNovelForm: {
+        id: '',
+        name: '',
+        author: '',
+        genre: '',
+        description: '',
+        tags: [],
+        status: 'unread',
+        readProgress: 0
+      },
+      editTagInput: '',
+      // 图片缓存
+      imageCache: {},
+      // 阅读器相关状态
+      currentReadingNovel: null,
+      novelContent: '',
+      loadingContent: false,
+      currentPage: 1,
+      totalPages: 1,
+      wordsPerPage: 1000, // 每页显示的字数
+      readerSettings: {
+        fontSize: 16,
+        lineHeight: 1.6,
+        fontFamily: 'Microsoft YaHei, sans-serif',
+        backgroundColor: '#ffffff',
+        textColor: '#333333',
+        showProgress: true
+      }
+    }
+  },
+  computed: {
+    filteredNovels() {
+      let filtered = this.novels.filter(novel => {
+        // 状态过滤
+        if (this.statusFilter !== 'all' && novel.status !== this.statusFilter) {
+          return false
+        }
+        
+        // 搜索过滤
+        if (this.searchQuery) {
+          const query = this.searchQuery.toLowerCase()
+          return novel.name.toLowerCase().includes(query) ||
+                 novel.author.toLowerCase().includes(query) ||
+                 novel.genre.toLowerCase().includes(query) ||
+                 novel.description.toLowerCase().includes(query) ||
+                 novel.tags.some(tag => tag.toLowerCase().includes(query))
+        }
+        
+        return true
+      })
+      
+      // 排序
+      filtered.sort((a, b) => {
+        switch (this.sortBy) {
+          case 'name':
+            return a.name.localeCompare(b.name)
+          case 'author':
+            return a.author.localeCompare(b.author)
+          case 'lastRead':
+            if (!a.lastRead && !b.lastRead) return 0
+            if (!a.lastRead) return 1
+            if (!b.lastRead) return -1
+            return new Date(b.lastRead) - new Date(a.lastRead)
+          case 'readProgress':
+            return (b.readProgress || 0) - (a.readProgress || 0)
+          case 'added':
+            return new Date(b.addedDate) - new Date(a.addedDate)
+          default:
+            return 0
+        }
+      })
+      
+      return filtered
+    },
+    canAddNovel() {
+      return this.newNovel.filePath.trim()
+    },
+    formattedContent() {
+      if (!this.novelContent) return ''
+      
+      // 分页处理
+      const startIndex = (this.currentPage - 1) * this.wordsPerPage
+      const endIndex = startIndex + this.wordsPerPage
+      const pageContent = this.novelContent.slice(startIndex, endIndex)
+      
+      // 格式化文本，保持换行和段落
+      return pageContent
+        .replace(/\n/g, '<br>')
+        .replace(/\r\n/g, '<br>')
+        .replace(/\r/g, '<br>')
+    },
+    canGoPrevious() {
+      return this.currentPage > 1
+    },
+    canGoNext() {
+      return this.currentPage < this.totalPages
     }
   },
   methods: {
-    // 小说管理方法
+    showAddNovelDialog() {
+      this.showAddDialog = true
+      this.newNovel = {
+        name: '',
+        author: '',
+        genre: '',
+        description: '',
+        tags: [],
+        filePath: '',
+        coverImage: ''
+      }
+      this.tagInput = ''
+    },
+    closeAddNovelDialog() {
+      this.showAddDialog = false
+    },
+    addTag() {
+      const tag = this.tagInput.trim()
+      if (tag && !this.newNovel.tags.includes(tag)) {
+        this.newNovel.tags.push(tag)
+        this.tagInput = ''
+      }
+    },
+    removeTag(index) {
+      this.newNovel.tags.splice(index, 1)
+    },
+    async browseForNovelFile() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectNovelFile) {
+          console.log('使用Electron API选择小说文件')
+          const filePath = await window.electronAPI.selectNovelFile()
+          if (filePath) {
+            this.newNovel.filePath = filePath
+            console.log('选择的文件路径:', filePath)
+            
+            // 自动提取小说名称（如果名称字段为空）
+            if (!this.newNovel.name.trim()) {
+              this.newNovel.name = this.extractNovelNameFromPath(filePath)
+            }
+            
+            // 尝试读取文件信息
+            await this.analyzeNovelFile(filePath)
+          }
+        } else {
+          console.log('Electron API不可用，使用HTML5文件选择器')
+          this.showFileInput('novel')
+        }
+      } catch (error) {
+        console.error('选择小说文件失败:', error)
+        alert(`选择文件失败: ${error.message}`)
+      }
+    },
+    async browseForCoverImage() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectImageFile) {
+          console.log('使用Electron API选择图片文件')
+          const filePath = await window.electronAPI.selectImageFile()
+          if (filePath) {
+            this.newNovel.coverImage = filePath
+            console.log('选择的图片路径:', filePath)
+          }
+        } else {
+          console.log('Electron API不可用，使用HTML5文件选择器')
+          this.showFileInput('cover')
+        }
+      } catch (error) {
+        console.error('选择图片文件失败:', error)
+        alert(`选择文件失败: ${error.message}`)
+      }
+    },
+    showFileInput(type) {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = type === 'novel' ? '.txt,.epub,.mobi' : 'image/*'
+      input.onchange = (e) => {
+        const file = e.target.files[0]
+        if (file) {
+          if (type === 'novel') {
+            this.newNovel.filePath = file.path || file.name
+            if (!this.newNovel.name.trim()) {
+              this.newNovel.name = this.extractNovelNameFromPath(file.path || file.name)
+            }
+          } else {
+            this.newNovel.coverImage = file.path || file.name
+          }
+        }
+      }
+      input.click()
+    },
+    extractNovelNameFromPath(filePath) {
+      const fileName = filePath.split(/[\\/]/).pop()
+      const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '')
+      
+      let cleanName = nameWithoutExt
+        .replace(/[-_\s]+/g, ' ')
+        .trim()
+      
+      if (!cleanName) {
+        cleanName = nameWithoutExt
+      }
+      
+      return cleanName.charAt(0).toUpperCase() + cleanName.slice(1)
+    },
+    async analyzeNovelFile(filePath) {
+      try {
+        if (window.electronAPI && window.electronAPI.readTextFile) {
+          const result = await window.electronAPI.readTextFile(filePath)
+          if (result.success && result.content) {
+            // 简单的字数统计
+            const wordCount = result.content.length
+            this.newNovel.totalWords = wordCount
+            this.newNovel.fileSize = result.fileSize || 0
+            this.newNovel.encoding = result.encoding || 'utf-8'
+            console.log('文件分析结果:', { wordCount, fileSize: result.fileSize, encoding: result.encoding })
+          }
+        }
+      } catch (error) {
+        console.error('分析文件失败:', error)
+      }
+    },
+    async addNovel() {
+      if (!this.canAddNovel) return
+      
+      try {
+        let novelName = this.newNovel.name.trim()
+        if (!novelName) {
+          novelName = this.extractNovelNameFromPath(this.newNovel.filePath)
+        }
+        
+        const novelData = {
+          name: novelName,
+          author: this.newNovel.author.trim() || '未知作者',
+          genre: this.newNovel.genre.trim() || '',
+          description: this.newNovel.description.trim() || '',
+          tags: [...this.newNovel.tags],
+          filePath: this.newNovel.filePath.trim(),
+          coverImage: this.newNovel.coverImage.trim(),
+          status: 'unread',
+          readProgress: 0,
+          readTime: 0,
+          addedDate: new Date().toISOString()
+        }
+        
+        const novel = await novelManager.addNovel(novelData)
+        this.novels.push(novel)
+        this.closeAddNovelDialog()
+        this.showNotification('添加成功', `小说 "${novel.name}" 已添加`)
+      } catch (error) {
+        console.error('添加小说失败:', error)
+        alert(`添加小说失败: ${error.message}`)
+      }
+    },
+    showNovelDetail(novel) {
+      this.currentNovel = novel
+      this.showDetailModal = true
+      this.showContextMenu = false
+    },
+    closeNovelDetail() {
+      this.showDetailModal = false
+      this.currentNovel = null
+    },
+    showNovelContextMenu(event, novel) {
+      event.preventDefault()
+      this.selectedNovel = novel
+      this.contextMenuPos = { x: event.clientX, y: event.clientY }
+      this.showContextMenu = true
+    },
+    editNovel(novel) {
+      this.showContextMenu = false
+      this.showDetailModal = false
+      if (!novel) return
+      this.editNovelForm = {
+        id: novel.id,
+        name: novel.name || '',
+        author: novel.author || '',
+        genre: novel.genre || '',
+        description: novel.description || '',
+        tags: Array.isArray(novel.tags) ? [...novel.tags] : [],
+        status: novel.status || 'unread',
+        readProgress: novel.readProgress || 0
+      }
+      this.editTagInput = ''
+      this.showEditDialog = true
+    },
+    closeEditNovelDialog() {
+      this.showEditDialog = false
+    },
+    addEditTag() {
+      const tag = this.editTagInput.trim()
+      if (tag && !this.editNovelForm.tags.includes(tag)) {
+        this.editNovelForm.tags.push(tag)
+        this.editTagInput = ''
+      }
+    },
+    removeEditTag(index) {
+      this.editNovelForm.tags.splice(index, 1)
+    },
+    async saveEditedNovel() {
+      try {
+        const index = this.novels.findIndex(n => n.id === this.editNovelForm.id)
+        if (index === -1) {
+          alert('未找到要编辑的小说')
+          return
+        }
+        
+        const updateData = {
+          name: this.editNovelForm.name.trim(),
+          author: this.editNovelForm.author.trim(),
+          genre: this.editNovelForm.genre.trim(),
+          description: this.editNovelForm.description.trim(),
+          tags: [...this.editNovelForm.tags],
+          status: this.editNovelForm.status,
+          readProgress: Math.max(0, Math.min(100, this.editNovelForm.readProgress))
+        }
+        
+        await novelManager.updateNovel(this.editNovelForm.id, updateData)
+        this.novels[index] = { ...this.novels[index], ...updateData }
+        this.showNotification('保存成功', '小说信息已更新')
+        this.closeEditNovelDialog()
+      } catch (error) {
+        console.error('保存编辑失败:', error)
+        alert('保存编辑失败: ' + error.message)
+      }
+    },
+    removeNovel(novel) {
+      if (confirm(`确定要删除小说 "${novel.name}" 吗？`)) {
+        const index = this.novels.findIndex(n => n.id === novel.id)
+        if (index > -1) {
+          this.novels.splice(index, 1)
+          novelManager.deleteNovel(novel.id)
+        }
+      }
+      this.showContextMenu = false
+    },
+    async openNovelReader(novel) {
+      try {
+        if (!novel.filePath) {
+          alert('小说文件路径不存在')
+          return
+        }
+        
+        console.log('=== 开始打开小说文件 ===')
+        console.log('小说名称:', novel.name)
+        console.log('文件路径:', novel.filePath)
+        console.log('Electron API 可用:', !!window.electronAPI)
+        console.log('openExternal API 可用:', !!(window.electronAPI && window.electronAPI.openExternal))
+        
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          console.log('正在调用 openExternal API...')
+          const result = await window.electronAPI.openExternal(novel.filePath)
+          console.log('openExternal 返回结果:', result)
+          
+          if (result.success) {
+            console.log('✅ 小说文件已用默认程序打开')
+            this.showNotification('打开成功', `"${novel.name}" 已用默认程序打开`)
+            
+            // 更新阅读统计
+            await this.updateReadingStats(novel)
+          } else {
+            console.error('❌ 打开小说文件失败:', result.error)
+            alert(`打开小说文件失败: ${result.error}`)
+          }
+        } else {
+          console.log('❌ Electron API 不可用，使用降级处理')
+          // 降级处理：在浏览器中显示文件路径
+          alert(`小说文件位置:\n${novel.filePath}\n\n请手动打开此文件进行阅读`)
+        }
+        
+        this.closeNovelDetail()
+      } catch (error) {
+        console.error('❌ 打开小说阅读器失败:', error)
+        console.error('错误详情:', error.stack)
+        alert(`打开小说失败: ${error.message}`)
+      }
+    },
+    async openNovelFolder(novel) {
+      try {
+        if (!novel.filePath) {
+          alert('小说文件路径不存在')
+          return
+        }
+        
+        if (window.electronAPI && window.electronAPI.openFileFolder) {
+          const result = await window.electronAPI.openFileFolder(novel.filePath)
+          if (result.success) {
+            console.log('已打开小说文件夹:', result.folderPath)
+            this.showNotification('文件夹已打开', `已打开小说文件夹: ${result.folderPath}`)
+          } else {
+            console.error('打开文件夹失败:', result.error)
+            alert(`打开文件夹失败: ${result.error}`)
+          }
+        } else {
+          alert(`小说文件位置:\n${novel.filePath}`)
+        }
+      } catch (error) {
+        console.error('打开小说文件夹失败:', error)
+        alert(`打开文件夹失败: ${error.message}`)
+      }
+    },
+    getStatusText(status) {
+      const statusMap = {
+        unread: '未读',
+        reading: '阅读中',
+        completed: '已读完',
+        paused: '暂停'
+      }
+      return statusMap[status] || '未知'
+    },
+    formatReadTime(minutes) {
+      if (!minutes) return '未阅读'
+      if (minutes < 60) {
+        return `${minutes} 分钟`
+      } else if (minutes < 1440) {
+        const hours = Math.floor(minutes / 60)
+        const mins = minutes % 60
+        return `${hours} 小时 ${mins} 分钟`
+      } else {
+        const days = Math.floor(minutes / 1440)
+        const hours = Math.floor((minutes % 1440) / 60)
+        return `${days} 天 ${hours} 小时`
+      }
+    },
+    formatLastRead(dateString) {
+      if (!dateString) return '从未阅读'
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffTime = Math.abs(now - date)
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
+      const diffMinutes = Math.floor(diffTime / (1000 * 60))
+      
+      if (diffDays === 0) {
+        if (diffMinutes < 1) return '刚刚'
+        if (diffMinutes < 60) return `${diffMinutes}分钟前`
+        if (diffHours < 24) return `${diffHours}小时前`
+      }
+      
+      if (diffDays === 1) return '昨天'
+      if (diffDays < 7) return `${diffDays}天前`
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
+      return this.formatDateTime(date)
+    },
+    formatDate(dateString) {
+      if (!dateString) return '未知'
+      const date = new Date(dateString)
+      return this.formatDateTime(date)
+    },
+    formatDateTime(date) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+    },
+    formatFileSize(bytes) {
+      if (!bytes) return '未知'
+      if (bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    },
+    formatNumber(num) {
+      if (!num) return '0'
+      return num.toLocaleString()
+    },
+    resolveCoverImage(imagePath) {
+      if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
+        return '/default-novel.svg'
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+        return imagePath
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
+        return imagePath
+      }
+      if (this.imageCache[imagePath]) return this.imageCache[imagePath]
+      
+      if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+        window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
+          if (dataUrl) {
+            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
+          } else {
+            this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
+          }
+        }).catch(() => {
+          this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
+        })
+      } else {
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+      }
+      
+      return this.imageCache[imagePath] || '/default-novel.svg'
+    },
+    handleImageError(event) {
+      event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
+    },
+    showNotification(title, message) {
+      if (window.electronAPI && window.electronAPI.showNotification) {
+        window.electronAPI.showNotification(title, message)
+      } else {
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body: message })
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification(title, { body: message })
+            }
+          })
+        }
+      }
+    },
+    async loadNovels() {
+      this.novels = await novelManager.loadNovels()
+    },
+    async updateReadingStats(novel) {
+      try {
+        // 更新最后阅读时间
+        novel.lastRead = new Date().toISOString()
+        
+        // 如果是第一次阅读，记录第一次阅读时间
+        if (!novel.firstRead) {
+          novel.firstRead = new Date().toISOString()
+        }
+        
+        // 更新阅读状态为"阅读中"（如果当前是未读状态）
+        if (novel.status === 'unread') {
+          novel.status = 'reading'
+        }
+        
+        // 保存更新后的数据
+        await novelManager.updateNovel(novel.id, {
+          lastRead: novel.lastRead,
+          firstRead: novel.firstRead,
+          status: novel.status
+        })
+        
+        console.log('阅读统计已更新:', novel.name)
+      } catch (error) {
+        console.error('更新阅读统计失败:', error)
+      }
+    },
+    // 阅读器相关方法
+    async selectNovelForReading(novel) {
+      try {
+        console.log('选择小说进行阅读:', novel.name)
+        this.currentReadingNovel = novel
+        this.currentPage = 1
+        await this.loadNovelContent()
+        await this.updateReadingStats(novel)
+      } catch (error) {
+        console.error('选择小说失败:', error)
+        alert(`选择小说失败: ${error.message}`)
+      }
+    },
+    async loadNovelContent() {
+      if (!this.currentReadingNovel || !this.currentReadingNovel.filePath) {
+        return
+      }
+      
+      try {
+        this.loadingContent = true
+        console.log('正在加载小说内容:', this.currentReadingNovel.filePath)
+        
+        if (window.electronAPI && window.electronAPI.readTextFile) {
+          const result = await window.electronAPI.readTextFile(this.currentReadingNovel.filePath)
+          if (result.success && result.content) {
+            this.novelContent = result.content
+            this.totalPages = Math.ceil(this.novelContent.length / this.wordsPerPage)
+            console.log('小说内容加载成功，总页数:', this.totalPages)
+          } else {
+            console.error('加载小说内容失败:', result.error)
+            this.novelContent = ''
+          }
+        } else {
+          console.error('readTextFile API 不可用')
+          this.novelContent = ''
+        }
+      } catch (error) {
+        console.error('加载小说内容失败:', error)
+        this.novelContent = ''
+      } finally {
+        this.loadingContent = false
+      }
+    },
+    closeReader() {
+      this.currentReadingNovel = null
+      this.novelContent = ''
+      this.currentPage = 1
+      this.totalPages = 1
+    },
+    nextPage() {
+      if (this.canGoNext) {
+        this.currentPage++
+        this.updateReadingProgress()
+      }
+    },
+    previousPage() {
+      if (this.canGoPrevious) {
+        this.currentPage--
+        this.updateReadingProgress()
+      }
+    },
+    updateReadingProgress() {
+      if (!this.currentReadingNovel || !this.novelContent) return
+      
+      const progress = Math.round((this.currentPage / this.totalPages) * 100)
+      this.currentReadingNovel.readProgress = progress
+      
+      // 保存进度
+      novelManager.updateNovel(this.currentReadingNovel.id, {
+        readProgress: progress
+      })
+    },
+    showReaderSettings() {
+      // TODO: 实现阅读设置对话框
+      console.log('显示阅读设置')
+    },
+    addBookmark() {
+      // TODO: 实现添加书签功能
+      console.log('添加书签')
+    }
+  },
+  async mounted() {
+    await this.loadNovels()
+    
+    // 点击其他地方关闭右键菜单
+    document.addEventListener('click', () => {
+      this.showContextMenu = false
+    })
   }
 }
 </script>
@@ -33,53 +1166,1182 @@ export default {
 <style scoped>
 .novel-view {
   padding: 20px;
+  height: 100%;
+  overflow-y: auto;
 }
 
-.view-header {
-  margin-bottom: 30px;
+/* 主要内容区域 */
+.novel-main-content {
+  display: flex;
+  gap: 20px;
+  height: calc(100vh - 120px);
 }
 
-.view-header h3 {
-  margin: 0 0 10px 0;
+/* 小说列表区域 */
+.novel-list-section {
+  flex: 1;
+  transition: flex 0.3s ease;
+}
+
+.novel-list-section.with-reader {
+  flex: 0 0 50%;
+}
+
+/* 阅读器区域 */
+.reader-section {
+  flex: 0 0 50%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+/* 阅读器头部 */
+.reader-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.reader-title h3 {
+  margin: 0 0 5px 0;
   color: var(--text-primary);
-  font-size: 24px;
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
-.view-header p {
+.reader-author {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 0.9rem;
 }
 
-.content-area {
-  min-height: 400px;
+.reader-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-reader-settings,
+.btn-add-bookmark,
+.btn-external-reader {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-reader-settings:hover,
+.btn-add-bookmark:hover,
+.btn-external-reader:hover {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+/* 阅读进度 */
+.reader-progress {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* 阅读内容 */
+.reader-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--bg-primary);
+}
+
+.novel-text {
+  line-height: 1.8;
+  font-size: 16px;
+  color: var(--text-primary);
+  text-align: justify;
+  word-break: break-word;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.no-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+}
+
+.btn-retry {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.3s ease;
+}
+
+.btn-retry:hover {
+  background: var(--accent-hover);
+}
+
+/* 阅读器底部 */
+.reader-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.reader-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-prev,
+.btn-next {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.3s ease;
+}
+
+.btn-prev:hover:not(:disabled),
+.btn-next:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-prev:disabled,
+.btn-next:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* 关闭阅读器按钮 */
+.btn-close-reader {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-close-reader:hover {
+  background: #dc2626;
+}
+
+/* 选中状态的小说卡片 */
+.novel-card.selected {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(102, 192, 244, 0.2);
+}
+
+/* 工具栏样式 */
+.novel-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-add-novel {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.3s ease;
+}
+
+.btn-add-novel:hover {
+  background: var(--accent-hover);
+}
+
+.btn-icon {
+  font-size: 1.2rem;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  padding: 8px 35px 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  width: 250px;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  right: 10px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-select, .filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sort-select:focus, .filter-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* 小说网格样式 */
+.novels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 10px 0;
+}
+
+.novel-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+.novel-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px var(--shadow-medium);
+  border-color: var(--accent-color);
+}
+
+.novel-cover {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+}
+
+.novel-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.novel-card:hover .novel-cover img {
+  transform: scale(1.05);
+}
+
+.novel-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.placeholder {
+.novel-card:hover .novel-overlay {
+  opacity: 1;
+}
+
+.read-button {
+  background: var(--accent-color);
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.read-button:hover {
+  background: var(--accent-hover);
+  transform: scale(1.1);
+}
+
+.novel-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.novel-status.unread {
+  background: #6b7280;
+  color: white;
+}
+
+.novel-status.reading {
+  background: #3b82f6;
+  color: white;
+}
+
+.novel-status.completed {
+  background: #10b981;
+  color: white;
+}
+
+.novel-status.paused {
+  background: #f59e0b;
+  color: white;
+}
+
+.novel-info {
+  padding: 15px;
+}
+
+.novel-title {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.novel-author {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.novel-genre {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+  font-style: italic;
+}
+
+.novel-description {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.novel-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.novel-tag {
+  background: var(--accent-color);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.novel-tag-more {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.novel-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-color);
+  transition: width 0.3s ease;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.read-progress, .read-time {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  transition: color 0.3s ease;
+}
+
+.last-read {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  transition: color 0.3s ease;
+}
+
+/* 空状态样式 */
+.empty-state {
   text-align: center;
-  padding: 40px;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.empty-state h3 {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  transition: color 0.3s ease;
+}
+
+.empty-state p {
+  margin-bottom: 30px;
+  transition: color 0.3s ease;
+}
+
+.btn-add-first-novel {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.btn-add-first-novel:hover {
+  background: var(--accent-hover);
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
   background: var(--bg-secondary);
   border-radius: 12px;
-  border: 2px dashed var(--border-color);
+  width: 500px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px var(--shadow-medium);
+  transition: background-color 0.3s ease;
 }
 
-.placeholder-icon {
-  font-size: 48px;
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  color: var(--text-primary);
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
   margin-bottom: 20px;
 }
 
-.placeholder h4 {
-  margin: 0 0 15px 0;
+.form-group label {
+  display: block;
   color: var(--text-primary);
-  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: color 0.3s ease;
 }
 
-.placeholder p {
-  margin: 5px 0;
+.required {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.form-input, .form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.form-input:focus, .form-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+/* 标签输入样式 */
+.tags-input-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  padding: 8px;
+  transition: all 0.3s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  gap: 4px;
+  transition: background 0.3s ease;
+}
+
+.tag-item:hover {
+  background: var(--accent-hover);
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 4px 0;
+  outline: none;
+}
+
+.tag-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.file-input-group {
+  display: flex;
+  gap: 10px;
+}
+
+.file-input-group .form-input {
+  flex: 1;
+}
+
+.btn-browse {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.btn-browse:hover {
+  background: var(--accent-hover);
+}
+
+.file-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel:hover {
+  background: var(--bg-secondary);
+}
+
+.btn-confirm {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.3s ease;
+}
+
+.btn-confirm:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  position: fixed;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px var(--shadow-medium);
+  z-index: 1001;
+  min-width: 150px;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+}
+
+.context-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.context-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.context-icon {
+  font-size: 1rem;
+}
+
+/* 小说详情页面样式 */
+.novel-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.novel-detail-content {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  width: 800px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px var(--shadow-medium);
+  transition: background-color 0.3s ease;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
   color: var(--text-secondary);
-  font-size: 14px;
+  transition: color 0.3s ease;
+}
+
+.detail-close:hover {
+  color: var(--text-primary);
+}
+
+.detail-body {
+  display: flex;
+  gap: 30px;
+  padding: 30px;
+}
+
+.detail-cover {
+  flex-shrink: 0;
+  width: 300px;
+  height: 400px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 25px var(--shadow-medium);
+}
+
+.detail-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-title {
+  color: var(--text-primary);
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.detail-author {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.detail-genre {
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  margin: 0 0 15px 0;
+  font-style: italic;
+  transition: color 0.3s ease;
+}
+
+.detail-description {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+  transition: background-color 0.3s ease;
+}
+
+.description-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.description-content {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  transition: color 0.3s ease;
+}
+
+.detail-tags {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+  transition: background-color 0.3s ease;
+}
+
+.tags-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  transition: color 0.3s ease;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-tag {
+  background: var(--accent-color);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.detail-tag:hover {
+  background: var(--accent-hover);
+}
+
+.detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  padding: 20px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.stat-value {
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.detail-actions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.btn-read-novel {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.3s ease;
+  flex: 1;
+  justify-content: center;
+}
+
+.btn-read-novel:hover {
+  background: var(--accent-hover);
+}
+
+.btn-edit-novel, .btn-remove-novel {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-edit-novel:hover {
+  background: var(--bg-secondary);
+}
+
+.btn-remove-novel {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.btn-remove-novel:hover {
+  background: #fecaca;
+}
+
+.btn-open-folder {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 12px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-open-folder:hover {
+  background: var(--bg-secondary);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .novels-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+  }
+  
+  .novel-cover {
+    height: 200px;
+  }
+  
+  .toolbar-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .search-input {
+    width: 100%;
+  }
+  
+  .toolbar-right {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  
+  .modal-content {
+    width: 95vw;
+    margin: 20px;
+  }
+  
+  .detail-body {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .detail-cover {
+    width: 100%;
+    height: 250px;
+  }
+  
+  .detail-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .detail-actions {
+    flex-direction: column;
+  }
 }
 </style>
