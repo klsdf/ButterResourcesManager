@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectImageFile: () => ipcRenderer.invoke('select-image-file'),
   selectVideoFile: () => ipcRenderer.invoke('select-video-file'),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+  listImageFiles: (folderPath) => ipcRenderer.invoke('list-image-files', folderPath),
   
   // 文件URL处理
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),

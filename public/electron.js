@@ -22,7 +22,9 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      // 允许在 http(s) 环境下加载 file:// 资源（用于本地视频缩略图生成）
+      webSecurity: false
     },
     icon: path.join(__dirname, 'butter-modern.svg'), // 应用图标
     titleBarStyle: 'default',
@@ -217,15 +219,20 @@ ipcMain.handle('select-image-file', async () => {
 })
 
 ipcMain.handle('select-folder', async () => {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: '选择文件夹',
-    properties: ['openDirectory']
-  })
-  
-  if (!result.canceled && result.filePaths.length > 0) {
-    return result.filePaths[0]
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择文件夹',
+      properties: ['openDirectory']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return { success: true, path: result.filePaths[0] }
+    }
+    return { success: false, error: '未选择文件夹' }
+  } catch (error) {
+    console.error('选择文件夹失败:', error)
+    return { success: false, error: error.message }
   }
-  return null
 })
 
 // 选择视频文件
@@ -347,85 +354,28 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
         }
         
         body {
+            margin: 0;
+            padding: 0;
             background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             height: 100vh;
+            overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
         .video-container {
             position: relative;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         
         video {
-            max-width: 100%;
-            max-height: 100%;
-            outline: none;
-        }
-        
-        .controls {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 25px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        
-        .video-container:hover .controls {
-            opacity: 1;
-        }
-        
-        .control-btn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 3px;
-            transition: background 0.2s ease;
-        }
-        
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .progress-container {
-            width: 200px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
-            cursor: pointer;
-            position: relative;
-        }
-        
-        .progress-bar {
+            width: 100%;
             height: 100%;
-            background: #007acc;
-            border-radius: 2px;
-            width: 0%;
-            transition: width 0.1s ease;
-        }
-        
-        .time-display {
-            color: white;
-            font-size: 14px;
-            min-width: 80px;
-            text-align: center;
+            object-fit: contain;
+            outline: none;
         }
         
         .error-message {
@@ -448,33 +398,33 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
         <video id="videoPlayer" controls style="display: none;">
             您的浏览器不支持视频播放。
         </video>
-        <div class="controls" style="display: none;">
-            <button class="control-btn" id="playPauseBtn">⏸️</button>
-            <div class="progress-container" id="progressContainer">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-            <button class="control-btn" id="fullscreenBtn">⛶</button>
-        </div>
     </div>
     
     <script>
         const video = document.getElementById('videoPlayer');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressContainer = document.getElementById('progressContainer');
-        const timeDisplay = document.getElementById('timeDisplay');
-        const fullscreenBtn = document.getElementById('fullscreenBtn');
         const loadingMessage = document.getElementById('loadingMessage');
-        const controls = document.querySelector('.controls');
         
         // 获取视频文件路径
         const videoPath = '${filePath.replace(/\\/g, '/')}';
         console.log('视频文件路径:', videoPath);
         
+        // 检查视频格式支持
+        function checkVideoFormatSupport(filePath) {
+            const extension = filePath.toLowerCase().split('.').pop();
+            const supportedFormats = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'mkv', 'flv', 'wmv'];
+            return supportedFormats.includes(extension);
+        }
+        
         // 设置视频源
         function setupVideoSource() {
             try {
+                // 检查文件格式
+                if (!checkVideoFormatSupport(videoPath)) {
+                    const extension = videoPath.toLowerCase().split('.').pop();
+                    showError('不支持的视频格式: ' + extension + '\\n\\n建议使用外部播放器播放此文件');
+                    return;
+                }
+                
                 // 在Electron环境中，使用file://协议
                 const videoUrl = 'file://' + videoPath;
                 console.log('设置视频URL:', videoUrl);
@@ -482,7 +432,6 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
                 video.src = videoUrl;
                 video.style.display = 'block';
                 loadingMessage.style.display = 'none';
-                controls.style.display = 'flex';
                 
                 // 尝试播放
                 video.load();
@@ -494,56 +443,48 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
         
         // 显示错误信息
         function showError(message) {
-            document.body.innerHTML = '<div class="error-message">' + message + '</div>';
+            const errorHtml = '<div class="error-message">' +
+                '<h3>❌ 视频播放失败</h3>' +
+                '<p>' + message + '</p>' +
+                '<div style="margin-top: 20px;">' +
+                    '<button onclick="openWithExternalPlayer()" style="' +
+                        'background: #007acc;' +
+                        'color: white;' +
+                        'border: none;' +
+                        'padding: 10px 20px;' +
+                        'border-radius: 5px;' +
+                        'cursor: pointer;' +
+                        'margin-right: 10px;' +
+                    '">使用外部播放器打开</button>' +
+                    '<button onclick="window.close()" style="' +
+                        'background: #666;' +
+                        'color: white;' +
+                        'border: none;' +
+                        'padding: 10px 20px;' +
+                        'border-radius: 5px;' +
+                        'cursor: pointer;' +
+                    '">关闭窗口</button>' +
+                '</div>' +
+            '</div>';
+            document.body.innerHTML = errorHtml;
         }
         
-        // 播放/暂停控制
-        playPauseBtn.addEventListener('click', () => {
-            if (video.paused) {
-                video.play();
-                playPauseBtn.textContent = '⏸️';
-            } else {
-                video.pause();
-                playPauseBtn.textContent = '▶️';
+        // 使用外部播放器打开视频
+        function openWithExternalPlayer() {
+            try {
+                // 通过 Electron API 打开外部播放器
+                if (window.electronAPI && window.electronAPI.openExternal) {
+                    window.electronAPI.openExternal(videoPath);
+                    window.close();
+                } else {
+                    alert('无法打开外部播放器，请手动打开文件: ' + videoPath);
+                }
+            } catch (error) {
+                console.error('打开外部播放器失败:', error);
+                alert('打开外部播放器失败: ' + error.message);
             }
-        });
-        
-        // 进度条控制
-        progressContainer.addEventListener('click', (e) => {
-            const rect = progressContainer.getBoundingClientRect();
-            const pos = (e.clientX - rect.left) / rect.width;
-            video.currentTime = pos * video.duration;
-        });
-        
-        // 更新进度条
-        video.addEventListener('timeupdate', () => {
-            const progress = (video.currentTime / video.duration) * 100;
-            progressBar.style.width = progress + '%';
-            
-            // 更新时间显示
-            const current = formatTime(video.currentTime);
-            const total = formatTime(video.duration);
-            timeDisplay.textContent = current + ' / ' + total;
-        });
-        
-        // 全屏控制
-        fullscreenBtn.addEventListener('click', () => {
-            if (video.requestFullscreen) {
-                video.requestFullscreen();
-            } else if (video.webkitRequestFullscreen) {
-                video.webkitRequestFullscreen();
-            } else if (video.msRequestFullscreen) {
-                video.msRequestFullscreen();
-            }
-        });
-        
-        // 格式化时间
-        function formatTime(seconds) {
-            if (isNaN(seconds)) return '00:00';
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
         }
+        
         
         // 视频加载完成
         video.addEventListener('loadedmetadata', () => {
@@ -566,25 +507,34 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
             console.error('视频播放错误:', e);
             console.error('错误详情:', video.error);
             let errorMessage = '视频加载失败';
+            let suggestion = '';
+            
             if (video.error) {
                 switch(video.error.code) {
                     case 1:
                         errorMessage = '视频加载被中止';
+                        suggestion = '请检查网络连接或文件是否被占用';
                         break;
                     case 2:
                         errorMessage = '网络错误导致视频下载失败';
+                        suggestion = '请检查网络连接或文件路径是否正确';
                         break;
                     case 3:
                         errorMessage = '视频解码错误';
+                        suggestion = '视频文件可能损坏，建议使用外部播放器';
                         break;
                     case 4:
                         errorMessage = '视频格式不支持或文件损坏';
+                        suggestion = '此视频格式不被浏览器支持，建议使用外部播放器';
                         break;
                     default:
                         errorMessage = '未知的视频播放错误';
+                        suggestion = '请尝试使用外部播放器';
                 }
             }
-            showError(errorMessage + '\\n\\n请检查：\\n1. 文件是否存在\\n2. 文件格式是否支持\\n3. 文件是否损坏');
+            
+            const fullMessage = errorMessage + '\\n\\n' + suggestion + '\\n\\n请检查：\\n1. 文件是否存在\\n2. 文件格式是否支持\\n3. 文件是否损坏';
+            showError(fullMessage);
         });
         
         // 键盘快捷键
@@ -594,10 +544,8 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
                     e.preventDefault();
                     if (video.paused) {
                         video.play();
-                        playPauseBtn.textContent = '⏸️';
                     } else {
                         video.pause();
-                        playPauseBtn.textContent = '▶️';
                     }
                     break;
                 case 'Escape':
@@ -644,22 +592,35 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
 ipcMain.handle('get-file-url', async (event, filePath) => {
   try {
     if (!filePath || filePath.trim() === '') {
-      return null
+      return { success: false, error: '文件路径为空' }
     }
     
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
       console.warn('文件不存在:', filePath)
-      return null
+      return { success: false, error: '文件不存在' }
     }
     
     // 在Electron中，使用file://协议来访问本地文件
-    const fileUrl = `file://${path.resolve(filePath).replace(/\\/g, '/')}`
+    // 对路径进行正确的编码处理
+    const resolvedPath = path.resolve(filePath)
+    const normalizedPath = resolvedPath.replace(/\\/g, '/')
+    
+    // 对路径进行编码，处理中文和特殊字符
+    const encodedPath = normalizedPath.split('/').map(seg => {
+      if (seg.includes(':')) {
+        // 处理 Windows 盘符（如 C:）
+        return seg
+      }
+      return encodeURIComponent(seg)
+    }).join('/')
+    
+    const fileUrl = `file://${encodedPath}`
     console.log('生成文件URL:', fileUrl)
-    return fileUrl
+    return { success: true, url: fileUrl }
   } catch (error) {
     console.error('获取文件URL失败:', error)
-    return null
+    return { success: false, error: error.message }
   }
 })
 
@@ -1419,6 +1380,28 @@ ipcMain.handle('open-file-folder', async (event, filePath) => {
     return { success: true, folderPath: dirPath }
   } catch (error) {
     console.error('打开文件夹失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 列出指定文件夹下的图片文件
+ipcMain.handle('list-image-files', async (event, folderPath) => {
+  try {
+    if (!folderPath) {
+      return { success: false, error: '未提供文件夹路径' }
+    }
+
+    const supportedExt = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'])
+    const entries = fs.readdirSync(folderPath, { withFileTypes: true })
+    const files = entries
+      .filter(e => e.isFile())
+      .map(e => path.join(folderPath, e.name))
+      .filter(full => supportedExt.has(path.extname(full).toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+
+    return { success: true, files }
+  } catch (error) {
+    console.error('列出图片文件失败:', error)
     return { success: false, error: error.message }
   }
 })

@@ -7,6 +7,7 @@ class SaveManager {
     this.dataDirectory = 'SaveData'
     this.filePaths = {
       games: `${this.dataDirectory}/games.json`,
+      images: `${this.dataDirectory}/images.json`,
       videos: `${this.dataDirectory}/videos.json`,
       settings: `${this.dataDirectory}/settings.json`,
       audios: `${this.dataDirectory}/audios.json`,
@@ -18,6 +19,7 @@ class SaveManager {
     // 默认数据结构
     this.defaultData = {
       games: [],
+      images: [],
       settings: {
         theme: 'auto',
         sidebarWidth: 280,
@@ -177,6 +179,48 @@ class SaveManager {
     } catch (error) {
       console.error('创建数据目录失败:', error)
       return false
+    }
+  }
+
+  /**
+   * 保存图片（漫画专辑）数据到本地 JSON 文件
+   * @param {Array} images - 图片专辑数据数组
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveImages(images) {
+    try {
+      await this.ensureDataDirectory()
+      const data = {
+        images: images,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+      const success = await this.writeJsonFile(this.filePaths.images, data)
+      if (success) {
+        console.log('图片数据保存成功:', images.length, '个专辑')
+      }
+      return success
+    } catch (error) {
+      console.error('保存图片数据失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从本地 JSON 文件加载图片（漫画专辑）数据
+   * @returns {Promise<Array>} 图片专辑数据数组
+   */
+  async loadImages() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.images)
+      if (data && Array.isArray(data.images)) {
+        console.log('加载图片数据:', data.images.length, '个专辑')
+        return data.images
+      }
+      return []
+    } catch (error) {
+      console.error('加载图片数据失败:', error)
+      return []
     }
   }
 

@@ -326,6 +326,93 @@
       </div>
     </div>
   </div>
+
+  <!-- 编辑视频对话框 -->
+  <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>编辑视频</h3>
+        <button class="modal-close" @click="closeEditDialog">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>名称</label>
+          <input type="text" v-model="editVideoForm.name">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>系列</label>
+            <input type="text" v-model="editVideoForm.series">
+          </div>
+          <div class="form-group">
+            <label>类型</label>
+            <input type="text" v-model="editVideoForm.genre">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>导演</label>
+            <input type="text" v-model="editVideoForm.director">
+          </div>
+          <div class="form-group">
+            <label>年份</label>
+            <input type="number" v-model="editVideoForm.year" min="1900" max="2030">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>演员</label>
+          <input type="text" v-model="editActorsInput" placeholder="用逗号分隔多个演员" @blur="parseEditActors">
+        </div>
+        <div class="form-group">
+          <label>标签</label>
+          <input type="text" v-model="editTagsInput" placeholder="用逗号分隔多个标签" @blur="parseEditTags">
+        </div>
+        <div class="form-group">
+          <label>描述</label>
+          <textarea v-model="editVideoForm.description" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>视频文件</label>
+          <div class="file-input-group">
+            <input type="text" v-model="editVideoForm.filePath" readonly>
+            <button type="button" class="btn-select-file" @click="browseEditVideoFile">选择文件</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>缩略图</label>
+          <div class="file-input-group">
+            <input type="text" v-model="editVideoForm.thumbnail" readonly>
+            <button type="button" class="btn-select-file" @click="browseEditThumbnailFile">选择图片</button>
+            <button type="button" class="btn-select-file" @click="randomizeThumbnail">随机封面</button>
+          </div>
+          <div class="thumb-preview-wrapper">
+            <img 
+              v-if="editVideoForm.thumbnail"
+              class="thumb-preview"
+              :src="resolveThumbnail(editVideoForm.thumbnail)"
+              :alt="editVideoForm.name || 'thumbnail'"
+              @error="(e)=>{ e.target.style.display='none' }"
+            >
+            <div v-else class="thumb-placeholder">无缩略图</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>时长 (分钟)</label>
+            <input type="number" v-model.number="editVideoForm.duration" min="0">
+          </div>
+          <div class="form-group">
+            <label>评分 (1-5)</label>
+            <input type="number" v-model.number="editVideoForm.rating" min="0" max="5" step="0.1">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" @click="closeEditDialog">取消</button>
+        <button type="button" class="btn-confirm" @click="saveEditedVideo">保存</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -358,7 +445,26 @@ export default {
         rating: 0
       },
       actorsInput: '',
-      tagsInput: ''
+      tagsInput: '',
+      // 编辑相关
+      showEditDialog: false,
+      editVideoForm: {
+        id: '',
+        name: '',
+        description: '',
+        tags: [],
+        actors: [],
+        series: '',
+        director: '',
+        genre: '',
+        year: '',
+        duration: 0,
+        filePath: '',
+        thumbnail: '',
+        rating: 0
+      },
+      editActorsInput: '',
+      editTagsInput: ''
     }
   },
   computed: {
@@ -460,6 +566,15 @@ export default {
           if (!this.newVideo.name || !this.newVideo.name.trim()) {
             this.newVideo.name = this.extractNameFromPath(filePath)
           }
+          // 自动生成缩略图（若未手动设置）
+          if (!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) {
+            try {
+              const thumb = await this.generateThumbnail(filePath)
+              if (thumb) this.newVideo.thumbnail = thumb
+            } catch (e) {
+              console.warn('自动生成缩略图失败:', e)
+            }
+          }
         }
       } catch (error) {
         console.error('选择视频文件失败:', error)
@@ -492,6 +607,15 @@ export default {
       this.parseTags()
 
       try {
+        // 若未设置缩略图且存在视频文件，尝试生成一张
+        if ((!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) && this.newVideo.filePath) {
+          try {
+            const thumb = await this.generateThumbnail(this.newVideo.filePath)
+            if (thumb) this.newVideo.thumbnail = thumb
+          } catch (e) {
+            console.warn('生成缩略图失败，跳过:', e)
+          }
+        }
         await this.videoManager.addVideo(this.newVideo)
         await this.loadVideos()
         this.closeAddVideoDialog()
@@ -541,8 +665,125 @@ export default {
     },
 
     editVideo(video) {
-      // TODO: 实现编辑功能
-      alert('编辑功能待实现')
+      if (!video) return
+      this.showDetailDialog = false
+      this.editVideoForm = {
+        id: video.id,
+        name: video.name || '',
+        description: video.description || '',
+        tags: Array.isArray(video.tags) ? [...video.tags] : [],
+        actors: Array.isArray(video.actors) ? [...video.actors] : [],
+        series: video.series || '',
+        director: video.director || '',
+        genre: video.genre || '',
+        year: video.year || '',
+        duration: Number(video.duration) || 0,
+        filePath: video.filePath || '',
+        thumbnail: video.thumbnail || '',
+        rating: Number(video.rating) || 0
+      }
+      this.editActorsInput = (this.editVideoForm.actors || []).join(', ')
+      this.editTagsInput = (this.editVideoForm.tags || []).join(', ')
+      this.showEditDialog = true
+    },
+    closeEditDialog() {
+      this.showEditDialog = false
+    },
+    parseEditActors() {
+      if (this.editActorsInput && this.editActorsInput.trim()) {
+        this.editVideoForm.actors = this.editActorsInput.split(',').map(s => s.trim()).filter(Boolean)
+      } else {
+        this.editVideoForm.actors = []
+      }
+    },
+    parseEditTags() {
+      if (this.editTagsInput && this.editTagsInput.trim()) {
+        this.editVideoForm.tags = this.editTagsInput.split(',').map(s => s.trim()).filter(Boolean)
+      } else {
+        this.editVideoForm.tags = []
+      }
+    },
+    async browseEditVideoFile() {
+      try {
+        const filePath = await window.electronAPI.selectVideoFile()
+        if (filePath) {
+          this.editVideoForm.filePath = filePath
+        }
+      } catch (e) {
+        console.error('选择视频文件失败:', e)
+      }
+    },
+    async browseEditThumbnailFile() {
+      try {
+        const filePath = await window.electronAPI.selectImageFile()
+        if (filePath) {
+          this.editVideoForm.thumbnail = filePath
+        }
+      } catch (e) {
+        console.error('选择缩略图失败:', e)
+      }
+    },
+     async randomizeThumbnail() {
+       try {
+         if (!this.editVideoForm.filePath) {
+           alert('请先选择视频文件')
+           return
+         }
+         
+         console.log('=== 开始生成随机封面 ===')
+         console.log('视频文件路径:', this.editVideoForm.filePath)
+         console.log('路径类型:', typeof this.editVideoForm.filePath)
+         console.log('路径长度:', this.editVideoForm.filePath.length)
+         
+         const thumb = await this.generateThumbnail(this.editVideoForm.filePath)
+         if (thumb) {
+           console.log('✅ 缩略图生成成功，长度:', thumb.length)
+           this.editVideoForm.thumbnail = thumb
+           this.showNotification('缩略图生成', '视频缩略图生成成功')
+         } else {
+           console.warn('⚠️ 缩略图生成失败')
+           // 检查文件扩展名，给出更友好的提示
+           const extension = this.editVideoForm.filePath.toLowerCase().split('.').pop()
+           const supportedFormats = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'mkv', 'flv', 'wmv']
+           
+           if (!supportedFormats.includes(extension)) {
+             alert(`缩略图生成失败：不支持的视频格式 "${extension}"\n\n支持的格式：${supportedFormats.join(', ')}`)
+           } else {
+             alert('缩略图生成失败：\n\n可能的原因：\n1. 视频编码格式不被浏览器支持\n2. 视频文件损坏或无法访问\n3. 文件路径包含特殊字符\n\n建议：\n- 尝试使用其他视频文件\n- 手动选择缩略图图片')
+           }
+         }
+       } catch (e) {
+         console.error('❌ 随机封面失败:', e)
+         console.error('错误堆栈:', e.stack)
+         console.error('错误类型:', e.constructor.name)
+         alert(`随机封面生成失败: ${e.message}\n\n详细信息请查看控制台`)
+       }
+     },
+    async saveEditedVideo() {
+      try {
+        this.parseEditActors()
+        this.parseEditTags()
+        const payload = {
+          name: (this.editVideoForm.name || '').trim(),
+          description: (this.editVideoForm.description || '').trim(),
+          tags: this.editVideoForm.tags,
+          actors: this.editVideoForm.actors,
+          series: (this.editVideoForm.series || '').trim(),
+          director: (this.editVideoForm.director || '').trim(),
+          genre: (this.editVideoForm.genre || '').trim(),
+          year: this.editVideoForm.year,
+          duration: Number(this.editVideoForm.duration) || 0,
+          filePath: (this.editVideoForm.filePath || '').trim(),
+          thumbnail: (this.editVideoForm.thumbnail || '').trim(),
+          rating: Number(this.editVideoForm.rating) || 0
+        }
+        await this.videoManager.updateVideo(this.editVideoForm.id, payload)
+        await this.loadVideos()
+        this.showEditDialog = false
+      } catch (e) {
+        console.error('保存编辑失败:', e)
+        alert('保存编辑失败: ' + e.message)
+      }
     },
 
     async deleteVideo(video) {
@@ -636,6 +877,188 @@ export default {
         alert(`打开文件夹失败: ${error.message}`)
       }
     },
+
+     // 生成视频缩略图：从视频随机时间截取一帧，返回 dataURL
+     async generateThumbnail(filePath) {
+       return new Promise(async (resolve, reject) => {
+         try {
+           if (!filePath) {
+             console.warn('⚠️ generateThumbnail: 文件路径为空')
+             return resolve(null)
+           }
+           
+           console.log('🔍 generateThumbnail 开始处理:', filePath)
+           
+           // 检查文件扩展名，跳过可能不支持的格式
+           const extension = filePath.toLowerCase().split('.').pop()
+           const supportedFormats = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'mkv', 'flv', 'wmv']
+           if (!supportedFormats.includes(extension)) {
+             console.warn('⚠️ 不支持的视频格式:', extension)
+             return resolve(null)
+           }
+           
+           let src = filePath
+           // 优先通过 getFileUrl 生成可加载的 file:// 或安全映射 URL
+           if (window.electronAPI && window.electronAPI.getFileUrl) {
+             try {
+               console.log('📡 调用 getFileUrl API...')
+               const url = await window.electronAPI.getFileUrl(filePath)
+               console.log('📡 getFileUrl 返回:', url)
+               if (url && typeof url === 'string' && url.startsWith('file://')) {
+                 src = url
+                 console.log('✅ 使用 getFileUrl 生成的 URL:', src)
+               } else {
+                 console.warn('⚠️ getFileUrl 返回格式不正确:', url)
+                 // 手动构建 file:// URL
+                 src = this.buildFileUrl(filePath)
+               }
+             } catch (e) {
+               console.warn('⚠️ getFileUrl 调用失败:', e)
+               // 降级：手动构建 file:// URL
+               src = this.buildFileUrl(filePath)
+             }
+           } else {
+             console.warn('⚠️ getFileUrl API 不可用，使用降级方案')
+             src = this.buildFileUrl(filePath)
+           }
+
+           console.log('🎬 创建 video 元素，src:', src)
+           const video = document.createElement('video')
+           video.style.position = 'fixed'
+           video.style.left = '-9999px'
+           video.style.top = '-9999px'
+           video.muted = true
+           video.preload = 'metadata'
+           video.crossOrigin = 'anonymous'
+           video.src = src
+
+           // 设置超时，避免长时间等待
+           const timeout = setTimeout(() => {
+             console.warn('⏰ 视频加载超时')
+             cleanup()
+             resolve(null) // 超时返回 null 而不是 reject
+           }, 10000) // 10秒超时
+
+           const onError = (e) => {
+             console.error('❌ 视频加载错误:', e)
+             console.error('❌ 错误详情:', {
+               error: e,
+               code: video.error?.code,
+               message: video.error?.message,
+               src: video.src,
+               networkState: video.networkState,
+               readyState: video.readyState
+             })
+             
+             // 检查是否是解码器不支持的错误
+             if (video.error?.code === 4 || video.error?.message?.includes('DECODER_ERROR_NOT_SUPPORTED')) {
+               console.warn('⚠️ 视频格式不被浏览器支持，跳过缩略图生成')
+               cleanup()
+               resolve(null) // 返回 null 而不是 reject，让调用方知道生成失败但不影响整体流程
+             } else {
+               cleanup()
+               resolve(null) // 其他错误也返回 null
+             }
+           }
+
+           const cleanup = () => {
+             clearTimeout(timeout)
+             console.log('🧹 清理 video 元素和事件监听器')
+             video.removeEventListener('error', onError)
+             video.removeEventListener('loadedmetadata', onLoadedMeta)
+             video.removeEventListener('seeked', onSeeked)
+             try { 
+               video.pause() 
+               if (video.parentNode) {
+                 video.parentNode.removeChild(video)
+               }
+             } catch (e) {
+               console.warn('清理 video 元素时出错:', e)
+             }
+           }
+
+           const onSeeked = () => {
+             try {
+               console.log('🎯 视频定位完成，开始截取帧...')
+               console.log('📐 视频尺寸:', video.videoWidth, 'x', video.videoHeight)
+               console.log('⏰ 当前时间:', video.currentTime)
+               
+               const canvas = document.createElement('canvas')
+               const width = Math.min(800, video.videoWidth || 800)
+               const height = Math.floor((video.videoHeight || 450) * (width / (video.videoWidth || 800)))
+               canvas.width = width
+               canvas.height = height
+               console.log('🖼️ Canvas 尺寸:', width, 'x', height)
+               
+               const ctx = canvas.getContext('2d')
+               ctx.drawImage(video, 0, 0, width, height)
+               const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+               console.log('✅ 缩略图生成成功，dataURL 长度:', dataUrl.length)
+               cleanup()
+               resolve(dataUrl)
+             } catch (err) {
+               console.error('❌ 截取帧时出错:', err)
+               cleanup()
+               resolve(null) // 截取失败也返回 null
+             }
+           }
+
+           const onLoadedMeta = () => {
+             try {
+               console.log('📊 视频元数据加载完成')
+               console.log('⏱️ 视频时长:', video.duration)
+               console.log('📐 视频尺寸:', video.videoWidth, 'x', video.videoHeight)
+               
+               const duration = Math.max(0, Number(video.duration) || 0)
+               // 在 5% - 80% 之间取一帧，避免黑屏开头或片尾
+               const start = duration * 0.05
+               const end = duration * 0.8
+               const target = isFinite(duration) && duration > 0 ? (start + Math.random() * (end - start)) : 1.0
+               
+               console.log('🎯 目标时间:', target, '(范围:', start, '-', end, ')')
+               video.currentTime = target
+             } catch (err) {
+               console.error('❌ 设置视频时间时出错:', err)
+               cleanup()
+               resolve(null) // 设置时间失败也返回 null
+             }
+           }
+
+           video.addEventListener('error', onError)
+           video.addEventListener('loadedmetadata', onLoadedMeta, { once: true })
+           video.addEventListener('seeked', onSeeked, { once: true })
+
+           // 将元素附加到文档，确保某些浏览器能正确触发事件
+           document.body.appendChild(video)
+           console.log('📎 Video 元素已添加到文档')
+         } catch (e) {
+           console.error('❌ generateThumbnail 外层错误:', e)
+           resolve(null) // 外层错误也返回 null
+         }
+       })
+     },
+
+     // 构建文件URL的辅助方法
+     buildFileUrl(filePath) {
+       try {
+         // 将反斜杠转换为正斜杠，并确保路径以 / 开头
+         const normalized = filePath.replace(/\\/g, '/').replace(/^([A-Za-z]:)/, '/$1')
+         // 对路径进行编码，处理中文和特殊字符
+         const encoded = normalized.split('/').map(seg => {
+           if (seg.includes(':')) {
+             // 处理 Windows 盘符（如 C:）
+             return seg
+           }
+           return encodeURIComponent(seg)
+         }).join('/')
+         const fileUrl = 'file://' + encoded
+         console.log('🔧 手动构建的 file:// URL:', fileUrl)
+         return fileUrl
+       } catch (e) {
+         console.error('构建文件URL失败:', e)
+         return filePath // 降级返回原始路径
+       }
+     },
 
     // 加载设置
     async loadSettings() {
@@ -1268,6 +1691,27 @@ export default {
 .btn-select-file:hover {
   background: var(--bg-secondary);
   border-color: var(--accent-color);
+}
+
+.thumb-preview-wrapper {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.thumb-preview {
+  width: 200px;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-secondary);
+}
+
+.thumb-placeholder {
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 /* 按钮样式 */
