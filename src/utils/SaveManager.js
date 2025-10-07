@@ -35,7 +35,8 @@ class SaveManager {
         screenshotQuality: 90,
         screenshotNotification: true,
         autoOpenScreenshotFolder: false,
-        smartWindowDetection: true
+        smartWindowDetection: true,
+        videoPlayMode: 'external'
       }
     }
   }

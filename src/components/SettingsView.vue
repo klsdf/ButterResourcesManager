@@ -256,11 +256,17 @@
           <!-- 视频设置 -->
           <div v-if="currentCategory === 'videos'" class="settings-section">
             <div class="settings-grid">
-              <!-- 视频相关设置可以在这里添加 -->
-              <div class="empty-state">
-                <div class="empty-icon">🎬</div>
-                <h4>视频设置</h4>
-                <p>视频相关的设置选项将在这里显示</p>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">视频播放方式</span>
+                  <span class="setting-desc">选择视频的播放方式</span>
+                </label>
+                <div class="setting-control">
+                  <select v-model="settings.videoPlayMode" class="setting-select">
+                    <option value="external">使用外部默认播放器</option>
+                    <option value="internal">在本应用新窗口中播放</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -359,7 +365,9 @@ export default {
         screenshotQuality: 90,
         screenshotNotification: true,
         autoOpenScreenshotFolder: false,
-        smartWindowDetection: true
+        smartWindowDetection: true,
+        // 视频播放设置
+        videoPlayMode: 'external'
       }
     }
   },
@@ -448,7 +456,9 @@ export default {
           screenshotQuality: 90,
           screenshotNotification: true,
           autoOpenScreenshotFolder: false,
-          smartWindowDetection: true
+          smartWindowDetection: true,
+          // 视频播放设置
+          videoPlayMode: 'external'
         }
         alert('设置已重置！')
       }

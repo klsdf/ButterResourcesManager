@@ -8,6 +8,8 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 
 // 保持对窗口对象的全局引用
 let mainWindow
+// 持有视频窗口的全局引用，防止被垃圾回收
+let videoWindows = []
 
 function createWindow() {
   // 创建浏览器窗口
@@ -281,6 +283,359 @@ ipcMain.handle('open-external', async (event, filePath) => {
   } catch (error) {
     console.error('❌ 打开外部文件失败:', error)
     console.error('错误堆栈:', error.stack)
+    return { success: false, error: error.message }
+  }
+})
+
+// 打开视频播放窗口
+ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
+  try {
+    console.log('=== Electron: 开始打开视频播放窗口 ===')
+    console.log('视频文件路径:', filePath)
+    console.log('窗口选项:', options)
+    
+    if (!filePath) {
+      console.log('❌ 视频文件路径为空')
+      return { success: false, error: '无效的视频文件路径' }
+    }
+    
+    // 检查文件是否存在
+    const fs = require('fs')
+    if (!fs.existsSync(filePath)) {
+      console.log('❌ 视频文件不存在:', filePath)
+      return { success: false, error: '视频文件不存在' }
+    }
+    
+    // 创建视频播放窗口
+    const videoWindow = new BrowserWindow({
+      width: options.width || 1200,
+      height: options.height || 800,
+      minWidth: 800,
+      minHeight: 600,
+      title: options.title || '视频播放器',
+      resizable: options.resizable !== false,
+      minimizable: options.minimizable !== false,
+      maximizable: options.maximizable !== false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        enableRemoteModule: false,
+        webSecurity: false, // 允许访问本地文件
+        allowRunningInsecureContent: true, // 允许不安全内容
+        preload: path.join(__dirname, 'preload.js')
+      },
+      icon: path.join(__dirname, 'butter-modern.svg'),
+      show: true
+    })
+    // 保持全局引用，防止被GC
+    videoWindows.push(videoWindow)
+    
+    // 创建视频播放页面HTML
+    const videoHtml = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${options.title || '视频播放器'}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        video {
+            max-width: 100%;
+            max-height: 100%;
+            outline: none;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 25px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .video-container:hover .controls {
+            opacity: 1;
+        }
+        
+        .control-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+            transition: background 0.2s ease;
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .progress-container {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: #007acc;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        .time-display {
+            color: white;
+            font-size: 14px;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .error-message {
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading-message {
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <div id="loadingMessage" class="loading-message">正在加载视频...</div>
+        <video id="videoPlayer" controls style="display: none;">
+            您的浏览器不支持视频播放。
+        </video>
+        <div class="controls" style="display: none;">
+            <button class="control-btn" id="playPauseBtn">⏸️</button>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+            <button class="control-btn" id="fullscreenBtn">⛶</button>
+        </div>
+    </div>
+    
+    <script>
+        const video = document.getElementById('videoPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressContainer = document.getElementById('progressContainer');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const controls = document.querySelector('.controls');
+        
+        // 获取视频文件路径
+        const videoPath = '${filePath.replace(/\\/g, '/')}';
+        console.log('视频文件路径:', videoPath);
+        
+        // 设置视频源
+        function setupVideoSource() {
+            try {
+                // 在Electron环境中，使用file://协议
+                const videoUrl = 'file://' + videoPath;
+                console.log('设置视频URL:', videoUrl);
+                
+                video.src = videoUrl;
+                video.style.display = 'block';
+                loadingMessage.style.display = 'none';
+                controls.style.display = 'flex';
+                
+                // 尝试播放
+                video.load();
+            } catch (error) {
+                console.error('设置视频源失败:', error);
+                showError('设置视频源失败: ' + error.message);
+            }
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            document.body.innerHTML = '<div class="error-message">' + message + '</div>';
+        }
+        
+        // 播放/暂停控制
+        playPauseBtn.addEventListener('click', () => {
+            if (video.paused) {
+                video.play();
+                playPauseBtn.textContent = '⏸️';
+            } else {
+                video.pause();
+                playPauseBtn.textContent = '▶️';
+            }
+        });
+        
+        // 进度条控制
+        progressContainer.addEventListener('click', (e) => {
+            const rect = progressContainer.getBoundingClientRect();
+            const pos = (e.clientX - rect.left) / rect.width;
+            video.currentTime = pos * video.duration;
+        });
+        
+        // 更新进度条
+        video.addEventListener('timeupdate', () => {
+            const progress = (video.currentTime / video.duration) * 100;
+            progressBar.style.width = progress + '%';
+            
+            // 更新时间显示
+            const current = formatTime(video.currentTime);
+            const total = formatTime(video.duration);
+            timeDisplay.textContent = current + ' / ' + total;
+        });
+        
+        // 全屏控制
+        fullscreenBtn.addEventListener('click', () => {
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            } else if (video.webkitRequestFullscreen) {
+                video.webkitRequestFullscreen();
+            } else if (video.msRequestFullscreen) {
+                video.msRequestFullscreen();
+            }
+        });
+        
+        // 格式化时间
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '00:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
+        }
+        
+        // 视频加载完成
+        video.addEventListener('loadedmetadata', () => {
+            console.log('视频元数据加载完成');
+            console.log('视频时长:', video.duration, '秒');
+        });
+        
+        // 视频可以播放
+        video.addEventListener('canplay', () => {
+            console.log('视频可以开始播放');
+        });
+        
+        // 视频开始播放
+        video.addEventListener('play', () => {
+            console.log('视频开始播放');
+        });
+        
+        // 视频错误处理
+        video.addEventListener('error', (e) => {
+            console.error('视频播放错误:', e);
+            console.error('错误详情:', video.error);
+            let errorMessage = '视频加载失败';
+            if (video.error) {
+                switch(video.error.code) {
+                    case 1:
+                        errorMessage = '视频加载被中止';
+                        break;
+                    case 2:
+                        errorMessage = '网络错误导致视频下载失败';
+                        break;
+                    case 3:
+                        errorMessage = '视频解码错误';
+                        break;
+                    case 4:
+                        errorMessage = '视频格式不支持或文件损坏';
+                        break;
+                    default:
+                        errorMessage = '未知的视频播放错误';
+                }
+            }
+            showError(errorMessage + '\\n\\n请检查：\\n1. 文件是否存在\\n2. 文件格式是否支持\\n3. 文件是否损坏');
+        });
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            switch(e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    if (video.paused) {
+                        video.play();
+                        playPauseBtn.textContent = '⏸️';
+                    } else {
+                        video.pause();
+                        playPauseBtn.textContent = '▶️';
+                    }
+                    break;
+                case 'Escape':
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    }
+                    break;
+                case 'ArrowLeft':
+                    video.currentTime = Math.max(0, video.currentTime - 10);
+                    break;
+                case 'ArrowRight':
+                    video.currentTime = Math.min(video.duration, video.currentTime + 10);
+                    break;
+            }
+        });
+        
+        // 页面加载完成后设置视频源
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('视频播放器页面已加载');
+            setupVideoSource();
+        });
+    </script>
+</body>
+</html>`
+    
+    // 加载视频播放页面
+    await videoWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(videoHtml)}`)
+    console.log('✅ 视频播放窗口已创建并开始加载内容')
+    
+    // 窗口关闭时清理
+    videoWindow.on('closed', () => {
+      console.log('视频播放窗口已关闭')
+      videoWindows = videoWindows.filter(w => w !== videoWindow)
+    })
+    
+    return { success: true }
+  } catch (error) {
+    console.error('❌ 打开视频播放窗口失败:', error)
     return { success: false, error: error.message }
   }
 })

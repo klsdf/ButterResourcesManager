@@ -7,6 +7,12 @@
           <span class="btn-icon">➕</span>
           添加视频
         </button>
+        <button class="btn-test-settings" @click="testSettings" style="margin-left: 10px; padding: 8px 16px; background: #007acc; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试设置
+        </button>
+        <button class="btn-test-internal" @click="testInternalPlayer" style="margin-left: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试内部播放器
+        </button>
         <div class="search-box">
           <input 
             type="text" 
@@ -508,7 +514,21 @@ export default {
     async playVideo(video) {
       if (video.filePath) {
         try {
-          const res = await window.electronAPI.openExternal(video.filePath)
+          // 获取当前设置
+          const settings = await this.loadSettings()
+          console.log('当前视频播放设置:', settings)
+          console.log('videoPlayMode:', settings.videoPlayMode)
+          
+          if (settings.videoPlayMode === 'internal') {
+            console.log('使用内部播放器播放视频')
+            // 在本应用新窗口中播放
+            await this.playVideoInternal(video)
+          } else {
+            console.log('使用外部播放器播放视频')
+            // 使用外部默认播放器
+            await this.playVideoExternal(video)
+          }
+          
           await this.videoManager.incrementWatchCount(video.id)
           await this.loadVideos()
         } catch (error) {
@@ -614,6 +634,173 @@ export default {
       } catch (error) {
         console.error('打开视频文件夹失败:', error)
         alert(`打开文件夹失败: ${error.message}`)
+      }
+    },
+
+    // 加载设置
+    async loadSettings() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        return await saveManager.loadSettings()
+      } catch (error) {
+        console.error('加载设置失败:', error)
+        // 返回默认设置
+        return {
+          videoPlayMode: 'external'
+        }
+      }
+    },
+
+    // 在本应用新窗口中播放视频
+    async playVideoInternal(video) {
+      try {
+        console.log('=== 开始内部播放视频 ===')
+        console.log('视频名称:', video.name)
+        console.log('视频路径:', video.filePath)
+        console.log('当前环境:', typeof window.electronAPI !== 'undefined' ? 'Electron' : '浏览器')
+        
+        if (window.electronAPI && window.electronAPI.openVideoWindow) {
+          console.log('✅ Electron API 可用，调用 openVideoWindow')
+          
+          const result = await window.electronAPI.openVideoWindow(video.filePath, {
+            title: video.name,
+            width: 1200,
+            height: 800,
+            resizable: true,
+            minimizable: true,
+            maximizable: true
+          })
+          
+          console.log('openVideoWindow 返回结果:', result)
+          
+          if (result.success) {
+            console.log('✅ 视频窗口已成功打开')
+            this.showNotification('视频播放', `正在播放: ${video.name}`)
+          } else {
+            console.error('❌ 打开视频窗口失败:', result.error)
+            alert(`❌ 打开视频窗口失败\n错误: ${result.error}\n\n将尝试使用外部播放器`)
+            // 降级到外部播放器
+            await this.playVideoExternal(video)
+          }
+        } else {
+          // 降级处理：使用外部播放器
+          console.warn('❌ Electron API 不可用，降级到外部播放器')
+          console.warn('electronAPI 可用性:', !!window.electronAPI)
+          console.warn('openVideoWindow 可用性:', !!window.electronAPI?.openVideoWindow)
+          alert('⚠️ 内部播放器不可用，将使用外部播放器')
+          await this.playVideoExternal(video)
+        }
+      } catch (error) {
+        console.error('❌ 内部播放视频失败:', error)
+        alert(`❌ 内部播放视频失败: ${error.message}\n\n将尝试使用外部播放器`)
+        // 降级到外部播放器
+        try {
+          await this.playVideoExternal(video)
+        } catch (externalError) {
+          console.error('外部播放器也失败:', externalError)
+          alert(`❌ 播放失败: ${externalError.message}`)
+        }
+      }
+    },
+
+    // 使用外部默认播放器播放视频
+    async playVideoExternal(video) {
+      try {
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          await window.electronAPI.openExternal(video.filePath)
+          this.showNotification('视频播放', `正在使用系统默认播放器播放: ${video.name}`)
+        } else {
+          // 降级处理：在浏览器中显示路径
+          alert(`视频文件路径: ${video.filePath}\n\n在浏览器环境中无法直接打开视频文件`)
+        }
+      } catch (error) {
+        console.error('外部播放视频失败:', error)
+        alert('外部播放视频失败: ' + error.message)
+      }
+    },
+
+
+    // 显示通知
+    showNotification(title, message) {
+      if (window.electronAPI && window.electronAPI.showNotification) {
+        window.electronAPI.showNotification(title, message)
+      } else {
+        // 降级处理：使用浏览器通知
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body: message })
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification(title, { body: message })
+            }
+          })
+        }
+      }
+    },
+
+    // 测试设置加载
+    async testSettings() {
+      try {
+        console.log('=== 测试设置加载 ===')
+        const settings = await this.loadSettings()
+        console.log('加载的设置:', settings)
+        console.log('videoPlayMode:', settings.videoPlayMode)
+        console.log('typeof videoPlayMode:', typeof settings.videoPlayMode)
+        console.log('videoPlayMode === "internal":', settings.videoPlayMode === 'internal')
+        console.log('videoPlayMode === "external":', settings.videoPlayMode === 'external')
+        
+        alert(`当前设置:\nvideoPlayMode: ${settings.videoPlayMode}\n类型: ${typeof settings.videoPlayMode}`)
+      } catch (error) {
+        console.error('测试设置失败:', error)
+        alert('测试设置失败: ' + error.message)
+      }
+    },
+
+    // 测试内部播放器
+    async testInternalPlayer() {
+      try {
+        console.log('=== 测试内部播放器 ===')
+        console.log('当前环境:', typeof window.electronAPI !== 'undefined' ? 'Electron' : '浏览器')
+        console.log('window.electronAPI:', window.electronAPI)
+        console.log('window.electronAPI.openVideoWindow:', window.electronAPI?.openVideoWindow)
+        
+        if (window.electronAPI && window.electronAPI.openVideoWindow) {
+          console.log('调用 openVideoWindow API')
+          
+          // 使用视频库中的第一个视频文件进行测试
+          let testVideoPath = null
+          if (this.videos && this.videos.length > 0) {
+            testVideoPath = this.videos[0].filePath
+            console.log('使用视频库中的文件:', testVideoPath)
+          } else {
+            // 如果没有视频，使用一个常见的测试视频路径
+            testVideoPath = 'C:\\Windows\\Media\\onestop.mid'
+            console.log('使用默认测试文件:', testVideoPath)
+          }
+          
+          const result = await window.electronAPI.openVideoWindow(testVideoPath, {
+            title: '测试视频播放器',
+            width: 1200,
+            height: 800,
+            resizable: true,
+            minimizable: true,
+            maximizable: true
+          })
+          
+          console.log('openVideoWindow 返回结果:', result)
+          
+          if (result.success) {
+            alert(`✅ 内部播放器测试成功！\n新窗口已打开，正在播放: ${testVideoPath}`)
+          } else {
+            alert(`❌ 内部播放器测试失败\n错误: ${result.error || '未知错误'}`)
+          }
+        } else {
+          console.warn('openVideoWindow API 不可用')
+          alert('❌ openVideoWindow API 不可用\n\n可能的原因：\n1. 当前在浏览器环境中运行（不是Electron）\n2. preload.js 未正确加载\n3. Electron API 未正确暴露')
+        }
+      } catch (error) {
+        console.error('测试内部播放器失败:', error)
+        alert('❌ 测试内部播放器失败: ' + error.message)
       }
     }
   }

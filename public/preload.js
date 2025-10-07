@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 打开文件所在文件夹
   openFileFolder: (filePath) => ipcRenderer.invoke('open-file-folder', filePath),
   
+  // 打开视频播放窗口
+  openVideoWindow: (filePath, options) => ipcRenderer.invoke('open-video-window', filePath, options),
+  
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
   onAppUpdate: (callback) => ipcRenderer.on('app-update', callback),

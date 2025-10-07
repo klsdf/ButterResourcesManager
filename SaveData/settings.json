@@ -16,8 +16,9 @@
     "screenshotQuality": 90,
     "screenshotNotification": true,
     "autoOpenScreenshotFolder": false,
-    "smartWindowDetection": true
+    "smartWindowDetection": true,
+    "videoPlayMode": "internal"
   },
-  "timestamp": "2025-10-07T10:46:03.015Z",
+  "timestamp": "2025-10-07T12:30:34.473Z",
   "version": "1.0.0"
 }
