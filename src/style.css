@@ -42,6 +42,78 @@
   --danger-color: #d9534f;
 }
 
+/* 浮世绘主题 - 传统日式配色 */
+[data-theme="ukiyoe"] {
+  --bg-primary: #f5f1e8;        /* 米白色背景 */
+  --bg-secondary: #fff8f0;      /* 象牙白 */
+  --bg-tertiary: #f0e6d2;       /* 浅米色 */
+  --text-primary: #2c1810;      /* 深棕色文字 */
+  --text-secondary: #5d4037;    /* 中棕色 */
+  --text-tertiary: #8d6e63;     /* 浅棕色 */
+  --border-color: #d7ccc8;      /* 浅棕色边框 */
+  --shadow-light: rgba(139, 110, 99, 0.15);
+  --shadow-medium: rgba(139, 110, 99, 0.25);
+  --accent-color: #d32f2f;      /* 朱红色强调 */
+  --accent-hover: #b71c1c;      /* 深朱红悬停 */
+  --success-color: #388e3c;     /* 深绿色 */
+  --warning-color: #f57c00;     /* 橙色 */
+  --danger-color: #d32f2f;      /* 朱红色 */
+}
+
+/* 中国古风主题 - 民国电影风格配色 */
+[data-theme="chinese"] {
+  --bg-primary: #F6F3EF;        /* 浅灰白 - 宣纸质感背景 */
+  --bg-secondary: #E7E2DC;      /* 月白灰 - 纸张、灯光感 */
+  --bg-tertiary: #CBB7A2;       /* 米驼灰 - 调和红系的温度 */
+  --text-primary: #4A3C39;      /* 墨褐 - 文字、边框、家具线条 */
+  --text-secondary: #6C7A7C;    /* 烟青 - 石雕与金属的冷灰感 */
+  --text-tertiary: #B8745F;     /* 珊瑚棕 - 暖色调的过渡 */
+  --border-color: #CBB7A2;      /* 米驼灰边框 */
+  --shadow-light: rgba(198, 73, 58, 0.15);  /* 朱砂红阴影 */
+  --shadow-medium: rgba(198, 73, 58, 0.25);
+  --accent-color: #C6493A;      /* 朱砂红 - 象征吉庆的强调色 */
+  --accent-hover: #8C3B2A;      /* 枣泥红 - 深朱砂红悬停 */
+  --success-color: #3E5463;     /* 黛蓝 - 青瓦、夜雨、绸缎 */
+  --warning-color: #B8745F;     /* 珊瑚棕 - 暖色调警告 */
+  --danger-color: #C6493A;      /* 朱砂红 - 危险色 */
+}
+
+/* 森林主题 - 自然绿色系 */
+[data-theme="forest"] {
+  --bg-primary: #f1f8e9;        /* 浅绿色背景 */
+  --bg-secondary: #e8f5e8;      /* 薄荷绿 */
+  --bg-tertiary: #dcedc8;       /* 浅薄荷绿 */
+  --text-primary: #1b5e20;      /* 深绿色文字 */
+  --text-secondary: #2e7d32;    /* 中绿色 */
+  --text-tertiary: #4caf50;     /* 浅绿色 */
+  --border-color: #c8e6c9;      /* 浅绿色边框 */
+  --shadow-light: rgba(76, 175, 80, 0.15);
+  --shadow-medium: rgba(76, 175, 80, 0.25);
+  --accent-color: #4caf50;      /* 绿色强调 */
+  --accent-hover: #388e3c;      /* 深绿色悬停 */
+  --success-color: #2e7d32;     /* 深绿色 */
+  --warning-color: #ff9800;     /* 橙色 */
+  --danger-color: #d32f2f;      /* 红色 */
+}
+
+/* 海洋主题 - 蓝色系 */
+[data-theme="ocean"] {
+  --bg-primary: #e3f2fd;        /* 浅蓝色背景 */
+  --bg-secondary: #e1f5fe;      /* 天蓝色 */
+  --bg-tertiary: #b3e5fc;       /* 浅天蓝 */
+  --text-primary: #0d47a1;      /* 深蓝色文字 */
+  --text-secondary: #1565c0;    /* 中蓝色 */
+  --text-tertiary: #1976d2;     /* 浅蓝色 */
+  --border-color: #90caf9;      /* 浅蓝色边框 */
+  --shadow-light: rgba(25, 118, 210, 0.15);
+  --shadow-medium: rgba(25, 118, 210, 0.25);
+  --accent-color: #2196f3;      /* 蓝色强调 */
+  --accent-hover: #1976d2;      /* 深蓝色悬停 */
+  --success-color: #4caf50;     /* 绿色 */
+  --warning-color: #ff9800;     /* 橙色 */
+  --danger-color: #f44336;      /* 红色 */
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -79,6 +151,30 @@ body {
 /* 暗色主题下的侧边栏 */
 [data-theme="dark"] .sidebar {
   background: linear-gradient(135deg, #1b2838 0%, #2a475e 100%);
+  box-shadow: 2px 0 10px var(--shadow-medium);
+}
+
+/* 浮世绘主题下的侧边栏 */
+[data-theme="ukiyoe"] .sidebar {
+  background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+  box-shadow: 2px 0 10px var(--shadow-medium);
+}
+
+/* 中国古风主题下的侧边栏 */
+[data-theme="chinese"] .sidebar {
+  background: linear-gradient(135deg, #C6493A 0%, #8C3B2A 100%);
+  box-shadow: 2px 0 10px var(--shadow-medium);
+}
+
+/* 森林主题下的侧边栏 */
+[data-theme="forest"] .sidebar {
+  background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+  box-shadow: 2px 0 10px var(--shadow-medium);
+}
+
+/* 海洋主题下的侧边栏 */
+[data-theme="ocean"] .sidebar {
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
   box-shadow: 2px 0 10px var(--shadow-medium);
 }
 

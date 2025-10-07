@@ -18,8 +18,25 @@
       "lastPlayed": "2025-10-07T11:01:41.042Z",
       "firstPlayed": "2025-10-06T09:53:04.284Z",
       "addedDate": "2025-10-06T09:52:49.185Z"
+    },
+    {
+      "id": "1759853451326",
+      "name": "CycleTorture",
+      "developer": "未知开发商",
+      "publisher": "未知发行商",
+      "description": "无",
+      "tags": [
+        "放置"
+      ],
+      "executablePath": "G:\\下载的数据\\telegram\\脚踏车监禁実験室 ～罪恶的弹劾与爱的证明～\\脚踏车监禁実験室 ～罪恶的弹劾与爱的证明～\\CycleTorture.exe",
+      "image": "E:\\creation\\APP\\save\\Screenshots\\Screenshot_2025-10-07T16-13-02-790Z.png",
+      "playTime": 126,
+      "playCount": 1,
+      "lastPlayed": "2025-10-07T16:10:57.609Z",
+      "firstPlayed": "2025-10-07T16:10:57.609Z",
+      "addedDate": "2025-10-07T16:10:51.327Z"
     }
   ],
-  "timestamp": "2025-10-07T11:01:48.968Z",
+  "timestamp": "2025-10-07T16:13:19.725Z",
   "version": "1.0.0"
 }

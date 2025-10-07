@@ -1,6 +1,6 @@
 {
   "settings": {
-    "theme": "dark",
+    "theme": "chinese",
     "sidebarWidth": 280,
     "autoStart": false,
     "minimizeToTray": true,
@@ -19,6 +19,6 @@
     "smartWindowDetection": true,
     "videoPlayMode": "internal"
   },
-  "timestamp": "2025-10-07T12:30:34.473Z",
+  "timestamp": "2025-10-07T16:10:30.524Z",
   "version": "1.0.0"
 }

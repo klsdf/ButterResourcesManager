@@ -40,6 +40,10 @@
                   <select v-model="settings.theme" @change="onThemeChange" class="setting-select">
                     <option value="light">亮色模式</option>
                     <option value="dark">暗色模式</option>
+                    <option value="ukiyoe">浮世绘主题</option>
+                    <option value="chinese">中国古风</option>
+                    <option value="forest">森林主题</option>
+                    <option value="ocean">海洋主题</option>
                     <option value="auto">跟随系统</option>
                   </select>
                 </div>
