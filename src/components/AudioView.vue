@@ -35,25 +35,6 @@
       </div>
     </div>
 
-    <!-- 音频统计 -->
-    <div class="audio-stats">
-      <div class="stat-item">
-        <span class="stat-number">{{ filteredAudios.length }}</span>
-        <span class="stat-label">音频文件</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ totalPlayCount }}</span>
-        <span class="stat-label">总播放次数</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ formatDuration(totalDuration) }}</span>
-        <span class="stat-label">总时长</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ uniqueArtists }}</span>
-        <span class="stat-label">艺术家</span>
-      </div>
-    </div>
 
     <!-- 音频列表 -->
     <div class="audios-grid">
@@ -252,6 +233,9 @@
           <button type="button" @click="playAudio(selectedAudio)" class="btn-play">
             ▶️ 播放
           </button>
+          <button type="button" @click="updateAudioDuration(selectedAudio)" class="btn-update-duration" v-if="!selectedAudio.duration || selectedAudio.duration === 0">
+            ⏱️ 更新时长
+          </button>
           <button type="button" @click="openAudioFolder(selectedAudio)" class="btn-open-folder">
             📁 打开文件夹
           </button>
@@ -326,32 +310,34 @@ export default {
   },
   computed: {
     filteredAudios() {
-      let filtered = audioManager.searchAudios(this.searchQuery)
+      // 使用组件内部的 audios 数据，而不是直接调用 audioManager
+      let filtered = this.audios
+      
+      // 搜索过滤
+      if (this.searchQuery) {
+        const query = this.searchQuery.toLowerCase()
+        filtered = filtered.filter(audio => 
+          audio.name.toLowerCase().includes(query) ||
+          (audio.artist && audio.artist.toLowerCase().includes(query)) ||
+          (audio.album && audio.album.toLowerCase().includes(query)) ||
+          (audio.genre && audio.genre.toLowerCase().includes(query))
+        )
+      }
       
       // 排序
       switch (this.sortBy) {
         case 'name':
-          return audioManager.sortByName(filtered)
+          return filtered.sort((a, b) => a.name.localeCompare(b.name))
         case 'artist':
-          return audioManager.sortByArtist(filtered)
+          return filtered.sort((a, b) => (a.artist || '').localeCompare(b.artist || ''))
         case 'playCount':
-          return audioManager.sortByPlayCount(filtered)
+          return filtered.sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
         case 'addedDate':
-          return audioManager.sortByAddedDate(filtered)
+          return filtered.sort((a, b) => new Date(b.addedDate || 0) - new Date(a.addedDate || 0))
         default:
           return filtered
       }
     },
-    totalPlayCount() {
-      return this.audios.reduce((sum, audio) => sum + (audio.playCount || 0), 0)
-    },
-    totalDuration() {
-      return this.audios.reduce((sum, audio) => sum + (audio.duration || 0), 0)
-    },
-    uniqueArtists() {
-      const artists = new Set(this.audios.map(audio => audio.artist).filter(artist => artist))
-      return artists.size
-    }
   },
   methods: {
     async loadAudios() {
@@ -372,6 +358,8 @@ export default {
             this.newAudio.filePath = filePath
             // 自动提取文件名
             this.newAudio.name = this.extractNameFromPath(filePath)
+            // 自动获取音频时长
+            this.newAudio.duration = await this.getAudioDuration(filePath)
           }
         } else {
           alert('当前环境不支持文件选择功能')
@@ -395,7 +383,8 @@ export default {
         }
         
         const audio = await audioManager.addAudio(audioData)
-        this.audios.push(audio)
+        // 重新加载音频列表，确保数据同步
+        await this.loadAudios()
         this.closeAddDialog()
         this.showNotification('音频添加成功', `已添加音频: ${audio.name}`)
       } catch (error) {
@@ -513,7 +502,7 @@ export default {
     },
     
     formatDuration(seconds) {
-      if (!seconds || seconds === 0) return '0:00'
+      if (!seconds || seconds === 0) return '未知时长'
       const hours = Math.floor(seconds / 3600)
       const mins = Math.floor((seconds % 3600) / 60)
       const secs = Math.floor(seconds % 60)
@@ -522,6 +511,171 @@ export default {
         return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
       }
       return `${mins}:${secs.toString().padStart(2, '0')}`
+    },
+
+    // 更新音频时长
+    async updateAudioDuration(audio) {
+      try {
+        if (!audio.filePath) {
+          alert('音频文件路径不存在')
+          return
+        }
+        
+        console.log('🔄 开始更新音频时长:', audio.name)
+        const duration = await this.getAudioDuration(audio.filePath)
+        
+        if (duration > 0) {
+          // 更新音频数据
+          await audioManager.updateAudio(audio.id, { duration })
+          
+          // 更新本地数据
+          const index = this.audios.findIndex(a => a.id === audio.id)
+          if (index !== -1) {
+            this.audios[index].duration = duration
+          }
+          
+          // 更新选中的音频数据
+          if (this.selectedAudio && this.selectedAudio.id === audio.id) {
+            this.selectedAudio.duration = duration
+          }
+          
+          console.log('✅ 音频时长更新成功:', duration, '秒')
+          this.showNotification('时长更新成功', `音频时长已更新为: ${this.formatDuration(duration)}`)
+        } else {
+          alert('无法获取音频时长，请检查文件是否有效')
+        }
+      } catch (error) {
+        console.error('更新音频时长失败:', error)
+        alert('更新音频时长失败: ' + error.message)
+      }
+    },
+
+    // 获取音频时长
+    async getAudioDuration(filePath) {
+      return new Promise(async (resolve) => {
+        try {
+          console.log('🎵 开始获取音频时长:', filePath)
+          
+          // 创建音频元素
+          const audio = document.createElement('audio')
+          audio.preload = 'metadata'
+          audio.crossOrigin = 'anonymous'
+          
+          let audioSrc = ''
+          
+          // 优先尝试使用 readFileAsDataUrl 方法
+          if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+            try {
+              console.log('🔄 尝试使用 readFileAsDataUrl 方法...')
+              const result = await window.electronAPI.readFileAsDataUrl(filePath)
+              if (result.success) {
+                audioSrc = result.dataUrl
+                console.log('✅ 使用 readFileAsDataUrl 成功')
+                audio.src = audioSrc
+              } else {
+                throw new Error(result.error || 'readFileAsDataUrl 失败')
+              }
+            } catch (error) {
+              console.warn('⚠️ readFileAsDataUrl 失败，尝试 getFileUrl:', error)
+              
+              // 降级到 getFileUrl 方法
+              if (window.electronAPI && window.electronAPI.getFileUrl) {
+                try {
+                  const urlResult = await window.electronAPI.getFileUrl(filePath)
+                  if (urlResult.success) {
+                    audioSrc = urlResult.url
+                    console.log('✅ 使用 getFileUrl 成功:', audioSrc)
+                    audio.src = audioSrc
+                  } else {
+                    throw new Error(urlResult.error || 'getFileUrl 失败')
+                  }
+                } catch (urlError) {
+                  console.warn('⚠️ getFileUrl 也失败，使用降级处理:', urlError)
+                  audioSrc = filePath.startsWith('file://') ? filePath : `file://${filePath}`
+                  console.log('🔗 使用降级 URL:', audioSrc)
+                  audio.src = audioSrc
+                }
+              } else {
+                audioSrc = filePath.startsWith('file://') ? filePath : `file://${filePath}`
+                console.log('🔗 使用降级 URL:', audioSrc)
+                audio.src = audioSrc
+              }
+            }
+          } else {
+            // 降级处理：直接使用文件路径
+            audioSrc = filePath.startsWith('file://') ? filePath : `file://${filePath}`
+            console.log('🔗 使用降级 URL:', audioSrc)
+            audio.src = audioSrc
+          }
+          
+          const cleanup = () => {
+            try {
+              audio.removeEventListener('error', onError)
+              audio.removeEventListener('loadedmetadata', onLoadedMeta)
+              if (document.body.contains(audio)) {
+                document.body.removeChild(audio)
+              }
+            } catch (e) {
+              console.warn('清理 audio 元素时出错:', e)
+            }
+          }
+          
+          const onError = (event) => {
+            console.warn('❌ 音频加载失败，无法获取时长')
+            console.warn('❌ 错误详情:', {
+              error: event,
+              src: audioSrc,
+              networkState: audio.networkState,
+              readyState: audio.readyState,
+              errorCode: audio.error ? audio.error.code : 'unknown'
+            })
+            cleanup()
+            resolve(0)
+          }
+          
+          const onLoadedMeta = () => {
+            try {
+              console.log('📊 音频元数据加载完成')
+              console.log('⏱️ 音频时长:', audio.duration)
+              
+              const duration = Math.max(0, Number(audio.duration) || 0)
+              
+              console.log('✅ 音频时长获取成功:', duration, '秒')
+              cleanup()
+              resolve(duration)
+            } catch (err) {
+              console.error('❌ 获取音频时长时出错:', err)
+              cleanup()
+              resolve(0)
+            }
+          }
+          
+          audio.addEventListener('error', onError)
+          audio.addEventListener('loadedmetadata', onLoadedMeta, { once: true })
+          
+          // 将元素附加到文档，确保某些浏览器能正确触发事件
+          audio.style.display = 'none'
+          document.body.appendChild(audio)
+          
+          // 设置超时，避免无限等待
+          setTimeout(() => {
+            if (audio.readyState === 0) {
+              console.warn('⏰ 音频加载超时')
+              console.warn('⏰ 超时详情:', {
+                src: audioSrc,
+                networkState: audio.networkState,
+                readyState: audio.readyState
+              })
+              cleanup()
+              resolve(0)
+            }
+          }, 10000) // 10秒超时
+          
+        } catch (error) {
+          console.error('❌ 创建音频元素失败:', error)
+          resolve(0)
+        }
+      })
     },
     
     extractNameFromPath(filePath) {
@@ -650,35 +804,6 @@ export default {
   border-color: var(--accent-color);
 }
 
-/* 统计信息样式 */
-.audio-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  background: var(--bg-secondary);
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 2px 4px var(--shadow-light);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.stat-number {
-  display: block;
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: var(--accent-color);
-  margin-bottom: 5px;
-}
-
-.stat-label {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
 
 /* 音频网格样式 */
 .audios-grid {
@@ -1102,6 +1227,25 @@ export default {
 
 .btn-delete:hover {
   background: #dc2626;
+}
+
+.btn-update-duration {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-update-duration:hover {
+  background: #138496;
+  transform: translateY(-1px);
 }
 
 /* 右键菜单样式 */

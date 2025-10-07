@@ -54,6 +54,10 @@
             @error="handleThumbnailError"
             @load="onThumbnailLoad"
           >
+          <!-- 视频时长标签 -->
+          <div class="duration-badge">
+            {{ formatDuration(video.duration) }}
+          </div>
           <div class="video-overlay">
             <div class="play-button" @click.stop="playVideo(video)">
               <span class="play-icon">▶️</span>
@@ -85,8 +89,13 @@
             <span v-if="video.actors.length > 2" class="actors-more">等{{ video.actors.length }}人</span>
           </div>
           <div class="video-stats">
-            <span class="watch-count">观看 {{ video.watchCount }} 次</span>
-            <span class="last-watched">{{ formatLastWatched(video.lastWatched) }}</span>
+            <div class="stats-row">
+              <span class="watch-count">观看 {{ video.watchCount }} 次</span>
+              <span class="last-watched">{{ formatLastWatched(video.lastWatched) }}</span>
+            </div>
+            <div class="stats-row" v-if="video.addedDate">
+              <span class="added-date">{{ formatAddedDate(video.addedDate) }}</span>
+            </div>
             <div class="video-rating" v-if="video.rating > 0">
               <span class="rating-stars">{{ '⭐'.repeat(Math.floor(video.rating)) }}</span>
             </div>
@@ -308,6 +317,9 @@
                 <h4>观看统计</h4>
                 <p><strong>观看次数:</strong> {{ selectedVideo.watchCount }}</p>
                 <p><strong>观看进度:</strong> {{ selectedVideo.watchProgress }}%</p>
+                <p v-if="selectedVideo.duration"><strong>视频时长:</strong> {{ formatDuration(selectedVideo.duration) }}</p>
+                <p v-if="selectedVideo.addedDate"><strong>添加时间:</strong> {{ formatAddedDate(selectedVideo.addedDate) }}</p>
+                <p v-if="selectedVideo.firstWatched"><strong>首次观看:</strong> {{ formatFirstWatched(selectedVideo.firstWatched) }}</p>
                 <p v-if="selectedVideo.lastWatched"><strong>最后观看:</strong> {{ formatLastWatched(selectedVideo.lastWatched) }}</p>
                 <p v-if="selectedVideo.rating > 0"><strong>评分:</strong> {{ '⭐'.repeat(Math.floor(selectedVideo.rating)) }} ({{ selectedVideo.rating }})</p>
               </div>
@@ -317,6 +329,9 @@
         <div class="modal-footer">
           <button type="button" @click="playVideo(selectedVideo)" class="btn-play">
             ▶️ 播放
+          </button>
+          <button type="button" @click="updateVideoDuration(selectedVideo)" class="btn-update-duration" v-if="!selectedVideo.duration || selectedVideo.duration === 0">
+            ⏱️ 更新时长
           </button>
           <button type="button" @click="openVideoFolder(selectedVideo)" class="btn-open-folder">
             📁 打开文件夹
@@ -573,6 +588,19 @@ export default {
           if (!this.newVideo.name || !this.newVideo.name.trim()) {
             this.newVideo.name = this.extractNameFromPath(filePath)
           }
+          
+          // 自动获取视频时长
+          try {
+            console.log('🔄 开始获取视频时长...')
+            const duration = await this.getVideoDuration(filePath)
+            if (duration > 0) {
+              this.newVideo.duration = duration
+              console.log('✅ 视频时长获取成功:', duration, '分钟')
+            }
+          } catch (e) {
+            console.warn('获取视频时长失败:', e)
+          }
+          
           // 自动生成缩略图（若未手动设置）
           if (!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) {
             try {
@@ -1030,16 +1058,52 @@ export default {
       return `${Math.ceil(diffDays / 365)}年前`
     },
 
-    formatDuration(minutes) {
-      if (!minutes) return '未知'
+    formatAddedDate(dateString) {
+      if (!dateString) return ''
       
-      const hours = Math.floor(minutes / 60)
-      const mins = minutes % 60
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffTime = Math.abs(now - date)
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays === 0) return '今天'
+      if (diffDays === 1) return '昨天'
+      if (diffDays < 7) return `${diffDays}天前`
+      if (diffDays < 30) return `${Math.ceil(diffDays / 7)}周前`
+      if (diffDays < 365) return `${Math.ceil(diffDays / 30)}个月前`
+      return `${Math.ceil(diffDays / 365)}年前`
+    },
+
+    formatFirstWatched(dateString) {
+      if (!dateString) return '从未观看'
+      
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffTime = Math.abs(now - date)
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays === 0) return '今天'
+      if (diffDays === 1) return '昨天'
+      if (diffDays < 7) return `${diffDays}天前`
+      if (diffDays < 30) return `${Math.ceil(diffDays / 7)}周前`
+      if (diffDays < 365) return `${Math.ceil(diffDays / 30)}个月前`
+      return `${Math.ceil(diffDays / 365)}年前`
+    },
+
+    formatDuration(minutes) {
+      if (!minutes || minutes === 0) return '未知时长'
+      
+      // 将分钟转换为秒
+      const totalSeconds = Math.floor(minutes * 60)
+      const hours = Math.floor(totalSeconds / 3600)
+      const mins = Math.floor((totalSeconds % 3600) / 60)
+      const secs = totalSeconds % 60
       
       if (hours > 0) {
-        return `${hours}小时${mins}分钟`
+        return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+      } else {
+        return `${mins}:${secs.toString().padStart(2, '0')}`
       }
-      return `${mins}分钟`
     },
 
     // 从路径提取不带扩展名的文件名
@@ -1063,7 +1127,6 @@ export default {
           const result = await window.electronAPI.openFileFolder(video.filePath)
           if (result.success) {
             console.log('已打开视频文件夹:', result.folderPath)
-            alert(`已打开视频文件夹: ${result.folderPath}`)
           } else {
             console.error('打开文件夹失败:', result.error)
             alert(`打开文件夹失败: ${result.error}`)
@@ -1077,6 +1140,142 @@ export default {
         alert(`打开文件夹失败: ${error.message}`)
       }
     },
+
+    // 更新视频时长
+    async updateVideoDuration(video) {
+      try {
+        if (!video.filePath) {
+          alert('视频文件路径不存在')
+          return
+        }
+
+        console.log('🔄 开始更新视频时长:', video.name)
+        this.showNotification('更新时长', '正在获取视频时长，请稍候...')
+
+        const duration = await this.getVideoDuration(video.filePath)
+        if (duration > 0) {
+          // 更新视频数据
+          await this.videoManager.updateVideo(video.id, {
+            ...video,
+            duration: duration
+          })
+          
+          // 重新加载视频列表
+          await this.loadVideos()
+          
+          console.log('✅ 视频时长更新成功:', duration, '分钟')
+          this.showNotification('更新成功', `视频时长已更新为 ${this.formatDuration(duration)}`)
+        } else {
+          console.warn('⚠️ 无法获取视频时长')
+          this.showNotification('更新失败', '无法获取视频时长，请检查视频文件是否有效')
+        }
+      } catch (error) {
+        console.error('更新视频时长失败:', error)
+        this.showNotification('更新失败', `更新视频时长失败: ${error.message}`)
+      }
+    },
+
+     // 获取视频时长
+     async getVideoDuration(filePath) {
+       return new Promise((resolve, reject) => {
+         try {
+           if (!filePath) {
+             console.warn('⚠️ getVideoDuration: 文件路径为空')
+             return resolve(0)
+           }
+           
+           console.log('🔍 getVideoDuration 开始处理:', filePath)
+           
+           let src = filePath
+           // 优先通过 getFileUrl 生成可加载的 file:// 或安全映射 URL
+           if (window.electronAPI && window.electronAPI.getFileUrl) {
+             try {
+               console.log('📡 调用 getFileUrl API...')
+               const url = window.electronAPI.getFileUrl(filePath)
+               if (url && typeof url === 'string' && url.startsWith('file://')) {
+                 src = url
+                 console.log('✅ 使用 getFileUrl 生成的 URL:', src)
+               } else {
+                 console.warn('⚠️ getFileUrl 返回格式不正确:', url)
+                 src = this.buildFileUrl(filePath)
+               }
+             } catch (e) {
+               console.warn('⚠️ getFileUrl 调用失败:', e)
+               src = this.buildFileUrl(filePath)
+             }
+           } else {
+             console.warn('⚠️ getFileUrl API 不可用，使用降级方案')
+             src = this.buildFileUrl(filePath)
+           }
+
+           console.log('🎬 创建 video 元素获取时长，src:', src)
+           const video = document.createElement('video')
+           video.style.position = 'fixed'
+           video.style.left = '-9999px'
+           video.style.top = '-9999px'
+           video.muted = true
+           video.preload = 'metadata'
+           video.crossOrigin = 'anonymous'
+           video.src = src
+
+           // 设置超时，避免长时间等待
+           const timeout = setTimeout(() => {
+             console.warn('⏰ 视频时长获取超时')
+             cleanup()
+             resolve(0)
+           }, 5000) // 5秒超时
+
+           const onError = (e) => {
+             console.error('❌ 视频加载错误:', e)
+             cleanup()
+             resolve(0)
+           }
+
+           const cleanup = () => {
+             clearTimeout(timeout)
+             console.log('🧹 清理 video 元素和事件监听器')
+             video.removeEventListener('error', onError)
+             video.removeEventListener('loadedmetadata', onLoadedMeta)
+             try { 
+               video.pause() 
+               if (video.parentNode) {
+                 video.parentNode.removeChild(video)
+               }
+             } catch (e) {
+               console.warn('清理 video 元素时出错:', e)
+             }
+           }
+
+           const onLoadedMeta = () => {
+             try {
+               console.log('📊 视频元数据加载完成')
+               console.log('⏱️ 视频时长:', video.duration)
+               
+               const duration = Math.max(0, Number(video.duration) || 0)
+               const durationMinutes = duration / 60 // 保持小数精度
+               
+               console.log('✅ 视频时长获取成功:', durationMinutes, '分钟')
+               cleanup()
+               resolve(durationMinutes)
+             } catch (err) {
+               console.error('❌ 获取视频时长时出错:', err)
+               cleanup()
+               resolve(0)
+             }
+           }
+
+           video.addEventListener('error', onError)
+           video.addEventListener('loadedmetadata', onLoadedMeta, { once: true })
+
+           // 将元素附加到文档，确保某些浏览器能正确触发事件
+           document.body.appendChild(video)
+           console.log('📎 Video 元素已添加到文档')
+         } catch (e) {
+           console.error('❌ getVideoDuration 外层错误:', e)
+           resolve(0)
+         }
+       })
+     },
 
      // 生成视频缩略图：从视频随机时间截取一帧，保存为本地文件并返回文件路径
      async generateThumbnail(filePath) {
@@ -1627,6 +1826,22 @@ export default {
   overflow: hidden;
 }
 
+.duration-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .video-thumbnail img {
   width: 100%;
   height: 100%;
@@ -1770,19 +1985,34 @@ export default {
 
 .video-stats {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
   font-size: 12px;
   color: var(--text-secondary);
 }
 
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .watch-count {
   font-weight: 500;
+  color: var(--text-primary);
+}
+
+
+.added-date {
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 .video-rating {
   display: flex;
   align-items: center;
+  justify-content: center;
+  margin-top: 4px;
 }
 
 .rating-stars {
@@ -2084,6 +2314,25 @@ export default {
 
 .btn-open-folder:hover {
   background: var(--bg-secondary);
+}
+
+.btn-update-duration {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-update-duration:hover {
+  background: #138496;
+  transform: translateY(-1px);
 }
 
 /* 视频详情样式 */
