@@ -13,6 +13,9 @@
         <button class="btn-test-internal" @click="testInternalPlayer" style="margin-left: 10px; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
           测试内部播放器
         </button>
+        <button class="btn-test-thumbnail" @click="testThumbnailSave" style="margin-left: 10px; padding: 8px 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试缩略图保存
+        </button>
         <div class="search-box">
           <input 
             type="text" 
@@ -45,9 +48,11 @@
       >
         <div class="video-thumbnail">
           <img 
-            :src="resolveThumbnail(video.thumbnail)" 
+            :src="getThumbnailUrl(video.thumbnail)" 
+            :data-original-src="video.thumbnail"
             :alt="video.name"
             @error="handleThumbnailError"
+            @load="onThumbnailLoad"
           >
           <div class="video-overlay">
             <div class="play-button" @click.stop="playVideo(video)">
@@ -269,7 +274,7 @@
         <div class="modal-body">
           <div class="video-detail-content">
             <div class="video-detail-thumbnail">
-              <img :src="resolveThumbnail(selectedVideo.thumbnail)" :alt="selectedVideo.name">
+              <img :src="getThumbnailUrl(selectedVideo.thumbnail)" :alt="selectedVideo.name">
             </div>
             <div class="video-detail-info">
               <div class="detail-section">
@@ -389,7 +394,7 @@
             <img 
               v-if="editVideoForm.thumbnail"
               class="thumb-preview"
-              :src="resolveThumbnail(editVideoForm.thumbnail)"
+              :src="getThumbnailUrl(editVideoForm.thumbnail)"
               :alt="editVideoForm.name || 'thumbnail'"
               @error="(e)=>{ e.target.style.display='none' }"
             >
@@ -464,7 +469,9 @@ export default {
         rating: 0
       },
       editActorsInput: '',
-      editTagsInput: ''
+      editTagsInput: '',
+      // 缩略图 URL 缓存
+      thumbnailUrlCache: new Map()
     }
   },
   computed: {
@@ -569,8 +576,13 @@ export default {
           // 自动生成缩略图（若未手动设置）
           if (!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) {
             try {
+              console.log('🔄 开始自动生成缩略图...')
               const thumb = await this.generateThumbnail(filePath)
-              if (thumb) this.newVideo.thumbnail = thumb
+              console.log('🔄 缩略图生成结果:', thumb)
+              if (thumb) {
+                this.newVideo.thumbnail = thumb
+                console.log('✅ 缩略图已设置到表单:', this.newVideo.thumbnail)
+              }
             } catch (e) {
               console.warn('自动生成缩略图失败:', e)
             }
@@ -736,9 +748,12 @@ export default {
          console.log('路径长度:', this.editVideoForm.filePath.length)
          
          const thumb = await this.generateThumbnail(this.editVideoForm.filePath)
+         console.log('🔄 随机封面生成结果:', thumb)
          if (thumb) {
-           console.log('✅ 缩略图生成成功，长度:', thumb.length)
+           console.log('✅ 缩略图生成成功，路径:', thumb)
+           console.log('🔄 设置前 editVideoForm.thumbnail:', this.editVideoForm.thumbnail)
            this.editVideoForm.thumbnail = thumb
+           console.log('🔄 设置后 editVideoForm.thumbnail:', this.editVideoForm.thumbnail)
            this.showNotification('缩略图生成', '视频缩略图生成成功')
          } else {
            console.warn('⚠️ 缩略图生成失败')
@@ -804,15 +819,200 @@ export default {
       // TODO: 实现右键菜单
     },
 
-    resolveThumbnail(thumbnail) {
+    /**
+     * 获取缩略图的显示URL
+     * 支持多种格式：base64 dataURL、本地文件路径、HTTP URL
+     * 
+     * @param {string} thumbnail - 缩略图数据，可能是：
+     *   - base64 dataURL: "data:image/jpeg;base64,/9j/4AAQ..."
+     *   - 相对路径: "SaveData/Video/Covers/video_123.jpg"
+     *   - 绝对路径: "E:/app/SaveData/Video/Covers/video_123.jpg"
+     *   - HTTP URL: "https://example.com/image.jpg"
+     * @returns {string} 可用于img标签src属性的URL
+     */
+    getThumbnailUrl(thumbnail) {
+      // 1. 空值检查：如果没有缩略图，返回默认图标
       if (!thumbnail) {
         return '/icon.svg' // 默认图标
       }
+      
+      // 2. 缓存检查：如果已经处理过这个缩略图，直接返回缓存结果
+      if (this.thumbnailUrlCache.has(thumbnail)) {
+        return this.thumbnailUrlCache.get(thumbnail)
+      }
+      
+      // 3. 格式判断：只处理本地文件路径，其他格式直接返回
+      // 这里使用排除法：
+      // - !thumbnail.startsWith('data:') 排除 base64 dataURL
+      // - !thumbnail.startsWith('/') 排除绝对路径（以/开头）
+      // - !thumbnail.startsWith('http') 排除 HTTP/HTTPS URL
+      // 这样只有本地文件路径（如 SaveData/... 或 E:/...）会进入处理逻辑
+      if (thumbnail && !thumbnail.startsWith('data:') && !thumbnail.startsWith('/') && !thumbnail.startsWith('http')) {
+        // 本地文件路径，需要转换为浏览器可访问的 file:// URL
+        try {
+          let url = ''
+          
+          // 4. 路径类型判断：区分相对路径和绝对路径
+          if (thumbnail.startsWith('SaveData/')) {
+            // 4.1 相对路径处理（以 SaveData 开头）
+            // 在 Electron 应用中，相对路径是相对于应用的工作目录
+            // 例如：SaveData/Video/Covers/video_123.jpg
+            
+            // 统一路径分隔符：将 Windows 的反斜杠转换为正斜杠
+            const absolutePath = thumbnail.replace(/\\/g, '/')
+            console.log('处理相对路径:', absolutePath)
+            
+            // 构建 file:// URL
+            // 对路径的每个部分进行 URL 编码，处理特殊字符
+            const encoded = absolutePath.split('/').map(seg => {
+              return encodeURIComponent(seg)
+            }).join('/')
+            
+            // 构建 file:// URL 格式
+            // 格式：file:///SaveData/Video/Covers/video_123.jpg
+            url = 'file:///' + encoded
+            console.log('尝试路径格式1:', url)
+          } else {
+            // 4.2 绝对路径处理（如 E:/app/SaveData/...）
+            // 将 Windows 路径格式转换为 file:// URL 格式
+            
+            // 标准化路径：统一使用正斜杠，并处理盘符
+            // 例如：E:\app\SaveData\... -> /E/app/SaveData/...
+            const normalized = thumbnail.replace(/\\/g, '/').replace(/^([A-Za-z]:)/, '/$1')
+            
+            // URL 编码每个路径段
+            const encoded = normalized.split('/').map(seg => {
+              if (seg.includes(':')) return seg // 保留盘符部分（如 /E:）
+              return encodeURIComponent(seg)
+            }).join('/')
+            
+            // 构建 file:// URL
+            // 格式：file:///E/app/SaveData/Video/Covers/video_123.jpg
+            url = 'file://' + encoded
+          }
+          
+          // 5. 缓存结果：将处理后的 URL 缓存起来，避免重复计算
+          this.thumbnailUrlCache.set(thumbnail, url)
+          console.log('缩略图 URL:', url)
+          return url
+        } catch (error) {
+          console.error('转换缩略图路径失败:', error)
+          return '/icon.svg'
+        }
+      }
+      
+      // 6. 直接返回：对于 base64 dataURL、HTTP URL 等格式，直接返回原值
+      // 这些格式浏览器可以直接使用，无需转换
       return thumbnail
     },
 
-    handleThumbnailError(event) {
+    /**
+     * 异步获取缩略图的显示URL（增强版）
+     * 优先使用 Electron API 来正确处理文件路径，提供更好的兼容性
+     * 
+     * @param {string} thumbnail - 缩略图数据
+     * @returns {Promise<string>} 可用于img标签src属性的URL
+     */
+    async getThumbnailUrlAsync(thumbnail) {
+      // 1. 空值检查
+      if (!thumbnail) {
+        return '/icon.svg' // 默认图标
+      }
+      
+      // 2. 缓存检查：避免重复的异步操作
+      if (this.thumbnailUrlCache.has(thumbnail)) {
+        return this.thumbnailUrlCache.get(thumbnail)
+      }
+      
+      // 3. 格式判断：只处理本地文件路径
+      if (thumbnail && !thumbnail.startsWith('data:') && !thumbnail.startsWith('/') && !thumbnail.startsWith('http')) {
+        // 本地文件路径，使用 Electron API 进行异步处理
+        try {
+          // 4. 优先方案：使用 readFileAsDataUrl API
+          // 将本地文件读取为 base64 dataURL，这是最可靠的方式
+          if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+            const dataUrl = await window.electronAPI.readFileAsDataUrl(thumbnail)
+            if (dataUrl) {
+              console.log('通过 readFileAsDataUrl 获取缩略图:', dataUrl.substring(0, 50) + '...')
+              this.thumbnailUrlCache.set(thumbnail, dataUrl)
+              return dataUrl
+            }
+          }
+          
+          // 5. 降级方案1：使用 getFileUrl API
+          // 获取正确的 file:// URL，由 Electron 主进程处理路径转换
+          if (window.electronAPI && window.electronAPI.getFileUrl) {
+            const result = await window.electronAPI.getFileUrl(thumbnail)
+            if (result.success) {
+              console.log('通过 Electron API 获取文件 URL:', result.url)
+              this.thumbnailUrlCache.set(thumbnail, result.url)
+              return result.url
+            } else {
+              console.warn('Electron API 获取文件 URL 失败:', result.error)
+            }
+          }
+          
+          // 6. 降级方案2：使用同步方法
+          // 如果 Electron API 不可用，回退到同步的路径转换方法
+          const url = this.getThumbnailUrl(thumbnail)
+          this.thumbnailUrlCache.set(thumbnail, url)
+          return url
+        } catch (error) {
+          console.error('转换缩略图路径失败:', error)
+          return '/icon.svg'
+        }
+      }
+      
+      // 7. 直接返回：对于 base64 dataURL、HTTP URL 等格式，直接返回原值
+      return thumbnail
+    },
+
+    resolveThumbnail(thumbnail) {
+      // 保持向后兼容，直接返回缩略图路径
+      return thumbnail || '/icon.svg'
+    },
+
+    /**
+     * 处理缩略图加载失败的情况
+     * 当同步方法生成的 file:// URL 无法访问时，尝试使用异步方法重新获取
+     * 
+     * @param {Event} event - 图片加载错误事件
+     */
+    async handleThumbnailError(event) {
+      console.log('缩略图加载失败，尝试使用异步方法')
+      
+      // 1. 获取原始缩略图路径
+      // 从 data-original-src 属性中获取未处理的原始路径
+      const originalSrc = event.target.getAttribute('data-original-src')
+      
+      // 2. 检查是否为本地文件路径
+      // 只对本地文件路径进行异步重试，其他格式（base64、HTTP）直接使用默认图标
+      if (originalSrc && !originalSrc.startsWith('data:') && !originalSrc.startsWith('/') && !originalSrc.startsWith('http')) {
+        try {
+          // 3. 使用异步方法重新获取正确的 URL
+          // 异步方法会尝试使用 Electron API 来正确处理文件路径
+          const asyncUrl = await this.getThumbnailUrlAsync(originalSrc)
+          
+          // 4. 检查异步方法是否成功获取到有效的 URL
+          if (asyncUrl && asyncUrl !== '/icon.svg') {
+            console.log('异步方法获取到缩略图 URL:', asyncUrl)
+            // 更新图片的 src 属性，触发重新加载
+            event.target.src = asyncUrl
+            return
+          }
+        } catch (error) {
+          console.error('异步获取缩略图失败:', error)
+        }
+      }
+      
+      // 5. 降级处理：如果异步方法也失败，使用默认图标
+      console.log('使用默认图标')
       event.target.src = '/icon.svg'
+    },
+
+    async onThumbnailLoad(event) {
+      // 缩略图加载成功时的处理
+      console.log('缩略图加载成功')
     },
 
     formatLastWatched(dateString) {
@@ -878,7 +1078,7 @@ export default {
       }
     },
 
-     // 生成视频缩略图：从视频随机时间截取一帧，返回 dataURL
+     // 生成视频缩略图：从视频随机时间截取一帧，保存为本地文件并返回文件路径
      async generateThumbnail(filePath) {
        return new Promise(async (resolve, reject) => {
          try {
@@ -994,8 +1194,34 @@ export default {
                ctx.drawImage(video, 0, 0, width, height)
                const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
                console.log('✅ 缩略图生成成功，dataURL 长度:', dataUrl.length)
-               cleanup()
-               resolve(dataUrl)
+               
+               // 保存为本地文件
+               const saveThumbnailFile = async () => {
+                 try {
+                   const filename = `video_${Date.now()}.jpg`
+                   const saveManager = (await import('../utils/SaveManager.js')).default
+                   const savedPath = await saveManager.saveThumbnail('videos', filename, dataUrl)
+                   
+                   if (savedPath) {
+                     console.log('✅ 缩略图保存为本地文件:', savedPath)
+                     cleanup()
+                     resolve(savedPath)
+                   } else {
+                     console.warn('⚠️ 缩略图保存失败，返回 dataURL')
+                     cleanup()
+                     resolve(dataUrl)
+                   }
+                 } catch (saveError) {
+                   console.error('❌ 保存缩略图文件失败:', saveError)
+                   console.warn('⚠️ 降级返回 dataURL')
+                   cleanup()
+                   resolve(dataUrl)
+                 }
+               }
+               
+               // 异步保存文件
+               saveThumbnailFile()
+               
              } catch (err) {
                console.error('❌ 截取帧时出错:', err)
                cleanup()
@@ -1224,6 +1450,58 @@ export default {
       } catch (error) {
         console.error('测试内部播放器失败:', error)
         alert('❌ 测试内部播放器失败: ' + error.message)
+      }
+    },
+
+    // 测试缩略图保存功能
+    async testThumbnailSave() {
+      try {
+        console.log('=== 测试缩略图保存功能 ===')
+        
+        // 检查 Electron API 可用性
+        console.log('window.electronAPI:', window.electronAPI)
+        console.log('writeFile API:', window.electronAPI?.writeFile)
+        console.log('saveThumbnail API:', window.electronAPI?.saveThumbnail)
+        console.log('ensureDirectory API:', window.electronAPI?.ensureDirectory)
+        
+        // 创建一个测试用的 base64 图片
+        const canvas = document.createElement('canvas')
+        canvas.width = 100
+        canvas.height = 100
+        const ctx = canvas.getContext('2d')
+        ctx.fillStyle = '#ff6b35'
+        ctx.fillRect(0, 0, 100, 100)
+        ctx.fillStyle = 'white'
+        ctx.font = '16px Arial'
+        ctx.fillText('TEST', 30, 55)
+        
+        const testDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        console.log('测试图片 dataURL 长度:', testDataUrl.length)
+        
+        // 测试 SaveManager
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        console.log('SaveManager 加载成功')
+        
+        // 测试目录创建
+        const dirResult = await saveManager.ensureThumbnailDirectory('videos')
+        console.log('目录创建结果:', dirResult)
+        
+        // 测试缩略图保存
+        const filename = `test_${Date.now()}.jpg`
+        console.log('开始保存测试缩略图:', filename)
+        
+        const saveResult = await saveManager.saveThumbnail('videos', filename, testDataUrl)
+        console.log('缩略图保存结果:', saveResult)
+        
+        if (saveResult) {
+          alert(`✅ 缩略图保存测试成功！\n保存路径: ${saveResult}`)
+        } else {
+          alert('❌ 缩略图保存测试失败\n\n可能的原因：\n1. Electron API 不可用\n2. 文件写入权限不足\n3. 目录创建失败')
+        }
+        
+      } catch (error) {
+        console.error('测试缩略图保存失败:', error)
+        alert('❌ 测试缩略图保存失败: ' + error.message)
       }
     }
   }

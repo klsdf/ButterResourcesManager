@@ -5,15 +5,36 @@
 class SaveManager {
   constructor() {
     this.dataDirectory = 'SaveData'
+    
+    // 各种数据类型的根目录
+    this.dataDirectories = {
+      games: `${this.dataDirectory}/Game`,
+      images: `${this.dataDirectory}/Image`,
+      videos: `${this.dataDirectory}/Video`,
+      audios: `${this.dataDirectory}/Audio`,
+      websites: `${this.dataDirectory}/Website`,
+      novels: `${this.dataDirectory}/Novel`,
+      settings: `${this.dataDirectory}/Settings`
+    }
+    
+    // 各种数据类型的存档文件路径
     this.filePaths = {
-      games: `${this.dataDirectory}/games.json`,
-      images: `${this.dataDirectory}/images.json`,
-      videos: `${this.dataDirectory}/videos.json`,
-      settings: `${this.dataDirectory}/settings.json`,
-      audios: `${this.dataDirectory}/audios.json`,
-      websites: `${this.dataDirectory}/websites.json`,
-      novels: `${this.dataDirectory}/novels.json`,
-      backup: `${this.dataDirectory}/backup.json`
+      games: `${this.dataDirectories.games}/games.json`,
+      images: `${this.dataDirectories.images}/images.json`,
+      videos: `${this.dataDirectories.videos}/videos.json`,
+      audios: `${this.dataDirectories.audios}/audios.json`,
+      websites: `${this.dataDirectories.websites}/websites.json`,
+      novels: `${this.dataDirectories.novels}/novels.json`,
+      settings: `${this.dataDirectories.settings}/settings.json`,
+      backup: `${this.dataDirectory}/backup.json` // 备份文件仍在根目录
+    }
+    
+    // 缩略图目录
+    this.thumbnailDirectories = {
+      videos: `${this.dataDirectories.videos}/Covers`,
+      images: `${this.dataDirectories.images}/Covers`,
+      audios: `${this.dataDirectories.audios}/Covers`,
+      games: `${this.dataDirectories.games}/Covers`
     }
     
     // 默认数据结构
@@ -183,13 +204,124 @@ class SaveManager {
   }
 
   /**
+   * 确保指定数据类型的目录存在
+   * @param {string} dataType - 数据类型 ('games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings')
+   * @returns {Promise<boolean>} 目录创建是否成功
+   */
+  async ensureDataTypeDirectory(dataType) {
+    try {
+      const dirPath = this.dataDirectories[dataType]
+      if (!dirPath) {
+        console.error('未知的数据类型:', dataType)
+        return false
+      }
+
+      if (window.electronAPI && window.electronAPI.ensureDirectory) {
+        const result = await window.electronAPI.ensureDirectory(dirPath)
+        return result.success
+      }
+      return true // 如果 Electron API 不可用，假设目录存在
+    } catch (error) {
+      console.error(`创建${dataType}数据目录失败:`, error)
+      return false
+    }
+  }
+
+  /**
+   * 确保缩略图目录存在
+   * @param {string} type - 数据类型 ('videos', 'images', 'audios', 'games')
+   * @returns {Promise<boolean>} 目录创建是否成功
+   */
+  async ensureThumbnailDirectory(type) {
+    try {
+      const dirPath = this.thumbnailDirectories[type]
+      if (!dirPath) {
+        console.error('未知的缩略图类型:', type)
+        return false
+      }
+
+      if (window.electronAPI && window.electronAPI.ensureDirectory) {
+        const result = await window.electronAPI.ensureDirectory(dirPath)
+        return result.success
+      }
+      return true // 如果 Electron API 不可用，假设目录存在
+    } catch (error) {
+      console.error('创建缩略图目录失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 保存缩略图文件
+   * @param {string} type - 数据类型 ('videos', 'images', 'audios', 'games')
+   * @param {string} filename - 文件名
+   * @param {string} dataUrl - base64数据URL
+   * @returns {Promise<string|null>} 保存的文件路径，失败返回null
+   */
+  async saveThumbnail(type, filename, dataUrl) {
+    try {
+      // 确保目录存在
+      const dirCreated = await this.ensureThumbnailDirectory(type)
+      if (!dirCreated) {
+        console.error('无法创建缩略图目录')
+        return null
+      }
+
+      const dirPath = this.thumbnailDirectories[type]
+      const filePath = `${dirPath}/${filename}`
+
+      if (window.electronAPI && window.electronAPI.saveThumbnail) {
+        const result = await window.electronAPI.saveThumbnail(filePath, dataUrl)
+        if (result.success) {
+          console.log('缩略图保存成功:', filePath)
+          return filePath
+        } else {
+          console.error('缩略图保存失败:', result.error)
+          return null
+        }
+      } else {
+        console.warn('Electron API 不可用，无法保存缩略图')
+        return null
+      }
+    } catch (error) {
+      console.error('保存缩略图失败:', error)
+      return null
+    }
+  }
+
+  /**
+   * 删除缩略图文件
+   * @param {string} filePath - 缩略图文件路径
+   * @returns {Promise<boolean>} 删除是否成功
+   */
+  async deleteThumbnail(filePath) {
+    try {
+      if (!filePath || filePath.startsWith('data:')) {
+        // 如果是base64数据或空路径，直接返回成功
+        return true
+      }
+
+      if (window.electronAPI && window.electronAPI.deleteFile) {
+        const result = await window.electronAPI.deleteFile(filePath)
+        return result.success
+      } else {
+        console.warn('Electron API 不可用，无法删除缩略图')
+        return false
+      }
+    } catch (error) {
+      console.error('删除缩略图失败:', error)
+      return false
+    }
+  }
+
+  /**
    * 保存图片（漫画专辑）数据到本地 JSON 文件
    * @param {Array} images - 图片专辑数据数组
    * @returns {Promise<boolean>} 保存是否成功
    */
   async saveImages(images) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('images')
       const data = {
         images: images,
         timestamp: new Date().toISOString(),
@@ -231,7 +363,7 @@ class SaveManager {
    */
   async saveGames(games) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('games')
       
       const data = {
         games: games,
@@ -257,7 +389,7 @@ class SaveManager {
    */
   async saveVideos(videos) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('videos')
 
       const data = {
         videos: videos,
@@ -296,7 +428,7 @@ class SaveManager {
 
   async saveAudios(audios) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('audios')
       const data = {
         audios: audios,
         timestamp: new Date().toISOString(),
@@ -329,7 +461,7 @@ class SaveManager {
 
   async saveWebsites(websites) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('websites')
       const data = {
         websites: websites,
         timestamp: new Date().toISOString(),
@@ -362,7 +494,7 @@ class SaveManager {
 
   async saveNovels(novels) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('novels')
       const data = {
         novels: novels,
         timestamp: new Date().toISOString(),
@@ -430,7 +562,7 @@ class SaveManager {
    */
   async saveSettings(settings) {
     try {
-      await this.ensureDataDirectory()
+      await this.ensureDataTypeDirectory('settings')
       
       const data = {
         settings: settings,

@@ -67,6 +67,13 @@ class VideoManager {
       return dotIndex > 0 ? filename.substring(0, dotIndex) : filename
     }
 
+    // 处理缩略图：如果是base64数据，保存为本地文件
+    let thumbnailPath = videoData.thumbnail || ''
+    if (thumbnailPath && thumbnailPath.startsWith('data:image/')) {
+      const filename = `video_${Date.now()}.jpg`
+      thumbnailPath = await this.saveThumbnailToFile(filename, thumbnailPath)
+    }
+
     const video = {
       id: Date.now().toString(),
       name: (videoData.name && videoData.name.trim()) ? videoData.name.trim() : deriveNameFromPath(videoData.filePath) || '未知视频',
@@ -79,7 +86,7 @@ class VideoManager {
       year: videoData.year || '',
       duration: Number(videoData.duration) || 0,
       filePath: videoData.filePath || '',
-      thumbnail: videoData.thumbnail || '',
+      thumbnail: thumbnailPath,
       watchProgress: 0,
       watchCount: 0,
       lastWatched: null,
@@ -98,7 +105,25 @@ class VideoManager {
   async updateVideo(id, videoData) {
     const index = this.videos.findIndex(video => video.id === id)
     if (index !== -1) {
-      this.videos[index] = { ...this.videos[index], ...videoData }
+      const oldVideo = this.videos[index]
+      
+      // 处理缩略图：如果是base64数据，保存为本地文件
+      let thumbnailPath = videoData.thumbnail || oldVideo.thumbnail
+      if (videoData.thumbnail && videoData.thumbnail.startsWith('data:image/')) {
+        // 删除旧的缩略图文件
+        if (oldVideo.thumbnail && !oldVideo.thumbnail.startsWith('data:')) {
+          await this.deleteThumbnailFile(oldVideo.thumbnail)
+        }
+        // 保存新的缩略图
+        const filename = `video_${id}_${Date.now()}.jpg`
+        thumbnailPath = await this.saveThumbnailToFile(filename, videoData.thumbnail)
+      }
+      
+      this.videos[index] = { 
+        ...this.videos[index], 
+        ...videoData,
+        thumbnail: thumbnailPath
+      }
       await this.saveVideos()
       return this.videos[index]
     }
@@ -109,6 +134,13 @@ class VideoManager {
   async deleteVideo(id) {
     const index = this.videos.findIndex(video => video.id === id)
     if (index !== -1) {
+      const video = this.videos[index]
+      
+      // 删除缩略图文件
+      if (video.thumbnail && !video.thumbnail.startsWith('data:')) {
+        await this.deleteThumbnailFile(video.thumbnail)
+      }
+      
       this.videos.splice(index, 1)
       await this.saveVideos()
       return true
@@ -221,6 +253,26 @@ class VideoManager {
       totalTags: this.getAllTags().length,
       totalSeries: this.getAllSeries().length,
       totalGenres: this.getAllGenres().length
+    }
+  }
+
+  // 保存缩略图为本地文件
+  async saveThumbnailToFile(filename, dataUrl) {
+    try {
+      const result = await saveManager.saveThumbnail('videos', filename, dataUrl)
+      return result || ''
+    } catch (error) {
+      console.error('保存缩略图文件失败:', error)
+      return ''
+    }
+  }
+
+  // 删除缩略图文件
+  async deleteThumbnailFile(filePath) {
+    try {
+      await saveManager.deleteThumbnail(filePath)
+    } catch (error) {
+      console.error('删除缩略图文件失败:', error)
     }
   }
 }

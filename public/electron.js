@@ -1280,6 +1280,98 @@ ipcMain.handle('ensure-directory', async (event, dirPath) => {
   }
 })
 
+// 写入文件（用于保存缩略图）
+ipcMain.handle('write-file', async (event, filePath, buffer) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    console.log('=== 开始写入文件 ===')
+    console.log('文件路径:', filePath)
+    console.log('Buffer 类型:', typeof buffer)
+    console.log('Buffer 长度:', buffer ? buffer.length : 'N/A')
+    
+    // 确保目录存在
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+      console.log('创建目录:', dir)
+    }
+    
+    // 写入文件
+    fs.writeFileSync(filePath, buffer)
+    console.log('文件写入成功:', filePath)
+    
+    // 验证文件是否真的写入了
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath)
+      console.log('文件大小:', stats.size, 'bytes')
+    } else {
+      console.error('文件写入后不存在!')
+    }
+    
+    console.log('=== 文件写入完成 ===')
+    return { success: true }
+  } catch (error) {
+    console.error('写入文件失败:', error)
+    console.error('错误堆栈:', error.stack)
+    return { success: false, error: error.message }
+  }
+})
+
+// 保存缩略图（专门用于保存 base64 图片）
+ipcMain.handle('save-thumbnail', async (event, filePath, dataUrl) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    console.log('=== 开始保存缩略图 ===')
+    console.log('文件路径:', filePath)
+    console.log('dataURL 长度:', dataUrl ? dataUrl.length : 'N/A')
+    
+    // 确保目录存在
+    const dir = path.dirname(filePath)
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+      console.log('创建目录:', dir)
+    }
+    
+    // 解析 base64 数据
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+      throw new Error('无效的 dataURL 格式')
+    }
+    
+    // 提取 base64 数据部分
+    const base64Data = dataUrl.split(',')[1]
+    if (!base64Data) {
+      throw new Error('无法从 dataURL 中提取 base64 数据')
+    }
+    
+    // 转换为 Buffer
+    const buffer = Buffer.from(base64Data, 'base64')
+    console.log('转换后的 Buffer 长度:', buffer.length)
+    
+    // 写入文件
+    fs.writeFileSync(filePath, buffer)
+    console.log('缩略图保存成功:', filePath)
+    
+    // 验证文件是否真的写入了
+    if (fs.existsSync(filePath)) {
+      const stats = fs.statSync(filePath)
+      console.log('缩略图文件大小:', stats.size, 'bytes')
+    } else {
+      console.error('缩略图文件写入后不存在!')
+    }
+    
+    console.log('=== 缩略图保存完成 ===')
+    return { success: true }
+  } catch (error) {
+    console.error('保存缩略图失败:', error)
+    console.error('错误堆栈:', error.stack)
+    return { success: false, error: error.message }
+  }
+})
+
 // 选择音频文件
 ipcMain.handle('select-audio-file', async () => {
   try {

@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFile: (filePath) => ipcRenderer.invoke('delete-file', filePath),
   ensureDirectory: (dirPath) => ipcRenderer.invoke('ensure-directory', dirPath),
   
+  // 文件操作
+  writeFile: (filePath, buffer) => ipcRenderer.invoke('write-file', filePath, buffer),
+  saveThumbnail: (filePath, dataUrl) => ipcRenderer.invoke('save-thumbnail', filePath, dataUrl),
+  
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   selectImageFile: () => ipcRenderer.invoke('select-image-file'),
