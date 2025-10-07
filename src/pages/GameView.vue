@@ -59,21 +59,23 @@
     </div>
 
     <!-- 空状态 -->
-    <div class="empty-state" v-else-if="games.length === 0">
-      <div class="empty-icon">🎮</div>
-      <h3>你的游戏库是空的</h3>
-      <p>点击"添加游戏"按钮来添加你的第一个游戏</p>
-      <button class="btn-add-first-game" @click="showAddGameDialog">
-        添加第一个游戏
-      </button>
-    </div>
+    <EmptyState 
+      v-else-if="games.length === 0"
+      icon="🎮"
+      title="你的游戏库是空的"
+      description="点击&quot;添加游戏&quot;按钮来添加你的第一个游戏"
+      :show-button="true"
+      button-text="添加第一个游戏"
+      @action="showAddGameDialog"
+    />
 
     <!-- 无搜索结果 -->
-    <div class="empty-state" v-else>
-      <div class="empty-icon">🔍</div>
-      <h3>没有找到匹配的游戏</h3>
-      <p>尝试使用不同的搜索词</p>
-    </div>
+    <EmptyState 
+      v-else
+      icon="🔍"
+      title="没有找到匹配的游戏"
+      description="尝试使用不同的搜索词"
+    />
 
     <!-- 添加游戏对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddGameDialog">
@@ -399,11 +401,13 @@
 <script>
 import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 export default {
   name: 'GameView',
   components: {
-    GameToolbar
+    GameToolbar,
+    EmptyState
   },
   data() {
     return {
@@ -1485,45 +1489,6 @@ export default {
   }
 }
 
-/* 空状态样式 */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 20px;
-  opacity: 0.6;
-}
-
-.empty-state h3 {
-  color: var(--text-primary);
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-  transition: color 0.3s ease;
-}
-
-.empty-state p {
-  margin-bottom: 30px;
-  transition: color 0.3s ease;
-}
-
-.btn-add-first-game {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.3s ease;
-}
-
-.btn-add-first-game:hover {
-  background: var(--accent-hover);
-}
 
 /* 模态框样式 */
 .modal-overlay {

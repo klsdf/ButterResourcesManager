@@ -116,7 +116,7 @@ export default {
 }
 
 .search-input {
-  padding: 8px 35px 8px 12px;
+  padding: 14px 35px 14px 12px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: var(--bg-secondary);

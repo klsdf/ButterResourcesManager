@@ -39,21 +39,23 @@
     </div>
 
     <!-- 空状态 -->
-    <div class="empty-state" v-else-if="albums.length === 0">
-      <div class="empty-icon">🖼️</div>
-      <h3>还没有添加漫画</h3>
-      <p>点击"添加漫画"按钮选择一个文件夹</p>
-      <button class="btn-add-first-album" @click="showAddAlbumDialog">
-        添加第一个漫画
-      </button>
-    </div>
+    <EmptyState 
+      v-else-if="albums.length === 0"
+      icon="🖼️"
+      title="还没有添加漫画"
+      description="点击&quot;添加漫画&quot;按钮选择一个文件夹"
+      :show-button="true"
+      button-text="添加第一个漫画"
+      @action="showAddAlbumDialog"
+    />
     
     <!-- 无搜索结果 -->
-    <div class="empty-state" v-else>
-      <div class="empty-icon">🔍</div>
-      <h3>没有找到匹配的漫画</h3>
-      <p>尝试使用不同的搜索词</p>
-    </div>
+    <EmptyState 
+      v-else
+      icon="🔍"
+      title="没有找到匹配的漫画"
+      description="尝试使用不同的搜索词"
+    />
 
     <!-- 添加专辑对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddAlbumDialog">
@@ -208,11 +210,13 @@
 <script>
 import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 export default {
   name: 'ImageView',
   components: {
-    GameToolbar
+    GameToolbar,
+    EmptyState
   },
   data() {
     return {
@@ -637,33 +641,6 @@ export default {
   text-overflow: ellipsis;
 }
 
-/* 空状态 */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 20px;
-  opacity: 0.6;
-}
-
-.btn-add-first-album {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.3s ease;
-}
-
-.btn-add-first-album:hover {
-  background: var(--accent-hover);
-}
 
 /* 模态框 */
 .modal-overlay {
