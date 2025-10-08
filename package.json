@@ -1,6 +1,6 @@
 {
   "name": "butter-manager",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A Vue + Electron desktop application",
   "main": "public/electron.js",
   "homepage": "./",
@@ -42,21 +42,21 @@
     "files": [
       "dist/**/*",
       "public/electron.js",
-      "public/butter-modern.svg",
+      "public/preload.js",
       "node_modules/**/*"
     ],
-    "icon": "public/butter-modern.svg",
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "mac": {
-      "category": "public.app-category.productivity",
-      "icon": "public/butter-modern.svg"
+      "category": "public.app-category.productivity"
     },
     "win": {
-      "target": "nsis",
-      "icon": "public/butter-modern.svg"
+      "target": "portable"
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "public/butter-modern.svg"
+      "target": "AppImage"
     }
   }
 }

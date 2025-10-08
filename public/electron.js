@@ -76,8 +76,6 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow()
   createMenu()
-  registerGlobalShortcuts()
-
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建窗口
   app.on('activate', () => {
@@ -1100,37 +1098,6 @@ ipcMain.handle('check-global-shortcut-available', async (event, key) => {
 // 存储当前注册的快捷键
 let currentGlobalShortcut = null
 
-// 注册全局快捷键
-function registerGlobalShortcuts() {
-  try {
-    // 先注销所有已注册的快捷键
-    globalShortcut.unregisterAll()
-    
-    // 只尝试注册F12
-    try {
-      const result = globalShortcut.register('F12', () => {
-        console.log('全局快捷键 F12 被按下')
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('global-screenshot-trigger')
-        }
-      })
-      
-      if (result) {
-        console.log('全局快捷键 F12 注册成功')
-        currentGlobalShortcut = 'F12'
-      } else {
-        console.log('全局快捷键 F12 注册失败，可能被其他应用占用')
-        currentGlobalShortcut = null
-      }
-    } catch (error) {
-      console.log('注册快捷键 F12 时出错:', error.message)
-      currentGlobalShortcut = null
-    }
-  } catch (error) {
-    console.error('注册全局快捷键失败:', error)
-    currentGlobalShortcut = null
-  }
-}
 
 // 注销全局快捷键
 function unregisterGlobalShortcuts() {

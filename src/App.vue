@@ -175,7 +175,21 @@ export default {
     }
   },
   async mounted() {
-    // 优先从 SaveManager 加载设置
+    // 首先初始化存档系统
+    try {
+      const saveManager = (await import('./utils/SaveManager.js')).default
+      console.log('正在初始化存档系统...')
+      const initSuccess = await saveManager.initialize()
+      if (initSuccess) {
+        console.log('✅ 存档系统初始化成功')
+      } else {
+        console.warn('⚠️ 存档系统初始化失败，但应用将继续运行')
+      }
+    } catch (error) {
+      console.error('存档系统初始化出错:', error)
+    }
+    
+    // 然后从 SaveManager 加载设置
     try {
       const saveManager = (await import('./utils/SaveManager.js')).default
       const settings = await saveManager.loadSettings()

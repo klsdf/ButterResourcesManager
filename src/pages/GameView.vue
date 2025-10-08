@@ -411,6 +411,7 @@ export default {
   data() {
     return {
       games: [],
+      isElectronEnvironment: false,
       searchQuery: '',
       sortBy: 'name',
       showAddDialog: false,
@@ -537,7 +538,7 @@ export default {
     },
     async browseForExecutable() {
       try {
-        if (window.electronAPI && window.electronAPI.selectExecutableFile) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectExecutableFile) {
           console.log('使用Electron API选择可执行文件')
           const filePath = await window.electronAPI.selectExecutableFile()
           if (filePath) {
@@ -561,7 +562,7 @@ export default {
     },
     async browseForImage() {
       try {
-        if (window.electronAPI && window.electronAPI.selectImageFile) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
           console.log('使用Electron API选择图片文件')
           const filePath = await window.electronAPI.selectImageFile()
           if (filePath) {
@@ -671,7 +672,8 @@ export default {
         this.saveGames()
         console.log('游戏数据已保存')
         
-        if (window.electronAPI && window.electronAPI.launchGame) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.launchGame) {
+          console.log('使用 Electron API 启动游戏')
           const result = await window.electronAPI.launchGame(game.executablePath)
           
           if (result.success) {
@@ -688,8 +690,21 @@ export default {
             return
           }
         } else {
-          // 降级处理：在浏览器中打开文件
-          alert(`启动游戏: ${game.name}\n路径: ${game.executablePath}\n\n注意：在浏览器环境中无法直接启动游戏`)
+          // 提供更详细的错误信息
+          let errorMessage = `无法启动游戏: ${game.name}\n\n`
+          if (!this.isElectronEnvironment) {
+            errorMessage += `❌ 错误：未检测到 Electron 环境\n`
+            errorMessage += `当前环境：${navigator.userAgent.includes('Electron') ? 'Electron 但 API 未加载' : '浏览器环境'}\n\n`
+            errorMessage += `解决方案：\n`
+            errorMessage += `1. 确保在打包后的应用中运行\n`
+            errorMessage += `2. 检查 preload.js 是否正确加载\n`
+            errorMessage += `3. 重新构建应用\n\n`
+          } else {
+            errorMessage += `❌ 错误：Electron API 不可用\n`
+            errorMessage += `请检查应用是否正确打包\n\n`
+          }
+          errorMessage += `游戏路径: ${game.executablePath}`
+          alert(errorMessage)
           return
         }
         
@@ -702,7 +717,7 @@ export default {
     },
     showNotification(title, message) {
       // 简单的通知实现
-      if (window.electronAPI && window.electronAPI.showNotification) {
+      if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.showNotification) {
         window.electronAPI.showNotification(title, message)
       } else {
         // 降级处理：使用浏览器通知
@@ -793,7 +808,7 @@ export default {
     },
     async browseForExecutableEdit() {
       try {
-        if (window.electronAPI && window.electronAPI.selectExecutableFile) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectExecutableFile) {
           const filePath = await window.electronAPI.selectExecutableFile()
           if (filePath) {
             this.editGameForm.executablePath = filePath
@@ -809,7 +824,7 @@ export default {
     },
     async browseForImageEdit() {
       try {
-        if (window.electronAPI && window.electronAPI.selectImageFile) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
           const filePath = await window.electronAPI.selectImageFile()
           if (filePath) {
             this.editGameForm.imagePath = filePath
@@ -936,7 +951,7 @@ export default {
       if (this.imageCache[imagePath]) return this.imageCache[imagePath]
       
       // 异步解析为 data:URL（避免 http 上直接加载 file:// 被阻止）
-      if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+      if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
         window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
           if (dataUrl) {
             this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
@@ -1070,7 +1085,7 @@ export default {
           smartWindowDetection
         })
         
-        if (window.electronAPI && window.electronAPI.takeScreenshot) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.takeScreenshot) {
           const result = await window.electronAPI.takeScreenshot(
             gameName, 
             screenshotsPath, 
@@ -1092,7 +1107,7 @@ export default {
             }
             
             // 自动打开截图文件夹
-            if (autoOpenFolder && window.electronAPI && window.electronAPI.openFolder) {
+            if (autoOpenFolder && this.isElectronEnvironment && window.electronAPI && window.electronAPI.openFolder) {
               try {
                 await window.electronAPI.openFolder(result.filepath)
               } catch (error) {
@@ -1155,11 +1170,11 @@ export default {
       try {
         // 获取用户设置的截图快捷键
         const settings = JSON.parse(localStorage.getItem('butter-manager-settings') || '{}')
-        const screenshotKey = settings.screenshotKey || 'F12'
+        const screenshotKey = settings.screenshotKey || 'Ctrl+F12'
         
         console.log('初始化全局快捷键:', screenshotKey)
         
-        if (window.electronAPI && window.electronAPI.updateGlobalShortcut) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.updateGlobalShortcut) {
           const result = await window.electronAPI.updateGlobalShortcut(screenshotKey)
           if (result.success) {
             console.log('全局快捷键更新成功:', result.key)
@@ -1292,11 +1307,11 @@ export default {
           return
         }
         
-        if (window.electronAPI && window.electronAPI.openFileFolder) {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.openFileFolder) {
           const result = await window.electronAPI.openFileFolder(game.executablePath)
           if (result.success) {
             console.log('已打开游戏文件夹:', result.folderPath)
-            this.showNotification('文件夹已打开', `已打开游戏文件夹: ${result.folderPath}`)
+
           } else {
             console.error('打开文件夹失败:', result.error)
             alert(`打开文件夹失败: ${result.error}`)
@@ -1309,9 +1324,28 @@ export default {
         console.error('打开游戏文件夹失败:', error)
         alert(`打开文件夹失败: ${error.message}`)
       }
+    },
+    // 检查是否在 Electron 环境中
+    checkElectronEnvironment() {
+      console.log('检查 Electron 环境...')
+      console.log('window.electronAPI:', window.electronAPI)
+      console.log('typeof window.electronAPI:', typeof window.electronAPI)
+      
+      this.isElectronEnvironment = !!(window.electronAPI && typeof window.electronAPI === 'object')
+      
+      if (this.isElectronEnvironment) {
+        console.log('✅ 检测到 Electron 环境')
+      } else {
+        console.log('❌ 未检测到 Electron 环境，可能是浏览器环境或 API 未正确加载')
+        console.log('当前环境信息:')
+        console.log('- userAgent:', navigator.userAgent)
+        console.log('- location:', window.location.href)
+        console.log('- process:', typeof process !== 'undefined' ? process.versions : 'undefined')
+      }
     }
   },
   async mounted() {
+    this.checkElectronEnvironment()
     await this.loadGames()
     
     // 点击其他地方关闭右键菜单
@@ -1320,7 +1354,7 @@ export default {
     })
     
     // 监听游戏进程结束事件
-    if (window.electronAPI && window.electronAPI.onGameProcessEnded) {
+    if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.onGameProcessEnded) {
       window.electronAPI.onGameProcessEnded((event, data) => {
         console.log('游戏进程结束，数据:', data)
         this.updateGamePlayTime(data)
@@ -1328,7 +1362,7 @@ export default {
     }
     
     // 监听全局截图触发事件（只使用全局快捷键）
-    if (window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
+    if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
       window.electronAPI.onGlobalScreenshotTrigger(() => {
         console.log('全局快捷键触发截图')
         this.takeScreenshot()
@@ -1346,7 +1380,7 @@ export default {
     // document.removeEventListener('keydown', this.handleKeyDown)
     
     // 清理全局截图事件监听器
-    if (window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
+    if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
       // 移除所有全局截图事件监听器
       window.electronAPI.onGlobalScreenshotTrigger(() => {})
       console.log('清理全局截图事件监听器')

@@ -970,7 +970,6 @@ export default {
           const result = await window.electronAPI.openFileFolder(novel.filePath)
           if (result.success) {
             console.log('已打开小说文件夹:', result.folderPath)
-            this.showNotification('文件夹已打开', `已打开小说文件夹: ${result.folderPath}`)
           } else {
             console.error('打开文件夹失败:', result.error)
             alert(`打开文件夹失败: ${result.error}`)

@@ -491,7 +491,7 @@ export default {
         safetyKey: 'Ctrl+Alt+Q',
         safetyAppPath: '',
         // 截图设置
-        screenshotKey: 'F12',
+        screenshotKey: 'Ctrl+F12',
         screenshotsPath: '',
         screenshotFormat: 'png',
         screenshotQuality: 90,
@@ -626,7 +626,7 @@ export default {
           safetyKey: 'Ctrl+Alt+Q',
           safetyAppPath: '',
           // 截图设置
-          screenshotKey: 'F12',
+          screenshotKey: 'Ctrl+F12',
           screenshotsPath: '',
           screenshotFormat: 'png',
           screenshotQuality: 90,
@@ -722,7 +722,6 @@ export default {
           if (result.success) {
             console.log('存档文件夹已打开')
             // 显示成功提示
-            this.showNotification('文件夹已打开', '存档文件夹已在文件管理器中打开')
           } else {
             console.error('打开存档文件夹失败:', result.error)
             alert(`打开存档文件夹失败: ${result.error}`)
@@ -762,8 +761,6 @@ export default {
           const result = await window.electronAPI.openFolder(screenshotPath)
           if (result.success) {
             console.log('截图文件夹已打开')
-            // 显示成功提示
-            this.showNotification('文件夹已打开', '截图文件夹已在文件管理器中打开')
           } else {
             console.error('打开截图文件夹失败:', result.error)
             alert(`打开截图文件夹失败: ${result.error}`)

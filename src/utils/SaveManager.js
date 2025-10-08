@@ -52,7 +52,7 @@ class SaveManager {
         safetyAppPath: '',
         dataPath: 'C:\\Users\\User\\Documents\\ButterManager',
         autoBackup: true,
-        screenshotKey: 'F12',
+        screenshotKey: 'Ctrl+F12',
         screenshotsPath: '',
         screenshotFormat: 'png',
         screenshotQuality: 90,
@@ -70,6 +70,180 @@ class SaveManager {
    * @param {Object} data - 要写入的数据
    * @returns {Promise<boolean>} 写入是否成功
    */
+  /**
+   * 初始化存档系统
+   * 检查并创建必要的文件夹和默认文件
+   * @returns {Promise<boolean>} 初始化是否成功
+   */
+  async initialize() {
+    try {
+      console.log('=== 初始化存档系统 ===')
+      
+      // 检查主存档目录是否存在
+      const mainDirExists = await this.ensureDataDirectory()
+      if (!mainDirExists) {
+        console.error('无法创建主存档目录:', this.dataDirectory)
+        return false
+      }
+      
+      // 创建所有子目录
+      const directories = Object.values(this.dataDirectories)
+      for (const dir of directories) {
+        const created = await this.ensureDirectoryByPath(dir)
+        if (!created) {
+          console.error('无法创建目录:', dir)
+          return false
+        }
+        console.log('✅ 目录已创建:', dir)
+      }
+      
+      // 创建缩略图目录
+      const thumbnailDirs = Object.values(this.thumbnailDirectories)
+      for (const dir of thumbnailDirs) {
+        const created = await this.ensureDirectoryByPath(dir)
+        if (!created) {
+          console.error('无法创建缩略图目录:', dir)
+          return false
+        }
+        console.log('✅ 缩略图目录已创建:', dir)
+      }
+      
+      // 检查并创建默认数据文件
+      await this.initializeDataFiles()
+      
+      console.log('=== 存档系统初始化完成 ===')
+      return true
+    } catch (error) {
+      console.error('初始化存档系统失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 通过路径确保目录存在
+   * @param {string} dirPath - 目录路径
+   * @returns {Promise<boolean>} 目录创建是否成功
+   */
+  async ensureDirectoryByPath(dirPath) {
+    try {
+      if (window.electronAPI && window.electronAPI.ensureDirectory) {
+        const result = await window.electronAPI.ensureDirectory(dirPath)
+        return result.success
+      }
+      return true // 如果 Electron API 不可用，假设目录存在
+    } catch (error) {
+      console.error('创建目录失败:', dirPath, error)
+      return false
+    }
+  }
+
+  /**
+   * 初始化数据文件
+   * 检查文件是否存在，如果不存在则创建默认文件
+   * @returns {Promise<void>}
+   */
+  async initializeDataFiles() {
+    try {
+      console.log('=== 初始化数据文件 ===')
+      
+      // 检查并创建各种数据文件
+      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings']
+      
+      for (const dataType of dataTypes) {
+        const filePath = this.filePaths[dataType]
+        const fileExists = await this.fileExists(filePath)
+        
+        if (!fileExists) {
+          console.log(`创建默认 ${dataType} 文件:`, filePath)
+          await this.createDefaultDataFile(dataType)
+        } else {
+          console.log(`✅ ${dataType} 文件已存在:`, filePath)
+        }
+      }
+      
+      console.log('=== 数据文件初始化完成 ===')
+    } catch (error) {
+      console.error('初始化数据文件失败:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 检查文件是否存在
+   * @param {string} filePath - 文件路径
+   * @returns {Promise<boolean>} 文件是否存在
+   */
+  async fileExists(filePath) {
+    try {
+      if (window.electronAPI && window.electronAPI.readJsonFile) {
+        const result = await window.electronAPI.readJsonFile(filePath)
+        return result.success
+      } else {
+        // 浏览器环境下的降级处理
+        return false
+      }
+    } catch (error) {
+      return false
+    }
+  }
+
+  /**
+   * 创建默认数据文件
+   * @param {string} dataType - 数据类型
+   * @returns {Promise<boolean>} 创建是否成功
+   */
+  async createDefaultDataFile(dataType) {
+    try {
+      const filePath = this.filePaths[dataType]
+      let defaultData = {}
+      
+      switch (dataType) {
+        case 'games':
+          defaultData = { games: [] }
+          break
+        case 'images':
+          defaultData = { images: [] }
+          break
+        case 'videos':
+          defaultData = { videos: [] }
+          break
+        case 'audios':
+          defaultData = { audios: [] }
+          break
+        case 'websites':
+          defaultData = { websites: [] }
+          break
+        case 'novels':
+          defaultData = { novels: [] }
+          break
+        case 'settings':
+          defaultData = { settings: this.defaultData.settings }
+          break
+        default:
+          console.warn('未知的数据类型:', dataType)
+          return false
+      }
+      
+      // 写入默认数据
+      if (window.electronAPI && window.electronAPI.writeJsonFile) {
+        const result = await window.electronAPI.writeJsonFile(filePath, defaultData)
+        if (result.success) {
+          console.log(`✅ 默认 ${dataType} 文件创建成功:`, filePath)
+          return true
+        } else {
+          console.error(`❌ 创建默认 ${dataType} 文件失败:`, result.error)
+          return false
+        }
+      } else {
+        console.warn('Electron API 不可用，无法创建默认文件')
+        return false
+      }
+    } catch (error) {
+      console.error(`创建默认 ${dataType} 文件失败:`, error)
+      return false
+    }
+  }
+
   /**
    * 清理数据中的不可序列化内容
    * @param {any} data - 要清理的数据
