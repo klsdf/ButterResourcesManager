@@ -20,7 +20,7 @@
 
 
     <!-- 音频列表 -->
-    <div class="audios-grid">
+    <div class="audios-grid" v-if="filteredAudios.length > 0">
       <div 
         v-for="audio in filteredAudios" 
         :key="audio.id"
@@ -48,6 +48,25 @@
         </div>
       </div>
     </div>
+
+    <!-- 空状态 -->
+    <EmptyState 
+      v-else-if="audios.length === 0"
+      icon="🎵"
+      title="你的音频库是空的"
+      description="点击&quot;添加音频&quot;按钮来添加你的第一个音频"
+      :show-button="true"
+      button-text="添加第一个音频"
+      @action="showAddDialog = true"
+    />
+
+    <!-- 无搜索结果 -->
+    <EmptyState 
+      v-else
+      icon="🔍"
+      title="没有找到匹配的音频"
+      description="尝试使用不同的搜索词"
+    />
 
     <!-- 添加音频对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddDialog">
@@ -265,11 +284,13 @@
 <script>
 import audioManager from '../utils/AudioManager.js'
 import Toolbar from '../components/Toolbar.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 export default {
   name: 'AudioView',
   components: {
-    Toolbar
+    Toolbar,
+    EmptyState
   },
   data() {
     return {

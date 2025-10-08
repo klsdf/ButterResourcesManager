@@ -3,7 +3,8 @@
     <!-- 左侧导航栏 -->
     <nav class="sidebar">
       <div class="sidebar-header">
-        <h1>Butter Manager</h1>
+        <img src="/butter-modern.svg" alt="Butter Manager" class="sidebar-logo">
+        <h1> Butter Manager</h1>
         <p>绿色游戏管理器</p>
       </div>
       
@@ -138,15 +139,19 @@ export default {
       this.currentView = viewId
     },
     getCurrentViewTitle() {
+
+      if (this.currentView === 'settings') {
+        return '设置'
+      }
       const item = this.navItems.find(item => item.id === this.currentView)
-      return item ? item.name : '未知'
+      return item ? item.name : '未知，请配置'
     },
     getCurrentViewDescription() {
       if (this.currentView === 'settings') {
         return '管理应用设置和偏好'
       }
       const item = this.navItems.find(item => item.id === this.currentView)
-      return item ? item.description : ''
+      return item ? item.description : '无描述，请配置'
     },
     applyTheme(theme) {
       this.theme = theme

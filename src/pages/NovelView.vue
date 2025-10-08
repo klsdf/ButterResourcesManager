@@ -92,21 +92,23 @@
         </div>
 
         <!-- 空状态 -->
-        <div class="empty-state" v-else-if="novels.length === 0">
-          <div class="empty-icon">📚</div>
-          <h3>你的小说库是空的</h3>
-          <p>点击"添加小说"按钮来添加你的第一本小说</p>
-          <button class="btn-add-first-novel" @click="showAddNovelDialog">
-            添加第一本小说
-          </button>
-        </div>
+        <EmptyState 
+          v-else-if="novels.length === 0"
+          icon="📚"
+          title="你的小说库是空的"
+          description="点击&quot;添加小说&quot;按钮来添加你的第一本小说"
+          :show-button="true"
+          button-text="添加第一本小说"
+          @action="showAddNovelDialog"
+        />
 
         <!-- 无搜索结果 -->
-        <div class="empty-state" v-else>
-          <div class="empty-icon">🔍</div>
-          <h3>没有找到匹配的小说</h3>
-          <p>尝试使用不同的搜索词</p>
-        </div>
+        <EmptyState 
+          v-else
+          icon="🔍"
+          title="没有找到匹配的小说"
+          description="尝试使用不同的搜索词"
+        />
       </div>
 
       <!-- 右侧：阅读器区域 -->
@@ -488,11 +490,13 @@
 <script>
 import novelManager from '../utils/NovelManager.js'
 import Toolbar from '../components/Toolbar.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 export default {
   name: 'NovelView',
   components: {
-    Toolbar
+    Toolbar,
+    EmptyState
   },
   data() {
     return {

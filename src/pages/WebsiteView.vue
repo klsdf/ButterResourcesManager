@@ -57,7 +57,7 @@
     </div>
 
     <!-- 网站列表 -->
-    <div class="websites-grid">
+    <div class="websites-grid" v-if="filteredWebsites.length > 0">
       <div 
         v-for="website in filteredWebsites" 
         :key="website.id"
@@ -97,6 +97,25 @@
         </div>
       </div>
     </div>
+
+    <!-- 空状态 -->
+    <EmptyState 
+      v-else-if="websites.length === 0"
+      icon="🌐"
+      title="你的网站收藏是空的"
+      description="点击&quot;添加网站&quot;按钮来添加你的第一个网站收藏"
+      :show-button="true"
+      button-text="添加第一个网站"
+      @action="showAddDialog = true"
+    />
+
+    <!-- 无搜索结果 -->
+    <EmptyState 
+      v-else
+      icon="🔍"
+      title="没有找到匹配的网站"
+      description="尝试使用不同的搜索词"
+    />
 
     <!-- 添加网站对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddDialog">
@@ -376,11 +395,13 @@
 <script>
 import websiteManager from '../utils/WebsiteManager.js'
 import Toolbar from '../components/Toolbar.vue'
+import EmptyState from '../components/EmptyState.vue'
 
 export default {
   name: 'WebsiteView',
   components: {
-    Toolbar
+    Toolbar,
+    EmptyState
   },
   data() {
     return {
