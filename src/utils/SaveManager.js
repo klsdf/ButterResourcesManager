@@ -707,18 +707,18 @@ class SaveManager {
     try {
       const data = await this.readJsonFile(this.filePaths.games)
       if (data && data.games) {
-        console.log('加载游戏数据:', data.games.length, '个游戏')
+        // console.log('加载游戏数据:', data.games.length, '个游戏')
         
-        // 检查每个游戏的统计信息
-        if (Array.isArray(data.games)) {
-          data.games.forEach((game, index) => {
-            console.log(`游戏 ${index + 1} (${game.name}):`)
-            console.log('  lastPlayed:', game.lastPlayed)
-            console.log('  firstPlayed:', game.firstPlayed)
-            console.log('  playCount:', game.playCount)
-            console.log('  playTime:', game.playTime)
-          })
-        }
+        // // 检查每个游戏的统计信息
+        // if (Array.isArray(data.games)) {
+        //   data.games.forEach((game, index) => {
+            
+        //     console.log('  lastPlayed:', game.lastPlayed)
+        //     console.log('  firstPlayed:', game.firstPlayed)
+        //     console.log('  playCount:', game.playCount)
+        //     console.log('  playTime:', game.playTime)
+        //   })
+        // }
         
         return data.games
       }

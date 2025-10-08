@@ -421,14 +421,15 @@
       </div>
     </div>
 
-    <!-- 右键菜单 -->
-    <ContextMenu
+ 
+  </div>
+     <!-- 右键菜单 -->
+     <ContextMenu
       :visible="showContextMenu"
       :position="contextMenuPos"
       :menu-items="videoContextMenuItems"
       @item-click="handleContextMenuClick"
     />
-  </div>
 </template>
 
 <script>

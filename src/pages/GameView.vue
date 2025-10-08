@@ -892,15 +892,6 @@ export default {
       const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
       const diffMinutes = Math.floor(diffTime / (1000 * 60))
       
-      console.log('formatLastPlayed 调试:')
-      console.log('  dateString:', dateString)
-      console.log('  date:', date)
-      console.log('  now:', now)
-      console.log('  diffTime (ms):', diffTime)
-      console.log('  diffDays:', diffDays)
-      console.log('  diffHours:', diffHours)
-      console.log('  diffMinutes:', diffMinutes)
-      
       // 如果是今天（同一天）
       if (diffDays === 0) {
         if (diffMinutes < 1) return '刚刚'
