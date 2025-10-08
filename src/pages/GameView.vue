@@ -369,32 +369,12 @@
     </div>
 
     <!-- 右键菜单 -->
-    <div 
-      v-if="showContextMenu" 
-      class="context-menu"
-      :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
-    >
-      <div class="context-item" @click="showGameDetail(selectedGame)">
-        <span class="context-icon">👁️</span>
-        查看详情
-      </div>
-      <div class="context-item" @click="launchGame(selectedGame)">
-        <span class="context-icon">▶️</span>
-        启动游戏
-      </div>
-      <div class="context-item" @click="openGameFolder(selectedGame)">
-        <span class="context-icon">📁</span>
-        打开文件夹
-      </div>
-      <div class="context-item" @click="editGame(selectedGame)">
-        <span class="context-icon">✏️</span>
-        编辑信息
-      </div>
-      <div class="context-item" @click="removeGame(selectedGame)">
-        <span class="context-icon">🗑️</span>
-        删除游戏
-      </div>
-    </div>
+    <ContextMenu
+      :visible="showContextMenu"
+      :position="contextMenuPos"
+      :menu-items="gameContextMenuItems"
+      @item-click="handleContextMenuClick"
+    />
   </div>
 </template>
 
@@ -402,12 +382,14 @@
 import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 
 export default {
   name: 'GameView',
   components: {
     GameToolbar,
-    EmptyState
+    EmptyState,
+    ContextMenu
   },
   data() {
     return {
@@ -454,6 +436,14 @@ export default {
         { value: 'lastPlayed', label: '按最后游玩时间' },
         { value: 'playTime', label: '按游戏时长' },
         { value: 'added', label: '按添加时间' }
+      ],
+      // 右键菜单配置
+      gameContextMenuItems: [
+        { key: 'detail', icon: '👁️', label: '查看详情' },
+        { key: 'launch', icon: '▶️', label: '启动游戏' },
+        { key: 'folder', icon: '📁', label: '打开文件夹' },
+        { key: 'edit', icon: '✏️', label: '编辑信息' },
+        { key: 'remove', icon: '🗑️', label: '删除游戏' }
       ]
     }
   },
@@ -709,6 +699,34 @@ export default {
       this.selectedGame = game
       this.contextMenuPos = { x: event.clientX, y: event.clientY }
       this.showContextMenu = true
+    },
+
+    /**
+     * 右键菜单点击事件，注册右键菜单中有哪些方法的
+     * @param {*} item
+     * @returns
+     */
+    handleContextMenuClick(item) {
+      this.showContextMenu = false
+      if (!this.selectedGame) return
+      
+      switch (item.key) {
+        case 'detail':
+          this.showGameDetail(this.selectedGame)
+          break
+        case 'launch':
+          this.launchGame(this.selectedGame)
+          break
+        case 'folder':
+          this.openGameFolder(this.selectedGame)
+          break
+        case 'edit':
+          this.editGame(this.selectedGame)
+          break
+        case 'remove':
+          this.removeGame(this.selectedGame)
+          break
+      }
     },
     editGame(game) {
       // 打开编辑对话框并填充表单
@@ -1746,36 +1764,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* 右键菜单样式 */
-.context-menu {
-  position: fixed;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px var(--shadow-medium);
-  z-index: 1001;
-  min-width: 150px;
-  overflow: hidden;
-  transition: background-color 0.3s ease;
-}
-
-.context-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.context-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.context-icon {
-  font-size: 1rem;
-}
 
 /* 游戏详情页面样式 */
 .game-detail-overlay {

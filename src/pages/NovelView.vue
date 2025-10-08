@@ -458,32 +458,12 @@
     </div>
     
     <!-- 右键菜单 -->
-    <div 
-      v-if="showContextMenu" 
-      class="context-menu"
-      :style="{ left: contextMenuPos.x + 'px', top: contextMenuPos.y + 'px' }"
-    >
-      <div class="context-item" @click="showNovelDetail(selectedNovel)">
-        <span class="context-icon">👁️</span>
-        查看详情
-      </div>
-      <div class="context-item" @click="openNovelReader(selectedNovel)">
-        <span class="context-icon">📖</span>
-        开始阅读
-      </div>
-      <div class="context-item" @click="openNovelFolder(selectedNovel)">
-        <span class="context-icon">📁</span>
-        打开文件夹
-      </div>
-      <div class="context-item" @click="editNovel(selectedNovel)">
-        <span class="context-icon">✏️</span>
-        编辑信息
-      </div>
-      <div class="context-item" @click="removeNovel(selectedNovel)">
-        <span class="context-icon">🗑️</span>
-        删除小说
-      </div>
-    </div>
+    <ContextMenu
+      :visible="showContextMenu"
+      :position="contextMenuPos"
+      :menu-items="novelContextMenuItems"
+      @item-click="handleContextMenuClick"
+    />
   </div>
 </template>
 
@@ -491,12 +471,14 @@
 import novelManager from '../utils/NovelManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 
 export default {
   name: 'NovelView',
   components: {
     Toolbar,
-    EmptyState
+    EmptyState,
+    ContextMenu
   },
   data() {
     return {
@@ -557,6 +539,14 @@ export default {
         { value: 'lastRead', label: '按最后阅读时间' },
         { value: 'readProgress', label: '按阅读进度' },
         { value: 'added', label: '按添加时间' }
+      ],
+      // 右键菜单配置
+      novelContextMenuItems: [
+        { key: 'detail', icon: '👁️', label: '查看详情' },
+        { key: 'read', icon: '📖', label: '开始阅读' },
+        { key: 'folder', icon: '📁', label: '打开文件夹' },
+        { key: 'edit', icon: '✏️', label: '编辑信息' },
+        { key: 'remove', icon: '🗑️', label: '删除小说' }
       ]
     }
   },
@@ -795,6 +785,28 @@ export default {
       this.selectedNovel = novel
       this.contextMenuPos = { x: event.clientX, y: event.clientY }
       this.showContextMenu = true
+    },
+    handleContextMenuClick(item) {
+      this.showContextMenu = false
+      if (!this.selectedNovel) return
+      
+      switch (item.key) {
+        case 'detail':
+          this.showNovelDetail(this.selectedNovel)
+          break
+        case 'read':
+          this.openNovelReader(this.selectedNovel)
+          break
+        case 'folder':
+          this.openNovelFolder(this.selectedNovel)
+          break
+        case 'edit':
+          this.editNovel(this.selectedNovel)
+          break
+        case 'remove':
+          this.removeNovel(this.selectedNovel)
+          break
+      }
     },
     editNovel(novel) {
       this.showContextMenu = false
@@ -1970,36 +1982,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* 右键菜单样式 */
-.context-menu {
-  position: fixed;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px var(--shadow-medium);
-  z-index: 1001;
-  min-width: 150px;
-  overflow: hidden;
-  transition: background-color 0.3s ease;
-}
-
-.context-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  cursor: pointer;
-  color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-.context-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.context-icon {
-  font-size: 1rem;
-}
 
 /* 小说详情页面样式 */
 .novel-detail-overlay {

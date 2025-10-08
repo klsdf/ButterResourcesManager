@@ -56,8 +56,14 @@
       </div>
     </div>
 
+    <!-- 加载状态 -->
+    <div v-if="isLoading" class="loading-state">
+      <div class="loading-spinner">🔄</div>
+      <p>正在加载网站数据...</p>
+    </div>
+
     <!-- 网站列表 -->
-    <div class="websites-grid" v-if="filteredWebsites.length > 0">
+    <div class="websites-grid" v-else-if="filteredWebsites.length > 0">
       <div 
         v-for="website in filteredWebsites" 
         :key="website.id"
@@ -100,7 +106,7 @@
 
     <!-- 空状态 -->
     <EmptyState 
-      v-else-if="websites.length === 0"
+      v-else-if="!isLoading && websites.length === 0"
       icon="🌐"
       title="你的网站收藏是空的"
       description="点击&quot;添加网站&quot;按钮来添加你的第一个网站收藏"
@@ -111,7 +117,7 @@
 
     <!-- 无搜索结果 -->
     <EmptyState 
-      v-else
+      v-else-if="!isLoading"
       icon="🔍"
       title="没有找到匹配的网站"
       description="尝试使用不同的搜索词"
@@ -127,13 +133,12 @@
         
         <div class="modal-body">
           <div class="form-group">
-            <label>网站名称 *</label>
+            <label>网站名称</label>
             <input 
               type="text" 
               v-model="newWebsite.name" 
-              placeholder="网站名称"
+              placeholder="网站名称（可选）"
               class="form-input"
-              required
             >
           </div>
           
@@ -153,102 +158,10 @@
             <label>网站描述</label>
             <textarea 
               v-model="newWebsite.description" 
-              placeholder="网站描述..."
+              placeholder="网站描述（可选）..."
               class="form-textarea"
               rows="3"
             ></textarea>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label>分类</label>
-              <input 
-                type="text" 
-                v-model="newWebsite.category" 
-                placeholder="分类"
-                class="form-input"
-                list="categories"
-              >
-              <datalist id="categories">
-                <option v-for="category in categories" :key="category" :value="category"></option>
-              </datalist>
-            </div>
-            <div class="form-group">
-              <label>语言</label>
-              <select v-model="newWebsite.language" class="form-select">
-                <option value="">选择语言</option>
-                <option value="zh">中文</option>
-                <option value="en">English</option>
-                <option value="ja">日本語</option>
-                <option value="ko">한국어</option>
-                <option value="fr">Français</option>
-                <option value="de">Deutsch</option>
-                <option value="es">Español</option>
-                <option value="ru">Русский</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label>标签（用逗号分隔）</label>
-            <input 
-              type="text" 
-              v-model="newWebsite.tagsInput" 
-              placeholder="例如: 工具, 开发, 设计"
-              class="form-input"
-            >
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label>登录用户名</label>
-              <input 
-                type="text" 
-                v-model="newWebsite.username" 
-                placeholder="用户名"
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>登录密码</label>
-              <input 
-                type="password" 
-                v-model="newWebsite.password" 
-                placeholder="密码"
-                class="form-input"
-              >
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label>登录URL</label>
-            <input 
-              type="url" 
-              v-model="newWebsite.loginUrl" 
-              placeholder="登录页面URL"
-              class="form-input"
-            >
-          </div>
-          
-          <div class="form-group">
-            <label>备注</label>
-            <textarea 
-              v-model="newWebsite.notes" 
-              placeholder="网站备注..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          
-          <div class="form-checkboxes">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="newWebsite.isBookmark">
-              <span class="checkbox-text">设为书签</span>
-            </label>
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="newWebsite.isPrivate">
-              <span class="checkbox-text">私有网站</span>
-            </label>
           </div>
         </div>
         
@@ -367,28 +280,12 @@
     </div>
 
     <!-- 右键菜单 -->
-    <div 
-      v-if="contextMenu.visible" 
-      class="context-menu"
-      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-    >
-      <div class="context-item" @click="showWebsiteDetail(selectedWebsite)">
-        <span class="context-icon">👁️</span>
-        查看详情
-      </div>
-      <div class="context-item" @click="visitWebsite(selectedWebsite)">
-        <span class="context-icon">🔗</span>
-        访问网站
-      </div>
-      <div class="context-item" @click="editWebsite(selectedWebsite)">
-        <span class="context-icon">✏️</span>
-        编辑信息
-      </div>
-      <div class="context-item" @click="deleteWebsite(selectedWebsite)">
-        <span class="context-icon">🗑️</span>
-        删除网站
-      </div>
-    </div>
+    <ContextMenu
+      :visible="contextMenu.visible"
+      :position="{ x: contextMenu.x, y: contextMenu.y }"
+      :menu-items="websiteContextMenuItems"
+      @item-click="handleContextMenuClick"
+    />
   </div>
 </template>
 
@@ -396,12 +293,14 @@
 import websiteManager from '../utils/WebsiteManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 
 export default {
   name: 'WebsiteView',
   components: {
     Toolbar,
-    EmptyState
+    EmptyState,
+    ContextMenu
   },
   data() {
     return {
@@ -419,18 +318,10 @@ export default {
       newWebsite: {
         name: '',
         url: '',
-        description: '',
-        category: '未分类',
-        language: '',
-        tagsInput: '',
-        username: '',
-        password: '',
-        loginUrl: '',
-        notes: '',
-        isBookmark: false,
-        isPrivate: false
+        description: ''
       },
       urlError: '',
+      isLoading: false,
       // 排序选项
       websiteSortOptions: [
         { value: 'name', label: '按名称' },
@@ -438,12 +329,31 @@ export default {
         { value: 'visitCount', label: '按访问次数' },
         { value: 'addedDate', label: '按添加时间' },
         { value: 'lastVisited', label: '按最后访问' }
+      ],
+      // 右键菜单配置
+      websiteContextMenuItems: [
+        { key: 'detail', icon: '👁️', label: '查看详情' },
+        { key: 'visit', icon: '🔗', label: '访问网站' },
+        { key: 'edit', icon: '✏️', label: '编辑信息' },
+        { key: 'delete', icon: '🗑️', label: '删除网站' }
       ]
     }
   },
   computed: {
     filteredWebsites() {
-      let filtered = websiteManager.searchWebsites(this.searchQuery)
+      let filtered = this.websites
+      
+      // 搜索过滤
+      if (this.searchQuery && this.searchQuery.trim()) {
+        const query = this.searchQuery.toLowerCase()
+        filtered = filtered.filter(website => 
+          website.name.toLowerCase().includes(query) ||
+          website.url.toLowerCase().includes(query) ||
+          website.description.toLowerCase().includes(query) ||
+          website.category.toLowerCase().includes(query) ||
+          website.tags.some(tag => tag.toLowerCase().includes(query))
+        )
+      }
       
       // 按分类过滤
       if (this.filterCategory) {
@@ -453,15 +363,20 @@ export default {
       // 排序
       switch (this.sortBy) {
         case 'name':
-          return websiteManager.sortByName(filtered)
+          return [...filtered].sort((a, b) => a.name.localeCompare(b.name))
         case 'category':
-          return websiteManager.sortByCategory(filtered)
+          return [...filtered].sort((a, b) => a.category.localeCompare(b.category))
         case 'visitCount':
-          return websiteManager.sortByVisitCount(filtered)
+          return [...filtered].sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0))
         case 'addedDate':
-          return websiteManager.sortByAddedDate(filtered)
+          return [...filtered].sort((a, b) => new Date(b.addedDate) - new Date(a.addedDate))
         case 'lastVisited':
-          return websiteManager.sortByLastVisited(filtered)
+          return [...filtered].sort((a, b) => {
+            if (!a.lastVisited && !b.lastVisited) return 0
+            if (!a.lastVisited) return 1
+            if (!b.lastVisited) return -1
+            return new Date(b.lastVisited) - new Date(a.lastVisited)
+          })
         default:
           return filtered
       }
@@ -479,8 +394,7 @@ export default {
       return this.websites.filter(website => website.status === 'active').length
     },
     isFormValid() {
-      return this.newWebsite.name.trim() && 
-             this.newWebsite.url.trim() && 
+      return this.newWebsite.url.trim() && 
              websiteManager.validateUrl(this.newWebsite.url) &&
              !this.urlError
     }
@@ -497,29 +411,37 @@ export default {
   methods: {
     async loadWebsites() {
       try {
+        this.isLoading = true
+        console.log('🔄 开始加载网站数据...')
         this.websites = await websiteManager.loadWebsites()
-        console.log('网站数据加载完成:', this.websites.length, '个网站')
+        console.log('✅ 网站数据加载完成:', this.websites.length, '个网站')
       } catch (error) {
-        console.error('加载网站数据失败:', error)
+        console.error('❌ 加载网站数据失败:', error)
         alert('加载网站数据失败: ' + error.message)
+      } finally {
+        this.isLoading = false
       }
     },
     
     async addWebsite() {
       try {
         if (!this.isFormValid) {
-          alert('请填写必填字段并确保URL格式正确')
+          alert('请填写有效的URL')
           return
         }
         
         const websiteData = {
           ...this.newWebsite,
-          tags: this.newWebsite.tagsInput ? this.newWebsite.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+          // 如果没有填写名称，从URL中提取域名作为名称
+          name: this.newWebsite.name.trim() || websiteManager.getDomain(this.newWebsite.url),
+          category: '未分类',
+          tags: [],
           favicon: websiteManager.getFaviconUrl(this.newWebsite.url)
         }
         
         const website = await websiteManager.addWebsite(websiteData)
-        this.websites.push(website)
+        // 重新加载网站列表以确保数据同步
+        await this.loadWebsites()
         this.closeAddDialog()
         this.showNotification('网站添加成功', `已添加网站: ${website.name}`)
       } catch (error) {
@@ -562,7 +484,8 @@ export default {
       if (confirm(`确定要删除网站 "${website.name}" 吗？`)) {
         try {
           await websiteManager.deleteWebsite(website.id)
-          this.websites = this.websites.filter(w => w.id !== website.id)
+          // 重新加载网站列表以确保数据同步
+          await this.loadWebsites()
           this.closeWebsiteDetail()
           this.showNotification('网站删除成功', `已删除网站: ${website.name}`)
         } catch (error) {
@@ -586,27 +509,39 @@ export default {
       this.newWebsite = {
         name: '',
         url: '',
-        description: '',
-        category: '未分类',
-        language: '',
-        tagsInput: '',
-        username: '',
-        password: '',
-        loginUrl: '',
-        notes: '',
-        isBookmark: false,
-        isPrivate: false
+        description: ''
       }
       this.urlError = ''
     },
     
     showContextMenu(event, website) {
       event.preventDefault()
-      this.selectedWebsite = website
       this.contextMenu = {
         visible: true,
         x: event.clientX,
         y: event.clientY
+      }
+      // 临时存储选中的网站，用于右键菜单操作
+      this.contextMenu.selectedWebsite = website
+    },
+    handleContextMenuClick(item) {
+      this.contextMenu.visible = false
+      const website = this.contextMenu.selectedWebsite
+      if (!website) return
+      
+      switch (item.key) {
+        case 'detail':
+          this.showWebsiteDetail(website)
+          break
+        case 'visit':
+          this.visitWebsite(website)
+          break
+        case 'edit':
+          this.editWebsite(website)
+          break
+        case 'delete':
+          this.deleteWebsite(website)
+          break
       }
     },
     
@@ -687,7 +622,7 @@ export default {
 .website-view {
   padding: 20px;
   max-width: 1400px;
-  margin: 0 auto;
+  /* margin: 0 auto; */
 }
 
 /* 工具栏样式 */
@@ -764,6 +699,33 @@ export default {
 .stat-label {
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+/* 加载状态样式 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.loading-spinner {
+  font-size: 2rem;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
 }
 
 /* 网站网格样式 */
@@ -1297,35 +1259,6 @@ export default {
   background: #dc2626;
 }
 
-/* 右键菜单样式 */
-.context-menu {
-  position: fixed;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
-  min-width: 150px;
-  overflow: hidden;
-}
-
-.context-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
-  transition: background-color 0.3s ease;
-}
-
-.context-item:hover {
-  background: var(--bg-secondary);
-}
-
-.context-icon {
-  font-size: 1rem;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

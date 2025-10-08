@@ -252,32 +252,12 @@
     </div>
 
     <!-- 右键菜单 -->
-    <div 
-      v-if="contextMenu.visible" 
-      class="context-menu"
-      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
-    >
-      <div class="context-item" @click="showAudioDetail(selectedAudio)">
-        <span class="context-icon">👁️</span>
-        查看详情
-      </div>
-      <div class="context-item" @click="playAudio(selectedAudio)">
-        <span class="context-icon">▶️</span>
-        播放
-      </div>
-      <div class="context-item" @click="openAudioFolder(selectedAudio)">
-        <span class="context-icon">📁</span>
-        打开文件夹
-      </div>
-      <div class="context-item" @click="editAudio(selectedAudio)">
-        <span class="context-icon">✏️</span>
-        编辑信息
-      </div>
-      <div class="context-item" @click="deleteAudio(selectedAudio)">
-        <span class="context-icon">🗑️</span>
-        删除音频
-      </div>
-    </div>
+    <ContextMenu
+      :visible="contextMenu.visible"
+      :position="{ x: contextMenu.x, y: contextMenu.y }"
+      :menu-items="audioContextMenuItems"
+      @item-click="handleContextMenuClick"
+    />
   </div>
 </template>
 
@@ -285,12 +265,14 @@
 import audioManager from '../utils/AudioManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 
 export default {
   name: 'AudioView',
   components: {
     Toolbar,
-    EmptyState
+    EmptyState,
+    ContextMenu
   },
   data() {
     return {
@@ -320,6 +302,14 @@ export default {
         { value: 'artist', label: '按艺术家' },
         { value: 'playCount', label: '按播放次数' },
         { value: 'addedDate', label: '按添加时间' }
+      ],
+      // 右键菜单配置
+      audioContextMenuItems: [
+        { key: 'detail', icon: '👁️', label: '查看详情' },
+        { key: 'play', icon: '▶️', label: '播放' },
+        { key: 'folder', icon: '📁', label: '打开文件夹' },
+        { key: 'edit', icon: '✏️', label: '编辑信息' },
+        { key: 'delete', icon: '🗑️', label: '删除音频' }
       ]
     }
   },
@@ -503,11 +493,35 @@ export default {
     
     showContextMenu(event, audio) {
       event.preventDefault()
-      this.selectedAudio = audio
       this.contextMenu = {
         visible: true,
         x: event.clientX,
         y: event.clientY
+      }
+      // 临时存储选中的音频，用于右键菜单操作
+      this.contextMenu.selectedAudio = audio
+    },
+    handleContextMenuClick(item) {
+      this.contextMenu.visible = false
+      const audio = this.contextMenu.selectedAudio
+      if (!audio) return
+      
+      switch (item.key) {
+        case 'detail':
+          this.showAudioDetail(audio)
+          break
+        case 'play':
+          this.playAudio(audio)
+          break
+        case 'folder':
+          this.openAudioFolder(audio)
+          break
+        case 'edit':
+          this.editAudio(audio)
+          break
+        case 'delete':
+          this.deleteAudio(audio)
+          break
       }
     },
     
@@ -734,7 +748,7 @@ export default {
 .audio-view {
   padding: 20px;
   max-width: 1400px;
-  margin: 0 auto;
+  /* margin: 0 auto; */
 }
 
 /* 工具栏样式 */
@@ -1227,35 +1241,6 @@ export default {
   transform: translateY(-1px);
 }
 
-/* 右键菜单样式 */
-.context-menu {
-  position: fixed;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
-  min-width: 150px;
-  overflow: hidden;
-}
-
-.context-item {
-  padding: 12px 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
-  transition: background-color 0.3s ease;
-}
-
-.context-item:hover {
-  background: var(--bg-secondary);
-}
-
-.context-icon {
-  font-size: 1rem;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
