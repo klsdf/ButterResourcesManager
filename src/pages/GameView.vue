@@ -1,14 +1,28 @@
 <template>
   <div class="game-view">
-    <!-- 工具栏 -->
-    <GameToolbar 
-      v-model:searchQuery="searchQuery"
-      v-model:sortBy="sortBy"
-      add-button-text="添加游戏"
-      search-placeholder="搜索游戏..."
-      :sort-options="gameSortOptions"
-      @add-item="showAddGameDialog"
+    <!-- 左侧筛选导航栏 -->
+    <FilterSidebar
+      :all-tags="allTags"
+      :all-developers="allDevelopers"
+      :selected-tag="selectedTag"
+      :selected-developer="selectedDeveloper"
+      @tag-filter="filterByTag"
+      @developer-filter="filterByDeveloper"
+      @clear-tag-filter="clearTagFilter"
+      @clear-developer-filter="clearDeveloperFilter"
     />
+
+    <!-- 主内容区域 -->
+    <div class="game-content">
+      <!-- 工具栏 -->
+      <GameToolbar 
+        v-model:searchQuery="searchQuery"
+        v-model:sortBy="sortBy"
+        add-button-text="添加游戏"
+        search-placeholder="搜索游戏..."
+        :sort-options="gameSortOptions"
+        @add-item="showAddGameDialog"
+      />
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="filteredGames.length > 0">
@@ -375,6 +389,7 @@
       :menu-items="gameContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+    </div>
   </div>
 </template>
 
@@ -383,13 +398,15 @@ import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FilterSidebar from '../components/FilterSidebar.vue'
 
 export default {
   name: 'GameView',
   components: {
     GameToolbar,
     EmptyState,
-    ContextMenu
+    ContextMenu,
+    FilterSidebar
   },
   data() {
     return {
@@ -444,15 +461,30 @@ export default {
         { key: 'folder', icon: '📁', label: '打开文件夹' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'remove', icon: '🗑️', label: '删除游戏' }
-      ]
+      ],
+      // 标签筛选相关
+      allTags: [],
+      selectedTag: null,
+      // 开发商筛选相关
+      allDevelopers: [],
+      selectedDeveloper: null
     }
   },
   computed: {
     filteredGames() {
-      let filtered = this.games.filter(game => 
-        game.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        game.developer.toLowerCase().includes(this.searchQuery.toLowerCase())
-      )
+      let filtered = this.games.filter(game => {
+        // 搜索筛选
+        const matchesSearch = game.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                            game.developer.toLowerCase().includes(this.searchQuery.toLowerCase())
+        
+        // 标签筛选
+        const matchesTag = !this.selectedTag || (game.tags && game.tags.includes(this.selectedTag))
+        
+        // 开发商筛选
+        const matchesDeveloper = !this.selectedDeveloper || game.developer === this.selectedDeveloper
+        
+        return matchesSearch && matchesTag && matchesDeveloper
+      })
       
       // 排序
       filtered.sort((a, b) => {
@@ -932,6 +964,47 @@ export default {
     },
     async loadGames() {
       this.games = await saveManager.loadGames()
+      this.extractAllTags()
+    },
+    extractAllTags() {
+      // 从所有游戏中提取标签并统计数量
+      const tagCount = {}
+      const developerCount = {}
+      
+      this.games.forEach(game => {
+        // 提取标签
+        if (game.tags && Array.isArray(game.tags)) {
+          game.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1
+          })
+        }
+        
+        // 提取开发商
+        if (game.developer) {
+          developerCount[game.developer] = (developerCount[game.developer] || 0) + 1
+        }
+      })
+      
+      // 转换为数组并按名称排序
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allDevelopers = Object.entries(developerCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    filterByTag(tagName) {
+      this.selectedTag = this.selectedTag === tagName ? null : tagName
+    },
+    clearTagFilter() {
+      this.selectedTag = null
+    },
+    filterByDeveloper(developerName) {
+      this.selectedDeveloper = this.selectedDeveloper === developerName ? null : developerName
+    },
+    clearDeveloperFilter() {
+      this.selectedDeveloper = null
     },
     updateGamePlayTime(data) {
       // 根据可执行文件路径找到对应的游戏
@@ -1284,7 +1357,20 @@ export default {
 
 <style scoped>
 .game-view {
-  padding: 20px;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+
+
+/* 游戏主内容区域 */
+.game-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
 }
@@ -1295,7 +1381,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 20px;
-  padding: 10px 0;
+  padding: 20px;
 }
 
 .game-card {

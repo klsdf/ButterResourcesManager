@@ -76,7 +76,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 15px 0;
+  padding: 15px;
   border-bottom: 1px solid var(--border-color);
 }
 

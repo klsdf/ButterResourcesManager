@@ -136,7 +136,7 @@ body {
 
 /* 侧边栏样式 */
 .sidebar {
-  width: 280px;
+  min-width: 280px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
