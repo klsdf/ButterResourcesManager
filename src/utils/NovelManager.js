@@ -4,6 +4,20 @@ class NovelManager {
   constructor() {
     this.novels = []
     this.dataFile = 'SaveData/novels.json'
+    this.settingsFile = 'SaveData/novel-settings.json'
+    this.defaultSettings = {
+      defaultOpenMode: 'internal', // 'internal' 或 'external'
+      readerSettings: {
+        fontSize: 16,
+        lineHeight: 1.6,
+        fontFamily: 'Microsoft YaHei, sans-serif',
+        backgroundColor: '#ffffff',
+        textColor: '#333333',
+        showProgress: true,
+        wordsPerPage: 1000
+      }
+    }
+    this.settings = { ...this.defaultSettings }
   }
 
   // 加载小说数据
@@ -381,6 +395,35 @@ class NovelManager {
       throw error
     }
   }
+
+  // 从全局设置中获取小说设置
+  async getNovelSettingsFromGlobal() {
+    try {
+      const allSettings = await saveManager.loadSettings()
+      if (allSettings) {
+        // 从全局设置中提取小说相关设置
+        const novelSettings = {
+          defaultOpenMode: allSettings.novelDefaultOpenMode || 'internal',
+          readerSettings: {
+            fontSize: allSettings.novelFontSize || 16,
+            lineHeight: allSettings.novelLineHeight || 1.6,
+            fontFamily: allSettings.novelFontFamily || 'Microsoft YaHei, sans-serif',
+            backgroundColor: allSettings.novelBackgroundColor || '#ffffff',
+            textColor: allSettings.novelTextColor || '#333333',
+            showProgress: allSettings.novelShowProgress !== false,
+            wordsPerPage: allSettings.novelWordsPerPage || 1000
+          }
+        }
+        return novelSettings
+      }
+      return this.defaultSettings
+    } catch (error) {
+      console.error('获取小说设置失败:', error)
+      return this.defaultSettings
+    }
+  }
+
 }
 
 export default new NovelManager()
+

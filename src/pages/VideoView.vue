@@ -420,6 +420,14 @@
         <button type="button" class="btn-confirm" @click="saveEditedVideo">保存</button>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <ContextMenu
+      :visible="showContextMenu"
+      :position="contextMenuPos"
+      :menu-items="videoContextMenuItems"
+      @item-click="handleContextMenuClick"
+    />
   </div>
 </template>
 
@@ -427,13 +435,15 @@
 import VideoManager from '../utils/VideoManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
   name: 'VideoView',
   components: {
     GameToolbar,
-    EmptyState
+    EmptyState,
+    ContextMenu
   },
   data() {
     return {
@@ -444,6 +454,8 @@ export default {
       showAddDialog: false,
       showDetailDialog: false,
       selectedVideo: null,
+      showContextMenu: false,
+      contextMenuPos: { x: 0, y: 0 },
       newVideo: {
         name: '',
         description: '',
@@ -488,6 +500,14 @@ export default {
         { value: 'watchCount', label: '按观看次数' },
         { value: 'added', label: '按添加时间' },
         { value: 'rating', label: '按评分排序' }
+      ],
+      // 右键菜单配置
+      videoContextMenuItems: [
+        { key: 'detail', icon: '👁️', label: '查看详情' },
+        { key: 'play', icon: '▶️', label: '播放视频' },
+        { key: 'folder', icon: '📁', label: '打开文件夹' },
+        { key: 'edit', icon: '✏️', label: '编辑信息' },
+        { key: 'remove', icon: '🗑️', label: '删除视频' }
       ]
     }
   },
@@ -532,6 +552,11 @@ export default {
   async mounted() {
     this.videoManager = new VideoManager()
     await this.loadVideos()
+    
+    // 点击其他地方关闭右键菜单
+    document.addEventListener('click', () => {
+      this.showContextMenu = false
+    })
   },
   methods: {
     async loadVideos() {
@@ -846,7 +871,31 @@ export default {
 
     showVideoContextMenu(event, video) {
       event.preventDefault()
-      // TODO: 实现右键菜单
+      this.selectedVideo = video
+      this.contextMenuPos = { x: event.clientX, y: event.clientY }
+      this.showContextMenu = true
+    },
+    handleContextMenuClick(item) {
+      this.showContextMenu = false
+      if (!this.selectedVideo) return
+      
+      switch (item.key) {
+        case 'detail':
+          this.showVideoDetail(this.selectedVideo)
+          break
+        case 'play':
+          this.playVideo(this.selectedVideo)
+          break
+        case 'folder':
+          this.openVideoFolder(this.selectedVideo)
+          break
+        case 'edit':
+          this.editVideo(this.selectedVideo)
+          break
+        case 'remove':
+          this.removeVideo(this.selectedVideo)
+          break
+      }
     },
 
     /**

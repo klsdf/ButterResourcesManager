@@ -19,16 +19,6 @@
         <option value="completed">已读完</option>
         <option value="paused">暂停</option>
       </select>
-      <button 
-        v-if="currentReadingNovel" 
-        class="btn-close-reader" 
-        @click="closeReader"
-        title="关闭阅读器"
-        style="padding: 8px 12px; background: #dc3545; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;"
-      >
-        <span class="btn-icon">✕</span>
-        关闭阅读器
-      </button>
     </div>
     
     <!-- 主要内容区域 -->
@@ -43,7 +33,7 @@
             :key="novel.id"
             class="novel-card"
             :class="{ 'selected': currentReadingNovel && currentReadingNovel.id === novel.id }"
-            @click="selectNovelForReading(novel)"
+            @click="handleNovelClick(novel)"
             @contextmenu="showNovelContextMenu($event, novel)"
           >
             <div class="novel-cover">
@@ -53,7 +43,7 @@
                 @error="handleImageError"
               >
               <div class="novel-overlay">
-                <div class="read-button" @click.stop="selectNovelForReading(novel)">
+                <div class="read-button" @click.stop="handleNovelClick(novel)">
                   <span class="read-icon">📖</span>
                 </div>
               </div>
@@ -119,14 +109,8 @@
             <p class="reader-author">{{ currentReadingNovel.author }}</p>
           </div>
           <div class="reader-controls">
-            <button class="btn-reader-settings" @click="showReaderSettings" title="阅读设置">
-              <span class="btn-icon">⚙️</span>
-            </button>
-            <button class="btn-add-bookmark" @click="addBookmark" title="添加书签">
-              <span class="btn-icon">🔖</span>
-            </button>
-            <button class="btn-external-reader" @click="openNovelReader(currentReadingNovel)" title="用外部程序打开">
-              <span class="btn-icon">📖</span>
+            <button class="btn-close-reader" @click="closeReader" title="关闭阅读器">
+              <span class="btn-icon">✕</span>
             </button>
           </div>
         </div>
@@ -141,8 +125,8 @@
           </div>
         </div>
 
-        <div class="reader-content" ref="readerContent">
-          <div v-if="novelContent" class="novel-text" v-html="formattedContent"></div>
+        <div class="reader-content" ref="readerContent" :style="readerContentStyle">
+          <div v-if="novelContent" class="novel-text" :style="novelTextStyle" v-html="formattedContent"></div>
           <div v-else-if="loadingContent" class="loading-content">
             <div class="loading-spinner"></div>
             <p>正在加载小说内容...</p>
@@ -532,6 +516,17 @@ export default {
         textColor: '#333333',
         showProgress: true
       },
+      // 全局设置缓存
+      globalSettings: {
+        novelDefaultOpenMode: 'internal',
+        novelFontSize: 16,
+        novelLineHeight: 1.6,
+        novelFontFamily: 'Microsoft YaHei, sans-serif',
+        novelBackgroundColor: '#ffffff',
+        novelTextColor: '#333333',
+        novelWordsPerPage: 1000,
+        novelShowProgress: true
+      },
       // 排序选项
       novelSortOptions: [
         { value: 'name', label: '按名称排序' },
@@ -616,6 +611,23 @@ export default {
     },
     canGoNext() {
       return this.currentPage < this.totalPages
+    },
+    readerContentStyle() {
+      if (!this.currentReadingNovel) return {}
+      
+      return {
+        backgroundColor: this.globalSettings.novelBackgroundColor
+      }
+    },
+    novelTextStyle() {
+      if (!this.currentReadingNovel) return {}
+      
+      return {
+        color: this.globalSettings.novelTextColor,
+        fontSize: this.globalSettings.novelFontSize + 'px',
+        lineHeight: this.globalSettings.novelLineHeight,
+        fontFamily: this.globalSettings.novelFontFamily
+      }
     }
   },
   methods: {
@@ -882,38 +894,69 @@ export default {
           return
         }
         
+        // 从全局设置中获取用户设置
+        const globalSettings = await this.getGlobalSettings()
+        const openMode = globalSettings.novelDefaultOpenMode || 'internal'
+        
         console.log('=== 开始打开小说文件 ===')
         console.log('小说名称:', novel.name)
         console.log('文件路径:', novel.filePath)
-        console.log('Electron API 可用:', !!window.electronAPI)
-        console.log('openExternal API 可用:', !!(window.electronAPI && window.electronAPI.openExternal))
+        console.log('获取到的全局设置:', globalSettings)
+        console.log('打开模式:', openMode)
+        console.log('设置来源:', globalSettings.novelDefaultOpenMode)
         
-        if (window.electronAPI && window.electronAPI.openExternal) {
-          console.log('正在调用 openExternal API...')
-          const result = await window.electronAPI.openExternal(novel.filePath)
-          console.log('openExternal 返回结果:', result)
-          
-          if (result.success) {
-            console.log('✅ 小说文件已用默认程序打开')
-            this.showNotification('打开成功', `"${novel.name}" 已用默认程序打开`)
-            
-            // 更新阅读统计
-            await this.updateReadingStats(novel)
-          } else {
-            console.error('❌ 打开小说文件失败:', result.error)
-            alert(`打开小说文件失败: ${result.error}`)
-          }
+        if (openMode === 'external') {
+          console.log('选择外部应用打开')
+          // 使用外部应用打开，不显示内部阅读器
+          await this.openNovelWithExternalApp(novel)
+          this.closeNovelDetail()
         } else {
-          console.log('❌ Electron API 不可用，使用降级处理')
-          // 降级处理：在浏览器中显示文件路径
-          alert(`小说文件位置:\n${novel.filePath}\n\n请手动打开此文件进行阅读`)
+          console.log('选择应用内阅读器打开')
+          // 使用应用内阅读器
+          await this.openNovelWithInternalReader(novel)
+          this.closeNovelDetail()
         }
-        
-        this.closeNovelDetail()
       } catch (error) {
         console.error('❌ 打开小说阅读器失败:', error)
         console.error('错误详情:', error.stack)
         alert(`打开小说失败: ${error.message}`)
+      }
+    },
+    async openNovelWithExternalApp(novel) {
+      console.log('使用外部应用打开小说')
+      console.log('Electron API 可用:', !!window.electronAPI)
+      console.log('openExternal API 可用:', !!(window.electronAPI && window.electronAPI.openExternal))
+      
+      if (window.electronAPI && window.electronAPI.openExternal) {
+        console.log('正在调用 openExternal API...')
+        const result = await window.electronAPI.openExternal(novel.filePath)
+        console.log('openExternal 返回结果:', result)
+        
+        if (result.success) {
+          console.log('✅ 小说文件已用默认程序打开')
+          this.showNotification('打开成功', `"${novel.name}" 已用默认程序打开`)
+          
+          // 更新阅读统计
+          await this.updateReadingStats(novel)
+        } else {
+          console.error('❌ 打开小说文件失败:', result.error)
+          alert(`打开小说文件失败: ${result.error}`)
+        }
+      } else {
+        console.log('❌ Electron API 不可用，使用降级处理')
+        // 降级处理：在浏览器中显示文件路径
+        alert(`小说文件位置:\n${novel.filePath}\n\n请手动打开此文件进行阅读`)
+      }
+    },
+    async openNovelWithInternalReader(novel) {
+      console.log('使用应用内阅读器打开小说')
+      try {
+        // 选择小说进行阅读
+        await this.selectNovelForReading(novel)
+        this.showNotification('开始阅读', `"${novel.name}" 已在应用内打开`)
+      } catch (error) {
+        console.error('打开应用内阅读器失败:', error)
+        alert(`打开应用内阅读器失败: ${error.message}`)
       }
     },
     async openNovelFolder(novel) {
@@ -1087,6 +1130,30 @@ export default {
         console.error('更新阅读统计失败:', error)
       }
     },
+    // 处理小说点击事件
+    async handleNovelClick(novel) {
+      try {
+        // 从全局设置中获取用户设置
+        const globalSettings = await this.getGlobalSettings()
+        const openMode = globalSettings.novelDefaultOpenMode || 'internal'
+        
+        console.log('=== 处理小说点击事件 ===')
+        console.log('小说名称:', novel.name)
+        console.log('打开模式:', openMode)
+        
+        if (openMode === 'external') {
+          console.log('使用外部应用打开')
+          await this.openNovelReader(novel)
+        } else {
+          console.log('使用应用内阅读器')
+          await this.selectNovelForReading(novel)
+        }
+      } catch (error) {
+        console.error('处理小说点击失败:', error)
+        alert(`打开小说失败: ${error.message}`)
+      }
+    },
+    
     // 阅读器相关方法
     async selectNovelForReading(novel) {
       try {
@@ -1159,17 +1226,55 @@ export default {
         readProgress: progress
       })
     },
-    showReaderSettings() {
-      // TODO: 实现阅读设置对话框
-      console.log('显示阅读设置')
+    async getGlobalSettings() {
+      try {
+        // 从 SaveManager 获取全局设置
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        console.log('原始设置数据:', settings)
+        console.log('novel对象:', settings.novel)
+        console.log('defaultOpenMode值:', settings.novel?.defaultOpenMode)
+        
+        // 使用novel对象格式
+        const novelSettings = {
+          novelDefaultOpenMode: settings.novel?.defaultOpenMode || 'internal',
+          novelFontSize: settings.novel?.readerSettings?.fontSize || 16,
+          novelLineHeight: settings.novel?.readerSettings?.lineHeight || 1.6,
+          novelFontFamily: settings.novel?.readerSettings?.fontFamily || 'Microsoft YaHei, sans-serif',
+          novelBackgroundColor: settings.novel?.readerSettings?.backgroundColor || '#ffffff',
+          novelTextColor: settings.novel?.readerSettings?.textColor || '#333333',
+          novelWordsPerPage: settings.novel?.readerSettings?.wordsPerPage || 1000,
+          novelShowProgress: settings.novel?.readerSettings?.showProgress !== undefined ? settings.novel.readerSettings.showProgress : true
+        }
+        
+        console.log('处理后的小说设置:', novelSettings)
+        console.log('最终使用的打开模式:', novelSettings.novelDefaultOpenMode)
+        
+        // 更新缓存的设置
+        this.globalSettings = novelSettings
+        
+        return novelSettings
+      } catch (error) {
+        console.error('获取全局设置失败:', error)
+        // 返回默认设置
+        return {
+          novelDefaultOpenMode: 'internal',
+          novelFontSize: 16,
+          novelLineHeight: 1.6,
+          novelFontFamily: 'Microsoft YaHei, sans-serif',
+          novelBackgroundColor: '#ffffff',
+          novelTextColor: '#333333',
+          novelWordsPerPage: 1000,
+          novelShowProgress: true
+        }
+      }
     },
-    addBookmark() {
-      // TODO: 实现添加书签功能
-      console.log('添加书签')
-    }
   },
   async mounted() {
     await this.loadNovels()
+    
+    // 加载全局设置
+    await this.getGlobalSettings()
     
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {
@@ -1243,25 +1348,23 @@ export default {
   gap: 8px;
 }
 
-.btn-reader-settings,
-.btn-add-bookmark,
-.btn-external-reader {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+.btn-close-reader {
+  background: #dc3545;
+  color: white;
+  border: none;
   padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.3s ease;
 }
 
-.btn-reader-settings:hover,
-.btn-add-bookmark:hover,
-.btn-external-reader:hover {
-  background: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
+.btn-close-reader:hover {
+  background: #c82333;
 }
+
 
 /* 阅读进度 */
 .reader-progress {
@@ -1387,20 +1490,6 @@ export default {
   font-weight: 500;
 }
 
-/* 关闭阅读器按钮 */
-.btn-close-reader {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.btn-close-reader:hover {
-  background: #dc2626;
-}
 
 /* 选中状态的小说卡片 */
 .novel-card.selected {
@@ -2243,6 +2332,7 @@ export default {
 .btn-open-folder:hover {
   background: var(--bg-secondary);
 }
+
 
 /* 响应式设计 */
 @media (max-width: 768px) {

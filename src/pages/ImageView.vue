@@ -17,6 +17,7 @@
         :key="album.id"
         class="album-card"
         @click="showAlbumDetail(album)"
+        @contextmenu="showAlbumContextMenu($event, album)"
       >
         <div class="album-image">
           <img 
@@ -203,6 +204,14 @@
         </div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <ContextMenu
+      :visible="showContextMenu"
+      :position="contextMenuPos"
+      :menu-items="albumContextMenuItems"
+      @item-click="handleContextMenuClick"
+    />
   </div>
   
 </template>
@@ -211,12 +220,14 @@
 import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
+import ContextMenu from '../components/ContextMenu.vue'
 
 export default {
   name: 'ImageView',
   components: {
     GameToolbar,
-    EmptyState
+    EmptyState,
+    ContextMenu
   },
   data() {
     return {
@@ -230,6 +241,9 @@ export default {
       },
       showDetailModal: false,
       currentAlbum: null,
+      showContextMenu: false,
+      contextMenuPos: { x: 0, y: 0 },
+      selectedAlbum: null,
       pages: [],
       imageCache: {},
       // 编辑相关
@@ -246,6 +260,14 @@ export default {
         { value: 'count', label: '按页数' },
         { value: 'added', label: '按添加时间' },
         { value: 'lastViewed', label: '按最后查看' }
+      ],
+      // 右键菜单配置
+      albumContextMenuItems: [
+        { key: 'detail', icon: '👁️', label: '查看详情' },
+        { key: 'open', icon: '📖', label: '打开漫画' },
+        { key: 'folder', icon: '📁', label: '打开文件夹' },
+        { key: 'edit', icon: '✏️', label: '编辑信息' },
+        { key: 'remove', icon: '🗑️', label: '删除漫画' }
       ]
     }
   },
@@ -378,6 +400,34 @@ export default {
       this.showDetailModal = false
       this.currentAlbum = null
       this.pages = []
+    },
+    showAlbumContextMenu(event, album) {
+      event.preventDefault()
+      this.selectedAlbum = album
+      this.contextMenuPos = { x: event.clientX, y: event.clientY }
+      this.showContextMenu = true
+    },
+    handleContextMenuClick(item) {
+      this.showContextMenu = false
+      if (!this.selectedAlbum) return
+      
+      switch (item.key) {
+        case 'detail':
+          this.showAlbumDetail(this.selectedAlbum)
+          break
+        case 'open':
+          this.openAlbum(this.selectedAlbum)
+          break
+        case 'folder':
+          this.openAlbumFolder(this.selectedAlbum)
+          break
+        case 'edit':
+          this.editAlbum(this.selectedAlbum)
+          break
+        case 'remove':
+          this.removeAlbum(this.selectedAlbum)
+          break
+      }
     },
     async openAlbumFolder(album) {
       try {
@@ -522,6 +572,11 @@ export default {
   },
   async mounted() {
     await this.loadAlbums()
+    
+    // 点击其他地方关闭右键菜单
+    document.addEventListener('click', () => {
+      this.showContextMenu = false
+    })
   }
 }
 </script>

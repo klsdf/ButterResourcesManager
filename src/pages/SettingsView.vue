@@ -290,11 +290,139 @@
           <!-- 小说设置 -->
           <div v-if="currentCategory === 'novels'" class="settings-section">
             <div class="settings-grid">
-              <!-- 小说相关设置可以在这里添加 -->
-              <div class="empty-state">
-                <div class="empty-icon">📚</div>
-                <h4>小说设置</h4>
-                <p>小说相关的设置选项将在这里显示</p>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">默认打开方式</span>
+                  <span class="setting-desc">选择小说的默认打开方式</span>
+                </label>
+                <div class="setting-control">
+                  <select v-model="settings.novelDefaultOpenMode" class="setting-select">
+                    <option value="internal">应用内阅读器</option>
+                    <option value="external">外部应用</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">字体大小</span>
+                  <span class="setting-desc">设置阅读器的默认字体大小</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.novelFontSize" 
+                    min="12" 
+                    max="24" 
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.novelFontSize }}px</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">行高</span>
+                  <span class="setting-desc">设置阅读器的行高</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.novelLineHeight" 
+                    min="1.2" 
+                    max="2.5" 
+                    step="0.1"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.novelLineHeight }}</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">字体</span>
+                  <span class="setting-desc">选择阅读器的默认字体</span>
+                </label>
+                <div class="setting-control">
+                  <select v-model="settings.novelFontFamily" class="setting-select">
+                    <option value="Microsoft YaHei, sans-serif">微软雅黑</option>
+                    <option value="SimSun, serif">宋体</option>
+                    <option value="SimHei, sans-serif">黑体</option>
+                    <option value="KaiTi, serif">楷体</option>
+                    <option value="Arial, sans-serif">Arial</option>
+                    <option value="Times New Roman, serif">Times New Roman</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">背景色</span>
+                  <span class="setting-desc">设置阅读器的背景颜色</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="color" 
+                    v-model="settings.novelBackgroundColor" 
+                    class="color-input"
+                  >
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">文字颜色</span>
+                  <span class="setting-desc">设置阅读器的文字颜色</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="color" 
+                    v-model="settings.novelTextColor" 
+                    class="color-input"
+                  >
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">每页字数</span>
+                  <span class="setting-desc">设置每页显示的字数</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.novelWordsPerPage" 
+                    min="500" 
+                    max="2000" 
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.novelWordsPerPage }} 字</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">显示阅读进度</span>
+                  <span class="setting-desc">在阅读器中显示阅读进度</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.novelShowProgress">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">测试设置</span>
+                  <span class="setting-desc">测试当前设置是否正确保存</span>
+                </label>
+                <div class="setting-control">
+                  <button class="btn-test-settings" @click="testNovelSettings">
+                    测试设置
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -371,7 +499,16 @@ export default {
         autoOpenScreenshotFolder: false,
         smartWindowDetection: true,
         // 视频播放设置
-        videoPlayMode: 'external'
+        videoPlayMode: 'external',
+        // 小说设置
+        novelDefaultOpenMode: 'internal',
+        novelFontSize: 16,
+        novelLineHeight: 1.6,
+        novelFontFamily: 'Microsoft YaHei, sans-serif',
+        novelBackgroundColor: '#ffffff',
+        novelTextColor: '#333333',
+        novelWordsPerPage: 1000,
+        novelShowProgress: true
       }
     }
   },
@@ -433,13 +570,48 @@ export default {
       this.$emit('theme-changed', actualTheme)
     },
     async saveSettings() {
-      // 使用 SaveManager 保存设置
-      const success = await saveManager.saveSettings(this.settings)
-      if (success) {
-        this.$emit('settings-saved', this.settings)
-        alert('设置已保存！')
-      } else {
-        alert('设置保存失败！')
+      try {
+        // 构建novel对象格式的设置
+        const cleanSettings = { ...this.settings }
+        
+        // 构建novel对象
+        cleanSettings.novel = {
+          defaultOpenMode: this.settings.novelDefaultOpenMode || 'internal',
+          readerSettings: {
+            fontSize: this.settings.novelFontSize || 16,
+            lineHeight: this.settings.novelLineHeight || 1.6,
+            fontFamily: this.settings.novelFontFamily || 'Microsoft YaHei, sans-serif',
+            backgroundColor: this.settings.novelBackgroundColor || '#ffffff',
+            textColor: this.settings.novelTextColor || '#333333',
+            wordsPerPage: this.settings.novelWordsPerPage || 1000,
+            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true
+          }
+        }
+        
+        // 清理单独的字段，只保留novel对象
+        delete cleanSettings.novelDefaultOpenMode
+        delete cleanSettings.novelFontSize
+        delete cleanSettings.novelLineHeight
+        delete cleanSettings.novelFontFamily
+        delete cleanSettings.novelBackgroundColor
+        delete cleanSettings.novelTextColor
+        delete cleanSettings.novelWordsPerPage
+        delete cleanSettings.novelShowProgress
+        
+        console.log('保存的设置（novel对象格式）:', cleanSettings)
+        
+        // 使用 SaveManager 保存设置
+        const success = await saveManager.saveSettings(cleanSettings)
+        if (success) {
+          this.$emit('settings-saved', cleanSettings)
+          this.showNotification('设置已保存', '所有设置已成功保存')
+          console.log('设置保存成功:', cleanSettings)
+        } else {
+          alert('设置保存失败！')
+        }
+      } catch (error) {
+        console.error('保存设置失败:', error)
+        alert('设置保存失败: ' + error.message)
       }
     },
     resetSettings() {
@@ -605,26 +777,103 @@ export default {
         console.error('打开截图文件夹失败:', error)
         alert(`打开截图文件夹失败: ${error.message}`)
       }
+    },
+    async testNovelSettings() {
+      try {
+        console.log('=== 测试小说设置 ===')
+        console.log('当前设置:', {
+          novelDefaultOpenMode: this.settings.novelDefaultOpenMode,
+          novelFontSize: this.settings.novelFontSize,
+          novelLineHeight: this.settings.novelLineHeight,
+          novelFontFamily: this.settings.novelFontFamily,
+          novelBackgroundColor: this.settings.novelBackgroundColor,
+          novelTextColor: this.settings.novelTextColor,
+          novelWordsPerPage: this.settings.novelWordsPerPage,
+          novelShowProgress: this.settings.novelShowProgress
+        })
+        
+        // 保存设置
+        const success = await saveManager.saveSettings(this.settings)
+        if (success) {
+          console.log('设置保存成功')
+          
+          // 重新加载设置验证
+          const reloadedSettings = await saveManager.loadSettings()
+          console.log('重新加载的设置:', reloadedSettings)
+          
+          this.showNotification('测试完成', '设置已保存并验证，请查看控制台输出')
+        } else {
+          alert('设置保存失败！')
+        }
+      } catch (error) {
+        console.error('测试设置失败:', error)
+        alert('测试设置失败: ' + error.message)
+      }
     }
   },
   async mounted() {
-    // 使用 SaveManager 加载设置
-    this.settings = await saveManager.loadSettings()
-    
-    // 加载设置后立即应用主题
-    if (this.settings.theme) {
-      this.applyTheme(this.settings.theme)
-    }
-    
-    // 初始化截图目录（如果未设置）
-    if (!this.settings.screenshotsPath) {
-      try {
-        if (window.electronAPI && window.electronAPI.getScreenshotsDirectory) {
-          this.settings.screenshotsPath = await window.electronAPI.getScreenshotsDirectory()
+    try {
+      // 使用 SaveManager 加载设置
+      this.settings = await saveManager.loadSettings()
+      console.log('加载的设置:', this.settings)
+      
+      // 从novel对象中读取小说设置到表单字段
+      if (this.settings.novel) {
+        this.settings.novelDefaultOpenMode = this.settings.novel.defaultOpenMode || 'internal'
+        if (this.settings.novel.readerSettings) {
+          this.settings.novelFontSize = this.settings.novel.readerSettings.fontSize || 16
+          this.settings.novelLineHeight = this.settings.novel.readerSettings.lineHeight || 1.6
+          this.settings.novelFontFamily = this.settings.novel.readerSettings.fontFamily || 'Microsoft YaHei, sans-serif'
+          this.settings.novelBackgroundColor = this.settings.novel.readerSettings.backgroundColor || '#ffffff'
+          this.settings.novelTextColor = this.settings.novel.readerSettings.textColor || '#333333'
+          this.settings.novelWordsPerPage = this.settings.novel.readerSettings.wordsPerPage || 1000
+          this.settings.novelShowProgress = this.settings.novel.readerSettings.showProgress !== undefined ? this.settings.novel.readerSettings.showProgress : true
         }
-      } catch (error) {
-        console.error('获取默认截图目录失败:', error)
       }
+      
+      // 确保小说设置字段存在并设置默认值
+      if (!this.settings.novelDefaultOpenMode) {
+        this.settings.novelDefaultOpenMode = 'internal'
+      }
+      if (!this.settings.novelFontSize) {
+        this.settings.novelFontSize = 16
+      }
+      if (!this.settings.novelLineHeight) {
+        this.settings.novelLineHeight = 1.6
+      }
+      if (!this.settings.novelFontFamily) {
+        this.settings.novelFontFamily = 'Microsoft YaHei, sans-serif'
+      }
+      if (!this.settings.novelBackgroundColor) {
+        this.settings.novelBackgroundColor = '#ffffff'
+      }
+      if (!this.settings.novelTextColor) {
+        this.settings.novelTextColor = '#333333'
+      }
+      if (!this.settings.novelWordsPerPage) {
+        this.settings.novelWordsPerPage = 1000
+      }
+      if (this.settings.novelShowProgress === undefined) {
+        this.settings.novelShowProgress = true
+      }
+      
+      // 加载设置后立即应用主题
+      if (this.settings.theme) {
+        this.applyTheme(this.settings.theme)
+      }
+      
+      // 初始化截图目录（如果未设置）
+      if (!this.settings.screenshotsPath) {
+        try {
+          if (window.electronAPI && window.electronAPI.getScreenshotsDirectory) {
+            this.settings.screenshotsPath = await window.electronAPI.getScreenshotsDirectory()
+          }
+        } catch (error) {
+          console.error('获取默认截图目录失败:', error)
+        }
+      }
+    } catch (error) {
+      console.error('加载设置失败:', error)
     }
   }
 }
@@ -928,6 +1177,23 @@ export default {
   transform: translateY(-1px);
 }
 
+.btn-test-settings {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-test-settings:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
 .btn-icon {
   font-size: 1rem;
 }
@@ -958,6 +1224,22 @@ export default {
   color: #718096;
   font-size: 0.9rem;
   min-width: 50px;
+}
+
+.color-input {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  transition: all 0.3s ease;
+}
+
+.color-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
 }
 
 .path-input-group {
