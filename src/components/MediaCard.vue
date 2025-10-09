@@ -6,7 +6,7 @@
   >
     <div class="media-image">
       <img 
-        :src="resolveImage(item.image || item.cover)" 
+        :src="resolveImage(item.image || item.cover || item.thumbnail || item.thumbnailPath)" 
         :alt="item.name"
         @error="handleImageError"
       >
@@ -92,6 +92,56 @@
           </div>
         </div>
       </template>
+      
+      <!-- 视频特有信息 -->
+      <template v-if="type === 'video'">
+        <p class="media-subtitle" v-if="item.series">{{ item.series }}</p>
+        <p class="media-description" v-if="item.description">{{ item.description }}</p>
+        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+          <span 
+            v-for="tag in item.tags.slice(0, 3)" 
+            :key="tag" 
+            class="media-tag"
+          >{{ tag }}</span>
+          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+        </div>
+        <div class="media-actors" v-if="item.actors && item.actors.length > 0">
+          <span class="actors-label">演员:</span>
+          <span class="actors-list">{{ item.actors.slice(0, 2).join(', ') }}</span>
+          <span v-if="item.actors.length > 2" class="actors-more">等{{ item.actors.length }}人</span>
+        </div>
+        <div class="media-stats">
+          <div class="stats-row">
+            <span class="watch-count">观看 {{ item.watchCount || 0 }} 次</span>
+            <span class="last-watched">{{ formatLastWatched(item.lastWatched) }}</span>
+          </div>
+        </div>
+      </template>
+      
+      <!-- 音频特有信息 -->
+      <template v-if="type === 'audio'">
+        <p class="media-subtitle" v-if="item.artist">{{ item.artist }}</p>
+        <p class="media-description" v-if="item.notes">{{ item.notes }}</p>
+        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+          <span 
+            v-for="tag in item.tags.slice(0, 3)" 
+            :key="tag" 
+            class="media-tag"
+          >{{ tag }}</span>
+          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+        </div>
+        <div class="media-actors" v-if="item.actors && item.actors.length > 0">
+          <span class="actors-label">演员:</span>
+          <span class="actors-list">{{ item.actors.slice(0, 2).join(', ') }}</span>
+          <span v-if="item.actors.length > 2" class="actors-more">等{{ item.actors.length }}人</span>
+        </div>
+        <div class="media-stats">
+          <div class="stats-row">
+            <span class="play-count">播放 {{ item.playCount || 0 }} 次</span>
+            <span class="last-played">{{ formatLastPlayed(item.lastPlayed) }}</span>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -109,7 +159,7 @@ export default {
     type: {
       type: String,
       required: true,
-      validator: value => ['game', 'image', 'novel'].includes(value)
+      validator: value => ['game', 'image', 'novel', 'video', 'audio'].includes(value)
     },
     isRunning: {
       type: Boolean,
@@ -130,6 +180,8 @@ export default {
     actionIcon() {
       if (this.type === 'game') return '▶️'
       if (this.type === 'novel') return '📖'
+      if (this.type === 'video') return '▶️'
+      if (this.type === 'audio') return '▶️'
       return '📖' // image 类型也使用阅读图标
     },
     badgeText() {
@@ -139,6 +191,10 @@ export default {
         return `${this.item.pagesCount || 0} 页`
       } else if (this.type === 'novel') {
         return this.formatWordCount(this.item.totalWords)
+      } else if (this.type === 'video') {
+        return this.formatDuration(this.item.duration)
+      } else if (this.type === 'audio') {
+        return this.formatDuration(this.item.duration)
       }
       return ''
     }
@@ -200,6 +256,52 @@ export default {
       if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前查看`
       return this.formatDateTime(date)
     },
+    formatLastWatched(dateString) {
+      if (!dateString) return '从未观看'
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffTime = Math.abs(now - date)
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
+      const diffMinutes = Math.floor(diffTime / (1000 * 60))
+      
+      if (diffDays === 0) {
+        if (diffMinutes < 1) return '刚刚观看'
+        if (diffMinutes < 60) return `${diffMinutes}分钟前观看`
+        if (diffHours < 24) return `${diffHours}小时前观看`
+      }
+      
+      if (diffDays === 1) return '昨天观看'
+      if (diffDays < 7) return `${diffDays}天前观看`
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前观看`
+      return this.formatDateTime(date)
+    },
+    formatDuration(minutes) {
+      if (!minutes || minutes === 0) return '未知时长'
+      
+      // 如果传入的是秒数，转换为分钟
+      if (minutes < 1000) {
+        // 假设是秒数，转换为分钟
+        const totalMinutes = Math.floor(minutes / 60)
+        const remainingSeconds = Math.floor(minutes % 60)
+        
+        if (totalMinutes > 0) {
+          return `${totalMinutes}:${remainingSeconds.toString().padStart(2, '0')}`
+        } else {
+          return `${remainingSeconds}秒`
+        }
+      } else {
+        // 假设是分钟数
+        const hours = Math.floor(minutes / 60)
+        const mins = Math.floor(minutes % 60)
+        
+        if (hours > 0) {
+          return `${hours}:${mins.toString().padStart(2, '0')}`
+        } else {
+          return `${mins}分钟`
+        }
+      }
+    },
     formatDateTime(date) {
       const year = date.getFullYear()
       const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -240,9 +342,7 @@ export default {
     resolveImage(imagePath) {
       // 空值返回默认
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        if (this.type === 'game') return '/default-game.png'
-        if (this.type === 'novel') return '/default-novel.svg'
-        return '/default-novel.svg' // image 类型也使用小说默认图
+        return this.getDefaultImage()
       }
       // 网络资源直接返回
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
@@ -255,38 +355,74 @@ export default {
       // 命中缓存
       if (this.imageCache[imagePath]) return this.imageCache[imagePath]
       
-      // 异步解析为 data:URL（避免 http 上直接加载 file:// 被阻止）
-      if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-        window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
-          if (dataUrl) {
-            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
-          } else {
+      // 对于视频和音频，使用专门的缩略图处理方法
+      if (this.type === 'video' || this.type === 'audio') {
+        // 使用 Electron API 处理缩略图
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+          window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
+            if (dataUrl) {
+              this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
+            } else {
+              const defaultImage = this.getDefaultImage()
+              this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
+            }
+          }).catch(() => {
             const defaultImage = this.getDefaultImage()
             this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-          }
-        }).catch(() => {
-          const defaultImage = this.getDefaultImage()
-          this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
-        })
+          })
+        } else if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFileUrl) {
+          // 使用 getFileUrl API
+          window.electronAPI.getFileUrl(imagePath).then((result) => {
+            if (result && result.success) {
+              this.$set ? this.$set(this.imageCache, imagePath, result.url) : (this.imageCache[imagePath] = result.url)
+            } else {
+              const defaultImage = this.getDefaultImage()
+              this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
+            }
+          }).catch(() => {
+            const defaultImage = this.getDefaultImage()
+            this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
+          })
+        } else {
+          // 降级处理：构建 file:// URL
+          const normalizedPath = String(imagePath).replace(/\\/g, '/')
+          const fileUrl = `file:///${normalizedPath}`
+          this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+        }
       } else {
-        // 回退：尝试 file://
-        const normalizedPath = String(imagePath).replace(/\\/g, '/')
-        const fileUrl = `file:///${normalizedPath}`
-        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+        // 其他类型的媒体使用原有逻辑
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+          window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
+            if (dataUrl) {
+              this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
+            } else {
+              const defaultImage = this.getDefaultImage()
+              this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
+            }
+          }).catch(() => {
+            const defaultImage = this.getDefaultImage()
+            this.$set ? this.$set(this.imageCache, imagePath, defaultImage) : (this.imageCache[imagePath] = defaultImage)
+          })
+        } else {
+          // 回退：尝试 file://
+          const normalizedPath = String(imagePath).replace(/\\/g, '/')
+          const fileUrl = `file:///${normalizedPath}`
+          this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+        }
       }
       
       // 初次返回默认图，待异步完成后会自动刷新
       return this.imageCache[imagePath] || this.getDefaultImage()
     },
     getDefaultImage() {
-      if (this.type === 'game') return '/default-game.png'
+      if (this.type === 'game') return '/default-game.svg'
       if (this.type === 'novel') return '/default-novel.svg'
+      if (this.type === 'video') return '/default-video.svg' // 视频使用视频默认图标
+      if (this.type === 'audio') return '/default-audio.svg' // 音频使用音频默认图标
       return '/default-novel.svg' // image 类型也使用小说默认图
     },
     handleImageError(event) {
-      const defaultImage = this.type === 'game' 
-        ? 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
-        : '/default-novel.svg'
+      const defaultImage = this.getDefaultImage()
       event.target.src = defaultImage
     }
   }
@@ -552,6 +688,37 @@ export default {
   60% {
     transform: translateY(-0.5px);
   }
+}
+
+/* 视频和音频特有样式 */
+.media-actors {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.actors-label {
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.actors-list {
+  color: var(--text-primary);
+}
+
+.actors-more {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.watch-count, .play-count {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.last-watched, .last-played {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
 }
 
 /* 响应式设计 */

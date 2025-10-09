@@ -67,65 +67,17 @@
 
       <!-- 视频网格 -->
       <div class="videos-grid" v-if="filteredVideos.length > 0">
-        <div 
+        <MediaCard
           v-for="video in filteredVideos" 
           :key="video.id"
-          class="video-card"
-          @click="showVideoDetail(video)"
-          @contextmenu="showVideoContextMenu($event, video)"
-        >
-        <div class="video-thumbnail">
-          <img 
-            :src="getThumbnailUrl(video.thumbnail)" 
-            :data-original-src="video.thumbnail"
-            :alt="video.name"
-            @error="handleThumbnailError"
-            @load="onThumbnailLoad"
-          >
-          <!-- 视频时长标签 -->
-          <div class="duration-badge">
-            {{ formatDuration(video.duration) }}
-          </div>
-          <div class="video-overlay">
-            <div class="play-button" @click.stop="playVideo(video)">
-              <span class="play-icon">▶️</span>
-            </div>
-            <div class="watch-progress" v-if="video.watchProgress > 0">
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: video.watchProgress + '%' }"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="video-info">
-          <h3 class="video-title">{{ video.name }}</h3>
-          <p class="video-series" v-if="video.series">{{ video.series }}</p>
-          <p class="video-description" v-if="video.description">{{ video.description }}</p>
-          <div class="video-tags" v-if="video.tags && video.tags.length > 0">
-            <span 
-              v-for="tag in video.tags.slice(0, 3)" 
-              :key="tag" 
-              class="video-tag"
-            >{{ tag }}</span>
-            <span v-if="video.tags.length > 3" class="video-tag-more">+{{ video.tags.length - 3 }}</span>
-          </div>
-          <div class="video-actors" v-if="video.actors && video.actors.length > 0">
-            <span class="actors-label">演员:</span>
-            <span class="actors-list">{{ video.actors.slice(0, 2).join(', ') }}</span>
-            <span v-if="video.actors.length > 2" class="actors-more">等{{ video.actors.length }}人</span>
-          </div>
-          <div class="video-stats">
-            <div class="stats-row">
-              <span class="watch-count">观看 {{ video.watchCount }} 次</span>
-              <span class="last-watched">{{ formatLastWatched(video.lastWatched) }}</span>
-            </div>
-            <div class="stats-row" v-if="video.addedDate">
-              <span class="added-date">{{ formatAddedDate(video.addedDate) }}</span>
-            </div>
-          </div>
-        </div>
+          :item="video"
+          type="video"
+          :isElectronEnvironment="true"
+          @click="showVideoDetail"
+          @contextmenu="showVideoContextMenu"
+          @action="playVideo"
+        />
       </div>
-    </div>
 
     <!-- 空状态 -->
     <EmptyState 
@@ -391,6 +343,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
 import FormField from '../components/FormField.vue'
+import MediaCard from '../components/MediaCard.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -400,7 +353,8 @@ export default {
     EmptyState,
     ContextMenu,
     FilterSidebar,
-    FormField
+    FormField,
+    MediaCard
   },
   data() {
     return {

@@ -21,35 +21,16 @@
 
     <!-- 音频列表 -->
     <div class="audios-grid" v-if="filteredAudios.length > 0">
-      <div 
+      <MediaCard
         v-for="audio in filteredAudios" 
         :key="audio.id"
-        class="audio-card"
-        @click="showAudioDetail(audio)"
-        @contextmenu="showContextMenu($event, audio)"
-      >
-        <div class="audio-thumbnail">
-          <img v-if="audio.thumbnailPath" :src="getThumbnailUrl(audio.thumbnailPath)" :alt="audio.name" class="audio-thumbnail-img">
-          <div v-else class="audio-icon">🎵</div>
-          <div class="audio-overlay">
-            <button class="play-button" @click.stop="playAudio(audio)">
-              <span class="play-icon">▶️</span>
-            </button>
-            <button class="add-to-playlist-button" @click.stop="addToPlaylist(audio)" title="添加到播放列表">
-              <span class="add-icon">➕</span>
-            </button>
-          </div>
-        </div>
-        
-        <div class="audio-info">
-          <h3 class="audio-title">{{ audio.name }}</h3>
-          <p class="audio-artist">{{ audio.artist || '未知艺术家' }}</p>
-          <div class="audio-meta">
-            <span class="audio-duration">{{ formatDuration(audio.duration) }}</span>
-            <span class="audio-plays">{{ audio.playCount || 0 }} 次播放</span>
-          </div>
-        </div>
-      </div>
+        :item="audio"
+        type="audio"
+        :isElectronEnvironment="true"
+        @click="showAudioDetail"
+        @contextmenu="showContextMenu"
+        @action="playAudio"
+      />
     </div>
 
     <!-- 空状态 -->
@@ -305,6 +286,7 @@ import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
+import MediaCard from '../components/MediaCard.vue'
 
 export default {
   name: 'AudioView',
@@ -312,7 +294,8 @@ export default {
     Toolbar,
     EmptyState,
     ContextMenu,
-    FormField
+    FormField,
+    MediaCard
   },
   data() {
     return {
@@ -997,146 +980,6 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-}
-
-.audio-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
-
-.audio-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px var(--shadow-medium);
-}
-
-.audio-thumbnail {
-  position: relative;
-  height: 140px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.audio-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.audio-icon {
-  font-size: 3rem;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.audio-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.audio-card:hover .audio-overlay {
-  opacity: 1;
-}
-
-.play-button {
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.play-button:hover {
-  background: white;
-  transform: scale(1.1);
-}
-
-.play-icon {
-  font-size: 1.2rem;
-}
-
-.add-to-playlist-button {
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.add-to-playlist-button:hover {
-  background: white;
-  transform: scale(1.1);
-}
-
-.add-icon {
-  font-size: 1rem;
-}
-
-.audio-info {
-  padding: 15px;
-}
-
-.audio-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 5px;
-  line-clamp: 1;
-  -webkit-line-clamp: 1;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.audio-artist {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 3px;
-}
-
-
-.audio-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-}
-
-.audio-duration {
-  font-weight: 500;
-}
-
-.audio-plays {
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
-  border-radius: 4px;
 }
 
 /* 模态框样式 */
