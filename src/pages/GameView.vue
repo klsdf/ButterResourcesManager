@@ -1029,8 +1029,23 @@ export default {
         const gameName = runningGame ? runningGame.name : 'Screenshot'
         
         // 获取用户设置的截图选项
-        const settings = JSON.parse(localStorage.getItem('butter-manager-settings') || '{}')
-        const screenshotsPath = settings.screenshotsPath || ''
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        console.log('加载的设置:', settings)
+        
+        // 根据截图位置设置确定实际路径
+        let screenshotsPath = ''
+        if (settings.screenshotLocation === 'default') {
+          // 使用默认路径
+          screenshotsPath = 'SaveData/Game/Screenshots'
+        } else if (settings.screenshotLocation === 'custom') {
+          // 使用自定义路径
+          screenshotsPath = settings.screenshotsPath || ''
+        } else {
+          // 兼容旧设置：如果没有screenshotLocation，使用screenshotsPath
+          screenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+        }
+        
         const screenshotFormat = settings.screenshotFormat || 'png'
         const screenshotQuality = settings.screenshotQuality || 90
         const showNotification = settings.screenshotNotification !== false
@@ -1039,13 +1054,30 @@ export default {
         
         console.log('截图设置:', {
           gameName,
+          screenshotLocation: settings.screenshotLocation,
           screenshotsPath,
+          customPath: settings.screenshotsPath,
           format: screenshotFormat,
           quality: screenshotQuality,
           smartWindowDetection
         })
         
         if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.takeScreenshot) {
+          // 确保截图目录存在
+          try {
+            if (window.electronAPI.ensureDirectory) {
+              const result = await window.electronAPI.ensureDirectory(screenshotsPath)
+              if (result.success) {
+                console.log('截图目录已确保存在:', screenshotsPath)
+              } else {
+                console.warn('创建截图目录失败:', result.error)
+              }
+            }
+          } catch (error) {
+            console.warn('创建截图目录失败:', error)
+            // 继续执行截图，让截图API自己处理目录创建
+          }
+          
           const result = await window.electronAPI.takeScreenshot(
             gameName, 
             screenshotsPath, 

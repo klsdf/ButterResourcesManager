@@ -53,6 +53,7 @@ class SaveManager {
         dataPath: 'C:\\Users\\User\\Documents\\ButterManager',
         autoBackup: true,
         screenshotKey: 'Ctrl+F12',
+        screenshotLocation: 'default',
         screenshotsPath: '',
         screenshotFormat: 'png',
         screenshotQuality: 90,
@@ -747,6 +748,15 @@ class SaveManager {
       const success = await this.writeJsonFile(this.filePaths.settings, data)
       if (success) {
         console.log('设置数据保存成功')
+        
+        // 自动同步到 localStorage 以保持向后兼容性
+        try {
+          localStorage.setItem('butter-manager-settings', JSON.stringify(settings))
+          console.log('设置已同步到 localStorage')
+        } catch (localStorageError) {
+          console.warn('同步到 localStorage 失败:', localStorageError)
+          // 不影响主流程，继续执行
+        }
       }
       return success
     } catch (error) {
@@ -763,12 +773,39 @@ class SaveManager {
     try {
       const data = await this.readJsonFile(this.filePaths.settings)
       if (data && data.settings) {
-        console.log('加载设置数据成功')
+        console.log('从文件加载设置数据成功')
         return { ...this.defaultData.settings, ...data.settings }
       }
+      
+      // 如果文件不存在或为空，尝试从 localStorage 加载
+      console.log('文件设置不存在，尝试从 localStorage 加载')
+      const localStorageSettings = localStorage.getItem('butter-manager-settings')
+      if (localStorageSettings) {
+        try {
+          const parsedSettings = JSON.parse(localStorageSettings)
+          console.log('从 localStorage 加载设置成功')
+          return { ...this.defaultData.settings, ...parsedSettings }
+        } catch (parseError) {
+          console.warn('解析 localStorage 设置失败:', parseError)
+        }
+      }
+      
       return this.defaultData.settings
     } catch (error) {
       console.error('加载设置数据失败:', error)
+      
+      // 降级到 localStorage
+      try {
+        const localStorageSettings = localStorage.getItem('butter-manager-settings')
+        if (localStorageSettings) {
+          const parsedSettings = JSON.parse(localStorageSettings)
+          console.log('降级到 localStorage 加载设置成功')
+          return { ...this.defaultData.settings, ...parsedSettings }
+        }
+      } catch (localStorageError) {
+        console.warn('从 localStorage 加载设置也失败:', localStorageError)
+      }
+      
       return this.defaultData.settings
     }
   }

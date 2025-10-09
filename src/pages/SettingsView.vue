@@ -131,8 +131,21 @@
               
               <div class="setting-item">
                 <label class="setting-label">
-                  <span class="setting-title">截图保存目录</span>
-                  <span class="setting-desc">设置截图的保存位置</span>
+                  <span class="setting-title">截图保存位置</span>
+                  <span class="setting-desc">选择截图的保存位置</span>
+                </label>
+                <div class="setting-control">
+                  <select v-model="settings.screenshotLocation" @change="onScreenshotLocationChange" class="setting-select">
+                    <option value="default">默认目录 (SaveData/Game/Screenshots)</option>
+                    <option value="custom">自定义目录</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="setting-item" v-if="settings.screenshotLocation === 'custom'">
+                <label class="setting-label">
+                  <span class="setting-title">自定义截图目录</span>
+                  <span class="setting-desc">选择自定义的截图保存目录</span>
                 </label>
                 <div class="setting-control">
                   <div class="file-input-group">
@@ -504,6 +517,7 @@ export default {
         safetyAppPath: '',
         // 截图设置
         screenshotKey: 'Ctrl+F12',
+        screenshotLocation: 'default',
         screenshotsPath: '',
         screenshotFormat: 'png',
         screenshotQuality: 90,
@@ -627,6 +641,15 @@ export default {
         alert('更新快捷键失败: ' + error.message)
       }
     },
+    
+    onScreenshotLocationChange() {
+      // 当选择默认目录时，清空自定义路径
+      if (this.settings.screenshotLocation === 'default') {
+        this.settings.screenshotsPath = ''
+        console.log('已切换到默认截图目录')
+        this.showNotification('截图位置已更新', '已切换到默认截图目录 (SaveData/Game/Screenshots)')
+      }
+    },
     applyTheme(theme) {
       // 处理跟随系统主题
       let actualTheme = theme
@@ -674,7 +697,7 @@ export default {
         
         console.log('保存的设置（novel对象格式）:', cleanSettings)
         
-        // 使用 SaveManager 保存设置
+        // 使用 SaveManager 保存设置（自动处理向后兼容性）
         const success = await saveManager.saveSettings(cleanSettings)
         if (success) {
           this.$emit('settings-saved', cleanSettings)
@@ -701,6 +724,7 @@ export default {
           safetyAppPath: '',
           // 截图设置
           screenshotKey: 'Ctrl+F12',
+          screenshotLocation: 'default',
           screenshotsPath: '',
           screenshotFormat: 'png',
           screenshotQuality: 90,
@@ -719,7 +743,9 @@ export default {
           const directory = await window.electronAPI.setScreenshotsDirectory()
           if (directory) {
             this.settings.screenshotsPath = directory
+            this.settings.screenshotLocation = 'custom' // 自动设置为自定义模式
             this.saveSettings()
+            this.showNotification('截图目录已更新', `已设置自定义截图目录: ${directory}`)
           }
         } else {
           alert('当前环境不支持选择目录功能')
@@ -849,35 +875,48 @@ export default {
       try {
         if (window.electronAPI && window.electronAPI.openFolder) {
           // 获取截图文件夹路径
-          let screenshotPath = this.settings.screenshotsPath
+          let screenshotPath = ''
           
-          // 如果没有设置截图路径，使用默认路径
+          if (this.settings.screenshotLocation === 'default') {
+            // 使用默认路径
+            screenshotPath = 'SaveData/Game/Screenshots'
+          } else if (this.settings.screenshotLocation === 'custom') {
+            // 使用自定义路径
+            screenshotPath = this.settings.screenshotsPath
+          }
+          
+          // 如果自定义路径为空，回退到默认路径
           if (!screenshotPath || screenshotPath.trim() === '') {
-            try {
-              if (window.electronAPI.getScreenshotsDirectory) {
-                screenshotPath = await window.electronAPI.getScreenshotsDirectory()
-              } else {
-                // 使用默认的截图文件夹路径
-                screenshotPath = 'Screenshots'
-              }
-            } catch (error) {
-              console.warn('获取默认截图目录失败，使用默认路径:', error)
-              screenshotPath = 'Screenshots'
-            }
+            screenshotPath = 'SaveData/Game/Screenshots'
           }
           
           console.log('尝试打开截图文件夹:', screenshotPath)
           
+          // 确保目录存在（特别是默认目录）
+          try {
+            if (window.electronAPI.ensureDirectory) {
+              const ensureResult = await window.electronAPI.ensureDirectory(screenshotPath)
+              if (ensureResult.success) {
+                console.log('截图目录已确保存在:', screenshotPath)
+              }
+            }
+          } catch (error) {
+            console.warn('创建截图目录失败:', error)
+          }
+          
           const result = await window.electronAPI.openFolder(screenshotPath)
           if (result.success) {
             console.log('截图文件夹已打开')
+            this.showNotification('文件夹已打开', `已打开截图文件夹: ${screenshotPath}`)
           } else {
             console.error('打开截图文件夹失败:', result.error)
             alert(`打开截图文件夹失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中显示路径信息
-          const screenshotPath = this.settings.screenshotsPath || 'Screenshots'
+          const screenshotPath = this.settings.screenshotLocation === 'default' 
+            ? 'SaveData/Game/Screenshots' 
+            : (this.settings.screenshotsPath || 'SaveData/Game/Screenshots')
           alert(`截图文件夹路径: ${screenshotPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
         }
       } catch (error) {
@@ -969,8 +1008,16 @@ export default {
         this.applyTheme(this.settings.theme)
       }
       
-      // 初始化截图目录（如果未设置）
-      if (!this.settings.screenshotsPath) {
+      // 初始化截图设置（如果未设置）
+      if (!this.settings.screenshotLocation) {
+        this.settings.screenshotLocation = 'default'
+      }
+      
+      // 如果使用默认目录，清空自定义路径
+      if (this.settings.screenshotLocation === 'default') {
+        this.settings.screenshotsPath = ''
+      } else if (this.settings.screenshotLocation === 'custom' && !this.settings.screenshotsPath) {
+        // 如果使用自定义目录但没有设置路径，尝试获取
         try {
           if (window.electronAPI && window.electronAPI.getScreenshotsDirectory) {
             this.settings.screenshotsPath = await window.electronAPI.getScreenshotsDirectory()
@@ -1391,10 +1438,16 @@ export default {
   box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
 }
 
-.path-input-group {
+.path-input-group,
+.file-input-group {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.file-input-group .setting-input {
+  flex: 1;
+  min-width: 200px;
 }
 
 .path-button {
