@@ -155,111 +155,67 @@
         </div>
         <div class="modal-body">
           <form @submit.prevent="addVideo">
-            <div class="form-group">
-              <label>视频名称</label>
-              <input 
-                type="text" 
-                v-model="newVideo.name" 
-                placeholder="未填写将自动使用文件名"
-              >
-            </div>
+            <FormField
+              label="视频名称"
+              type="text"
+              v-model="newVideo.name"
+              placeholder="未填写将自动使用文件名"
+            />
             
-            <div class="form-group">
-              <label>系列名</label>
-              <input 
-                type="text" 
-                v-model="newVideo.series" 
-                placeholder="如：复仇者联盟"
-              >
-            </div>
+            <FormField
+              label="系列名"
+              type="text"
+              v-model="newVideo.series"
+              placeholder="如：复仇者联盟"
+            />
 
-            <div class="form-group">
-              <label>演员</label>
-              <input 
-                type="text" 
-                v-model="actorsInput" 
-                placeholder="用逗号分隔多个演员"
-                @blur="parseActors"
-              >
-            </div>
+            <FormField
+              label="演员"
+              type="text"
+              v-model="actorsInput"
+              placeholder="用逗号分隔多个演员"
+              @blur="parseActors"
+            />
 
-            <div class="form-group">
-              <label>标签</label>
-              <div class="tags-input-container">
-                <div class="tags-display">
-                  <span 
-                    v-for="(tag, index) in newVideo.tags" 
-                    :key="index" 
-                    class="tag-item"
-                  >
-                    {{ tag }}
-                    <button 
-                      type="button" 
-                      class="tag-remove" 
-                      @click="removeTag(index)"
-                    >×</button>
-                  </span>
-                </div>
-                <input 
-                  type="text" 
-                  v-model="tagsInput" 
-                  @keydown.enter.prevent="addTag"
-                  @keydown.comma.prevent="addTag"
-                  placeholder="输入标签后按回车或逗号添加"
-                  class="tag-input"
-                >
-              </div>
-              <div class="tag-hint">提示：输入标签后按回车键或逗号键添加，点击标签上的×号删除</div>
-            </div>
+            <FormField
+              label="标签"
+              type="tags"
+              v-model="newVideo.tags"
+              v-model:tagInput="tagsInput"
+              @add-tag="addTag"
+              @remove-tag="removeTag"
+            />
 
-            <div class="form-group">
-              <label>描述</label>
-              <textarea 
-                v-model="newVideo.description" 
-                placeholder="视频描述..."
-                rows="3"
-              ></textarea>
-            </div>
+            <FormField
+              label="描述"
+              type="textarea"
+              v-model="newVideo.description"
+              placeholder="视频描述..."
+              :rows="3"
+            />
 
-            <div class="form-group">
-              <label>视频文件</label>
-              <div class="file-input-group">
-                <input 
-                  type="text" 
-                  v-model="newVideo.filePath" 
-                  placeholder="选择视频文件..."
-                  readonly
-                >
-                <button type="button" @click="selectVideoFile" class="btn-select-file">
-                  选择文件
-                </button>
-              </div>
-            </div>
+            <FormField
+              label="视频文件"
+              type="file"
+              v-model="newVideo.filePath"
+              placeholder="选择视频文件..."
+              @browse="selectVideoFile"
+            />
 
-            <div class="form-group">
-              <label>缩略图</label>
-              <div class="file-input-group">
-                <input 
-                  type="text" 
-                  v-model="newVideo.thumbnail" 
-                  placeholder="选择缩略图..."
-                  readonly
-                >
-                <button type="button" @click="selectThumbnailFile" class="btn-select-file">
-                  选择图片
-                </button>
-              </div>
-            </div>
+            <FormField
+              label="缩略图"
+              type="file"
+              v-model="newVideo.thumbnail"
+              placeholder="选择缩略图..."
+              @browse="selectThumbnailFile"
+            />
 
-            <div class="form-group">
-              <label>时长 (分钟)</label>
-              <input 
-                type="number" 
-                v-model="newVideo.duration" 
-                placeholder="120"
-                min="0"
-              >
-            </div>
+            <FormField
+              label="时长 (分钟)"
+              type="number"
+              v-model="newVideo.duration"
+              placeholder="120"
+            />
           </form>
         </div>
         <div class="modal-footer">
@@ -351,56 +307,43 @@
         <button class="modal-close" @click="closeEditDialog">✕</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>名称</label>
-          <input type="text" v-model="editVideoForm.name">
-        </div>
-        <div class="form-group">
-          <label>系列</label>
-          <input type="text" v-model="editVideoForm.series">
-        </div>
-        <div class="form-group">
-          <label>演员</label>
-          <input type="text" v-model="editActorsInput" placeholder="用逗号分隔多个演员" @blur="parseEditActors">
-        </div>
-        <div class="form-group">
-          <label>标签</label>
-          <div class="tags-input-container">
-            <div class="tags-display">
-              <span 
-                v-for="(tag, index) in editVideoForm.tags" 
-                :key="index" 
-                class="tag-item"
-              >
-                {{ tag }}
-                <button 
-                  type="button" 
-                  class="tag-remove" 
-                  @click="removeEditTag(index)"
-                >×</button>
-              </span>
-            </div>
-            <input 
-              type="text" 
-              v-model="editTagsInput" 
-              @keydown.enter.prevent="addEditTag"
-              @keydown.comma.prevent="addEditTag"
-              placeholder="输入标签后按回车或逗号添加"
-              class="tag-input"
-            >
-          </div>
-        </div>
-        <div class="form-group">
-          <label>描述</label>
-          <textarea v-model="editVideoForm.description" rows="3"></textarea>
-        </div>
-        <div class="form-group">
-          <label>视频文件</label>
-          <div class="file-input-group">
-            <input type="text" v-model="editVideoForm.filePath" readonly>
-            <button type="button" class="btn-select-file" @click="browseEditVideoFile">选择文件</button>
-          </div>
-        </div>
+        <FormField
+          label="名称"
+          type="text"
+          v-model="editVideoForm.name"
+        />
+        <FormField
+          label="系列"
+          type="text"
+          v-model="editVideoForm.series"
+        />
+        <FormField
+          label="演员"
+          type="text"
+          v-model="editActorsInput"
+          placeholder="用逗号分隔多个演员"
+          @blur="parseEditActors"
+        />
+        <FormField
+          label="标签"
+          type="tags"
+          v-model="editVideoForm.tags"
+          v-model:tagInput="editTagsInput"
+          @add-tag="addEditTag"
+          @remove-tag="removeEditTag"
+        />
+        <FormField
+          label="描述"
+          type="textarea"
+          v-model="editVideoForm.description"
+          :rows="3"
+        />
+        <FormField
+          label="视频文件"
+          type="file"
+          v-model="editVideoForm.filePath"
+          @browse="browseEditVideoFile"
+        />
         <div class="form-group">
           <label>缩略图</label>
           <div class="file-input-group">
@@ -447,6 +390,7 @@ import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
+import FormField from '../components/FormField.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -455,7 +399,8 @@ export default {
     GameToolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar
+    FilterSidebar,
+    FormField
   },
   data() {
     return {

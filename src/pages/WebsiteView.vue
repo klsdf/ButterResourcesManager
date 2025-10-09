@@ -132,15 +132,12 @@
         </div>
         
         <div class="modal-body">
-          <div class="form-group">
-            <label>网站名称</label>
-            <input 
-              type="text" 
-              v-model="newWebsite.name" 
-              placeholder="网站名称（可选）"
-              class="form-input"
-            >
-          </div>
+          <FormField
+            label="网站名称"
+            type="text"
+            v-model="newWebsite.name"
+            placeholder="网站名称（可选）"
+          />
           
           <div class="form-group">
             <label>网站URL *</label>
@@ -154,15 +151,13 @@
             <div v-if="urlError" class="error-message">{{ urlError }}</div>
           </div>
           
-          <div class="form-group">
-            <label>网站描述</label>
-            <textarea 
-              v-model="newWebsite.description" 
-              placeholder="网站描述（可选）..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
+          <FormField
+            label="网站描述"
+            type="textarea"
+            v-model="newWebsite.description"
+            placeholder="网站描述（可选）..."
+            :rows="3"
+          />
         </div>
         
         <div class="modal-footer">
@@ -294,13 +289,15 @@ import websiteManager from '../utils/WebsiteManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FormField from '../components/FormField.vue'
 
 export default {
   name: 'WebsiteView',
   components: {
     Toolbar,
     EmptyState,
-    ContextMenu
+    ContextMenu,
+    FormField
   },
   data() {
     return {

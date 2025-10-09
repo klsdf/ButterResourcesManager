@@ -161,96 +161,54 @@
           <button class="modal-close" @click="closeAddNovelDialog">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>小说名称 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newNovel.name" 
-              placeholder="留空将自动从文件名提取"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>作者 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newNovel.author" 
-              placeholder="输入作者名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>类型 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newNovel.genre" 
-              placeholder="如：玄幻、都市、历史等"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>小说简介 (可选)</label>
-            <textarea 
-              v-model="newNovel.description" 
-              placeholder="输入小说简介或描述..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>小说标签 (可选)</label>
-            <div class="tags-input-container">
-              <div class="tags-display">
-                <span 
-                  v-for="(tag, index) in newNovel.tags" 
-                  :key="index" 
-                  class="tag-item"
-                >
-                  {{ tag }}
-                  <button 
-                    type="button" 
-                    class="tag-remove" 
-                    @click="removeTag(index)"
-                  >×</button>
-                </span>
-              </div>
-              <input 
-                type="text" 
-                v-model="tagInput" 
-                @keydown.enter.prevent="addTag"
-                @keydown.comma.prevent="addTag"
-                placeholder="输入标签后按回车或逗号添加"
-                class="tag-input"
-              >
-            </div>
-          </div>
-          <div class="form-group">
-            <label>小说文件 <span class="required">*</span></label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="newNovel.filePath" 
-                placeholder="选择小说文本文件"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForNovelFile">浏览</button>
-            </div>
-            <div class="file-hint">支持 .txt, .epub, .mobi 等格式</div>
-          </div>
-          <div class="form-group">
-            <label>封面图片 (可选)</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="newNovel.coverImage" 
-                placeholder="选择封面图片"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForCoverImage">浏览</button>
-            </div>
-          </div>
+          <FormField
+            label="小说名称 (可选)"
+            type="text"
+            v-model="newNovel.name"
+            placeholder="留空将自动从文件名提取"
+          />
+          <FormField
+            label="作者 (可选)"
+            type="text"
+            v-model="newNovel.author"
+            placeholder="输入作者名称"
+          />
+          <FormField
+            label="类型 (可选)"
+            type="text"
+            v-model="newNovel.genre"
+            placeholder="如：玄幻、都市、历史等"
+          />
+          <FormField
+            label="小说简介 (可选)"
+            type="textarea"
+            v-model="newNovel.description"
+            placeholder="输入小说简介或描述..."
+            :rows="3"
+          />
+          <FormField
+            label="小说标签 (可选)"
+            type="tags"
+            v-model="newNovel.tags"
+            v-model:tagInput="tagInput"
+            @add-tag="addTag"
+            @remove-tag="removeTag"
+          />
+          <FormField
+            label="小说文件"
+            type="file"
+            v-model="newNovel.filePath"
+            placeholder="选择小说文本文件"
+            @browse="browseForNovelFile"
+          />
+          <div class="file-hint">支持 .txt, .epub, .mobi 等格式</div>
+          <FormField
+            label="封面图片 (可选)"
+            type="file"
+            v-model="newNovel.coverImage"
+            placeholder="选择封面图片"
+            @browse="browseForCoverImage"
+          />
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeAddNovelDialog">取消</button>
@@ -267,88 +225,56 @@
           <button class="modal-close" @click="closeEditNovelDialog">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>小说名称</label>
-            <input 
-              type="text" 
-              v-model="editNovelForm.name" 
-              placeholder="输入小说名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>作者</label>
-            <input 
-              type="text" 
-              v-model="editNovelForm.author" 
-              placeholder="输入作者名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>类型</label>
-            <input 
-              type="text" 
-              v-model="editNovelForm.genre" 
-              placeholder="如：玄幻、都市、历史等"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>小说简介</label>
-            <textarea 
-              v-model="editNovelForm.description" 
-              placeholder="输入小说简介或描述..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>小说标签</label>
-            <div class="tags-input-container">
-              <div class="tags-display">
-                <span 
-                  v-for="(tag, index) in editNovelForm.tags" 
-                  :key="index" 
-                  class="tag-item"
-                >
-                  {{ tag }}
-                  <button 
-                    type="button" 
-                    class="tag-remove" 
-                    @click="removeEditTag(index)"
-                  >×</button>
-                </span>
-              </div>
-              <input 
-                type="text" 
-                v-model="editTagInput" 
-                @keydown.enter.prevent="addEditTag"
-                @keydown.comma.prevent="addEditTag"
-                placeholder="输入标签后按回车或逗号添加"
-                class="tag-input"
-              >
-            </div>
-          </div>
-          <div class="form-group">
-            <label>阅读状态</label>
-            <select v-model="editNovelForm.status" class="form-select">
-              <option value="unread">未读</option>
-              <option value="reading">阅读中</option>
-              <option value="completed">已读完</option>
-              <option value="paused">暂停</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>阅读进度 (%)</label>
-            <input 
-              type="number" 
-              v-model="editNovelForm.readProgress" 
-              min="0" 
-              max="100"
-              class="form-input"
-            >
-          </div>
+          <FormField
+            label="小说名称"
+            type="text"
+            v-model="editNovelForm.name"
+            placeholder="输入小说名称"
+          />
+          <FormField
+            label="作者"
+            type="text"
+            v-model="editNovelForm.author"
+            placeholder="输入作者名称"
+          />
+          <FormField
+            label="类型"
+            type="text"
+            v-model="editNovelForm.genre"
+            placeholder="如：玄幻、都市、历史等"
+          />
+          <FormField
+            label="小说简介"
+            type="textarea"
+            v-model="editNovelForm.description"
+            placeholder="输入小说简介或描述..."
+            :rows="3"
+          />
+          <FormField
+            label="小说标签"
+            type="tags"
+            v-model="editNovelForm.tags"
+            v-model:tagInput="editTagInput"
+            @add-tag="addEditTag"
+            @remove-tag="removeEditTag"
+          />
+          <FormField
+            label="阅读状态"
+            type="select"
+            v-model="editNovelForm.status"
+            :options="[
+              { value: 'unread', label: '未读' },
+              { value: 'reading', label: '阅读中' },
+              { value: 'completed', label: '已读完' },
+              { value: 'paused', label: '暂停' }
+            ]"
+          />
+          <FormField
+            label="阅读进度 (%)"
+            type="number"
+            v-model="editNovelForm.readProgress"
+            placeholder="0-100"
+          />
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeEditNovelDialog">取消</button>
@@ -456,13 +382,15 @@ import novelManager from '../utils/NovelManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FormField from '../components/FormField.vue'
 
 export default {
   name: 'NovelView',
   components: {
     Toolbar,
     EmptyState,
-    ContextMenu
+    ContextMenu,
+    FormField
   },
   data() {
     return {

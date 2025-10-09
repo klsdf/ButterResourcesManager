@@ -29,7 +29,8 @@
         @contextmenu="showContextMenu($event, audio)"
       >
         <div class="audio-thumbnail">
-          <div class="audio-icon">🎵</div>
+          <img v-if="audio.thumbnailPath" :src="getThumbnailUrl(audio.thumbnailPath)" :alt="audio.name" class="audio-thumbnail-img">
+          <div v-else class="audio-icon">🎵</div>
           <div class="audio-overlay">
             <button class="play-button" @click.stop="playAudio(audio)">
               <span class="play-icon">▶️</span>
@@ -40,7 +41,6 @@
         <div class="audio-info">
           <h3 class="audio-title">{{ audio.name }}</h3>
           <p class="audio-artist">{{ audio.artist || '未知艺术家' }}</p>
-          <p class="audio-album">{{ audio.album || '未知专辑' }}</p>
           <div class="audio-meta">
             <span class="audio-duration">{{ formatDuration(audio.duration) }}</span>
             <span class="audio-plays">{{ audio.playCount || 0 }} 次播放</span>
@@ -77,91 +77,49 @@
         </div>
         
         <div class="modal-body">
-          <div class="form-group">
-            <label>音频文件</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="newAudio.filePath" 
-                placeholder="选择音频文件..."
-                readonly
-                class="file-path-input"
-              >
-              <button class="btn-browse" @click="selectAudioFile">浏览</button>
-            </div>
-          </div>
+          <FormField
+            label="音频文件"
+            type="file"
+            v-model="newAudio.filePath"
+            placeholder="选择音频文件..."
+            @browse="selectAudioFile"
+          />
           
-          <div class="form-group">
-            <label>音频名称</label>
-            <input 
-              type="text" 
-              v-model="newAudio.name" 
-              placeholder="音频名称（可选，将自动从文件名获取）"
-              class="form-input"
-            >
-          </div>
+          <FormField
+            label="音频名称"
+            type="text"
+            v-model="newAudio.name"
+            placeholder="音频名称（可选，将自动从文件名获取）"
+          />
           
-          <div class="form-row">
-            <div class="form-group">
-              <label>艺术家</label>
-              <input 
-                type="text" 
-                v-model="newAudio.artist" 
-                placeholder="艺术家"
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>专辑</label>
-              <input 
-                type="text" 
-                v-model="newAudio.album" 
-                placeholder="专辑"
-                class="form-input"
-              >
-            </div>
-          </div>
+          <FormField
+            label="艺术家"
+            type="text"
+            v-model="newAudio.artist"
+            placeholder="艺术家"
+          />
           
-          <div class="form-row">
-            <div class="form-group">
-              <label>流派</label>
-              <input 
-                type="text" 
-                v-model="newAudio.genre" 
-                placeholder="流派"
-                class="form-input"
-              >
-            </div>
-            <div class="form-group">
-              <label>年份</label>
-              <input 
-                type="number" 
-                v-model="newAudio.year" 
-                placeholder="年份"
-                class="form-input"
-              >
-            </div>
-          </div>
+          <FormField
+            label="演员（用逗号分隔）"
+            type="text"
+            v-model="newAudio.actorsInput"
+            placeholder="例如: 张三, 李四, 王五"
+          />
           
-          <div class="form-group">
-            <label>标签（用逗号分隔）</label>
-            <input 
-              type="text" 
-              v-model="newAudio.tagsInput" 
-              placeholder="例如: 流行, 经典, 摇滚"
-              class="form-input"
-            >
-          </div>
+          <FormField
+            label="标签（用逗号分隔）"
+            type="text"
+            v-model="newAudio.tagsInput"
+            placeholder="例如: 流行, 经典, 摇滚"
+          />
           
-          <div class="form-group">
-            <label>备注</label>
-            <textarea 
-              v-model="newAudio.notes" 
-              placeholder="音频备注..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
+          <FormField
+            label="备注"
+            type="textarea"
+            v-model="newAudio.notes"
+            placeholder="音频备注..."
+            :rows="3"
+          />
         </div>
         
         <div class="modal-footer">
@@ -182,7 +140,8 @@
         <div class="modal-body">
           <div class="audio-detail-content">
             <div class="audio-detail-thumbnail">
-              <div class="audio-detail-icon">🎵</div>
+              <img v-if="selectedAudio.thumbnailPath" :src="getThumbnailUrl(selectedAudio.thumbnailPath)" :alt="selectedAudio.name" class="audio-detail-img">
+              <div v-else class="audio-detail-icon">🎵</div>
             </div>
             
             <div class="audio-detail-info">
@@ -194,18 +153,6 @@
                     <span class="detail-value">{{ selectedAudio.artist || '未知' }}</span>
                   </div>
                   <div class="detail-item">
-                    <span class="detail-label">专辑:</span>
-                    <span class="detail-value">{{ selectedAudio.album || '未知' }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">流派:</span>
-                    <span class="detail-value">{{ selectedAudio.genre || '未知' }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">年份:</span>
-                    <span class="detail-value">{{ selectedAudio.year || '未知' }}</span>
-                  </div>
-                  <div class="detail-item">
                     <span class="detail-label">时长:</span>
                     <span class="detail-value">{{ formatDuration(selectedAudio.duration) }}</span>
                   </div>
@@ -213,6 +160,13 @@
                     <span class="detail-label">播放次数:</span>
                     <span class="detail-value">{{ selectedAudio.playCount || 0 }} 次</span>
                   </div>
+                </div>
+              </div>
+              
+              <div class="detail-section" v-if="selectedAudio.actors && selectedAudio.actors.length > 0">
+                <h4>演员</h4>
+                <div class="tags-list">
+                  <span v-for="actor in selectedAudio.actors" :key="actor" class="tag actor-tag">{{ actor }}</span>
                 </div>
               </div>
               
@@ -251,6 +205,84 @@
       </div>
     </div>
 
+    <!-- 编辑音频对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>编辑音频信息</h3>
+          <button class="btn-close" @click="closeEditDialog">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <FormField
+            label="音频文件"
+            type="file"
+            v-model="editAudioForm.filePath"
+            placeholder="选择音频文件..."
+            @browse="selectEditAudioFile"
+          />
+          
+          <FormField
+            label="音频名称"
+            type="text"
+            v-model="editAudioForm.name"
+            placeholder="音频名称"
+          />
+          
+          <FormField
+            label="艺术家"
+            type="text"
+            v-model="editAudioForm.artist"
+            placeholder="艺术家"
+          />
+          
+          <FormField
+            label="演员"
+            type="tags"
+            v-model="editAudioForm.actors"
+            v-model:tagInput="editActorInput"
+            @add-tag="addEditActor"
+            @remove-tag="removeEditActor"
+            tagPlaceholder="输入演员名称，按回车或逗号添加"
+          />
+          
+          <FormField
+            label="标签"
+            type="tags"
+            v-model="editAudioForm.tags"
+            v-model:tagInput="editTagInput"
+            @add-tag="addEditTag"
+            @remove-tag="removeEditTag"
+            tagPlaceholder="输入标签，按回车或逗号添加"
+          />
+          
+          <FormField
+            label="缩略图"
+            type="file"
+            v-model="editAudioForm.thumbnailPath"
+            placeholder="选择缩略图文件..."
+            @browse="selectEditThumbnailFile"
+          />
+          <div v-if="editAudioForm.thumbnailPath" class="thumbnail-preview">
+            <img :src="getThumbnailUrl(editAudioForm.thumbnailPath)" alt="缩略图预览" class="preview-image">
+          </div>
+          
+          <FormField
+            label="备注"
+            type="textarea"
+            v-model="editAudioForm.notes"
+            placeholder="音频备注..."
+            :rows="3"
+          />
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeEditDialog">取消</button>
+          <button class="btn-confirm" @click="saveEditedAudio">保存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 右键菜单 -->
     <ContextMenu
       :visible="contextMenu.visible"
@@ -266,13 +298,15 @@ import audioManager from '../utils/AudioManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FormField from '../components/FormField.vue'
 
 export default {
   name: 'AudioView',
   components: {
     Toolbar,
     EmptyState,
-    ContextMenu
+    ContextMenu,
+    FormField
   },
   data() {
     return {
@@ -289,13 +323,25 @@ export default {
       newAudio: {
         name: '',
         artist: '',
-        album: '',
-        genre: '',
-        year: '',
         filePath: '',
+        actorsInput: '',
         tagsInput: '',
         notes: ''
       },
+      // 编辑相关状态
+      showEditDialog: false,
+      editAudioForm: {
+        id: '',
+        name: '',
+        artist: '',
+        filePath: '',
+        thumbnailPath: '',
+        actors: [],
+        tags: [],
+        notes: ''
+      },
+      editActorInput: '',
+      editTagInput: '',
       // 排序选项
       audioSortOptions: [
         { value: 'name', label: '按名称' },
@@ -384,6 +430,7 @@ export default {
         
         const audioData = {
           ...this.newAudio,
+          actors: this.newAudio.actorsInput ? this.newAudio.actorsInput.split(',').map(actor => actor.trim()).filter(actor => actor) : [],
           tags: this.newAudio.tagsInput ? this.newAudio.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag) : []
         }
         
@@ -482,10 +529,8 @@ export default {
       this.newAudio = {
         name: '',
         artist: '',
-        album: '',
-        genre: '',
-        year: '',
         filePath: '',
+        actorsInput: '',
         tagsInput: '',
         notes: ''
       }
@@ -526,8 +571,148 @@ export default {
     },
     
     editAudio(audio) {
-      // TODO: 实现编辑功能
-      alert('编辑功能待实现')
+      this.editAudioForm = {
+        id: audio.id,
+        name: audio.name || '',
+        artist: audio.artist || '',
+        filePath: audio.filePath || '',
+        thumbnailPath: audio.thumbnailPath || '',
+        actors: audio.actors || [],
+        tags: audio.tags || [],
+        notes: audio.notes || ''
+      }
+      this.editActorInput = ''
+      this.editTagInput = ''
+      this.showEditDialog = true
+      this.contextMenu.visible = false
+    },
+    
+    closeEditDialog() {
+      this.showEditDialog = false
+      this.editAudioForm = {
+        id: '',
+        name: '',
+        artist: '',
+        filePath: '',
+        thumbnailPath: '',
+        actors: [],
+        tags: [],
+        notes: ''
+      }
+      this.editActorInput = ''
+      this.editTagInput = ''
+    },
+    
+    // 演员管理
+    addEditActor() {
+      const actor = this.editActorInput.trim()
+      if (actor && !this.editAudioForm.actors.includes(actor)) {
+        this.editAudioForm.actors.push(actor)
+        this.editActorInput = ''
+      }
+    },
+    
+    removeEditActor(index) {
+      this.editAudioForm.actors.splice(index, 1)
+    },
+    
+    // 标签管理
+    addEditTag() {
+      const tag = this.editTagInput.trim()
+      if (tag && !this.editAudioForm.tags.includes(tag)) {
+        this.editAudioForm.tags.push(tag)
+        this.editTagInput = ''
+      }
+    },
+    
+    removeEditTag(index) {
+      this.editAudioForm.tags.splice(index, 1)
+    },
+    
+    // 文件选择
+    async selectEditAudioFile() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectAudioFile) {
+          const filePath = await window.electronAPI.selectAudioFile()
+          if (filePath) {
+            this.editAudioForm.filePath = filePath
+            // 如果名称为空，自动提取文件名
+            if (!this.editAudioForm.name) {
+              this.editAudioForm.name = this.extractNameFromPath(filePath)
+            }
+            // 自动获取音频时长
+            this.editAudioForm.duration = await this.getAudioDuration(filePath)
+          }
+        } else {
+          alert('当前环境不支持文件选择功能')
+        }
+      } catch (error) {
+        console.error('选择音频文件失败:', error)
+        alert('选择音频文件失败: ' + error.message)
+      }
+    },
+    
+    async selectEditThumbnailFile() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectImageFile) {
+          const filePath = await window.electronAPI.selectImageFile()
+          if (filePath) {
+            this.editAudioForm.thumbnailPath = filePath
+          }
+        } else {
+          alert('当前环境不支持文件选择功能')
+        }
+      } catch (error) {
+        console.error('选择缩略图文件失败:', error)
+        alert('选择缩略图文件失败: ' + error.message)
+      }
+    },
+    
+    // 获取缩略图URL
+    getThumbnailUrl(thumbnailPath) {
+      if (!thumbnailPath) return ''
+      if (window.electronAPI && window.electronAPI.getFileUrl) {
+        return window.electronAPI.getFileUrl(thumbnailPath)
+      }
+      return thumbnailPath.startsWith('file://') ? thumbnailPath : `file://${thumbnailPath}`
+    },
+    
+    // 保存编辑
+    async saveEditedAudio() {
+      try {
+        if (!this.editAudioForm.name.trim()) {
+          alert('请输入音频名称')
+          return
+        }
+        
+        if (!this.editAudioForm.filePath.trim()) {
+          alert('请选择音频文件')
+          return
+        }
+        
+        const audioData = {
+          name: this.editAudioForm.name.trim(),
+          artist: this.editAudioForm.artist.trim(),
+          filePath: this.editAudioForm.filePath,
+          thumbnailPath: this.editAudioForm.thumbnailPath,
+          actors: this.editAudioForm.actors,
+          tags: this.editAudioForm.tags,
+          notes: this.editAudioForm.notes.trim()
+        }
+        
+        await audioManager.updateAudio(this.editAudioForm.id, audioData)
+        
+        // 重新加载音频列表
+        await this.loadAudios()
+        
+        // 关闭编辑对话框
+        this.closeEditDialog()
+        
+        this.showNotification('音频更新成功', `已更新音频: ${audioData.name}`)
+      } catch (error) {
+        console.error('更新音频失败:', error)
+        alert('更新音频失败: ' + error.message)
+      }
     },
     
     formatDuration(seconds) {
@@ -821,16 +1006,24 @@ export default {
 
 .audio-thumbnail {
   position: relative;
-  height: 120px;
+  height: 140px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+}
+
+.audio-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .audio-icon {
   font-size: 3rem;
   color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .audio-overlay {
@@ -895,11 +1088,6 @@ export default {
   margin-bottom: 3px;
 }
 
-.audio-album {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  margin-bottom: 8px;
-}
 
 .audio-meta {
   display: flex;
@@ -1094,11 +1282,20 @@ export default {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 12px;
   height: 200px;
+  overflow: hidden;
+}
+
+.audio-detail-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 .audio-detail-icon {
   font-size: 4rem;
   color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .audio-detail-info {
@@ -1241,6 +1438,110 @@ export default {
   transform: translateY(-1px);
 }
 
+/* 标签输入样式 */
+.tags-input-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  transition: all 0.3s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  gap: 4px;
+}
+
+.tag-text {
+  font-weight: 500;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 4px 0;
+}
+
+.tag-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tag-hint {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+/* 演员标签样式 */
+.actor-tag {
+  background: #8b5cf6 !important;
+}
+
+/* 缩略图预览样式 */
+.thumbnail-preview {
+  margin-top: 15px;
+  text-align: center;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.preview-image {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px var(--shadow-light);
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.preview-image:hover {
+  transform: scale(1.05);
+}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

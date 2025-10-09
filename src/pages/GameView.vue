@@ -66,96 +66,53 @@
           <button class="modal-close" @click="closeAddGameDialog">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>游戏名称 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newGame.name" 
-              placeholder="留空将自动从文件名提取"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>开发商 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newGame.developer" 
-              placeholder="输入开发商名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>发行商 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newGame.publisher" 
-              placeholder="输入发行商名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>游戏简介 (可选)</label>
-            <textarea 
-              v-model="newGame.description" 
-              placeholder="输入游戏简介或描述..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>游戏标签 (可选)</label>
-            <div class="tags-input-container">
-              <div class="tags-display">
-                <span 
-                  v-for="(tag, index) in newGame.tags" 
-                  :key="index" 
-                  class="tag-item"
-                >
-                  {{ tag }}
-                  <button 
-                    type="button" 
-                    class="tag-remove" 
-                    @click="removeTag(index)"
-                  >×</button>
-                </span>
-              </div>
-              <input 
-                type="text" 
-                v-model="tagInput" 
-                @keydown.enter.prevent="addTag"
-                @keydown.comma.prevent="addTag"
-                placeholder="输入标签后按回车或逗号添加"
-                class="tag-input"
-              >
-            </div>
-            <div class="tag-hint">提示：输入标签后按回车键或逗号键添加，点击标签上的×号删除</div>
-          </div>
-          <div class="form-group">
-            <label>游戏可执行文件 <span class="required">*</span></label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="newGame.executablePath" 
-                placeholder="选择游戏可执行文件"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForExecutable">浏览</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>游戏图片 (可选)</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="newGame.imagePath" 
-                placeholder="选择游戏图片"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForImage">浏览</button>
-            </div>
-          </div>
+          <FormField
+            label="游戏名称 (可选)"
+            type="text"
+            v-model="newGame.name"
+            placeholder="留空将自动从文件名提取"
+          />
+          <FormField
+            label="开发商 (可选)"
+            type="text"
+            v-model="newGame.developer"
+            placeholder="输入开发商名称"
+          />
+          <FormField
+            label="发行商 (可选)"
+            type="text"
+            v-model="newGame.publisher"
+            placeholder="输入发行商名称"
+          />
+          <FormField
+            label="游戏简介 (可选)"
+            type="textarea"
+            v-model="newGame.description"
+            placeholder="输入游戏简介或描述..."
+            :rows="3"
+          />
+          <FormField
+            label="游戏标签 (可选)"
+            type="tags"
+            v-model="newGame.tags"
+            v-model:tagInput="tagInput"
+            @add-tag="addTag"
+            @remove-tag="removeTag"
+          />
+          <FormField
+            label="游戏可执行文件"
+            type="file"
+            v-model="newGame.executablePath"
+            placeholder="选择游戏可执行文件"
+            @browse="browseForExecutable"
+          />
+          <FormField
+            label="游戏图片 (可选)"
+            type="file"
+            v-model="newGame.imagePath"
+            placeholder="选择游戏图片"
+            @browse="browseForImage"
+          />
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeAddGameDialog">取消</button>
@@ -172,95 +129,53 @@
           <button class="modal-close" @click="closeEditGameDialog">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>游戏名称</label>
-            <input 
-              type="text" 
-              v-model="editGameForm.name" 
-              placeholder="输入游戏名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>开发商</label>
-            <input 
-              type="text" 
-              v-model="editGameForm.developer" 
-              placeholder="输入开发商名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>发行商</label>
-            <input 
-              type="text" 
-              v-model="editGameForm.publisher" 
-              placeholder="输入发行商名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>游戏简介</label>
-            <textarea 
-              v-model="editGameForm.description" 
-              placeholder="输入游戏简介或描述..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>游戏标签</label>
-            <div class="tags-input-container">
-              <div class="tags-display">
-                <span 
-                  v-for="(tag, index) in editGameForm.tags" 
-                  :key="index" 
-                  class="tag-item"
-                >
-                  {{ tag }}
-                  <button 
-                    type="button" 
-                    class="tag-remove" 
-                    @click="removeEditTag(index)"
-                  >×</button>
-                </span>
-              </div>
-              <input 
-                type="text" 
-                v-model="editTagInput" 
-                @keydown.enter.prevent="addEditTag"
-                @keydown.comma.prevent="addEditTag"
-                placeholder="输入标签后按回车或逗号添加"
-                class="tag-input"
-              >
-            </div>
-          </div>
-          <div class="form-group">
-            <label>游戏可执行文件</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="editGameForm.executablePath" 
-                placeholder="选择游戏可执行文件"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForExecutableEdit">浏览</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>游戏图片</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="editGameForm.imagePath" 
-                placeholder="选择游戏图片"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForImageEdit">浏览</button>
-            </div>
-          </div>
+          <FormField
+            label="游戏名称"
+            type="text"
+            v-model="editGameForm.name"
+            placeholder="输入游戏名称"
+          />
+          <FormField
+            label="开发商"
+            type="text"
+            v-model="editGameForm.developer"
+            placeholder="输入开发商名称"
+          />
+          <FormField
+            label="发行商"
+            type="text"
+            v-model="editGameForm.publisher"
+            placeholder="输入发行商名称"
+          />
+          <FormField
+            label="游戏简介"
+            type="textarea"
+            v-model="editGameForm.description"
+            placeholder="输入游戏简介或描述..."
+            :rows="3"
+          />
+          <FormField
+            label="游戏标签"
+            type="tags"
+            v-model="editGameForm.tags"
+            v-model:tagInput="editTagInput"
+            @add-tag="addEditTag"
+            @remove-tag="removeEditTag"
+          />
+          <FormField
+            label="游戏可执行文件"
+            type="file"
+            v-model="editGameForm.executablePath"
+            placeholder="选择游戏可执行文件"
+            @browse="browseForExecutableEdit"
+          />
+          <FormField
+            label="游戏图片"
+            type="file"
+            v-model="editGameForm.imagePath"
+            placeholder="选择游戏图片"
+            @browse="browseForImageEdit"
+          />
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeEditGameDialog">取消</button>
@@ -367,6 +282,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
 import GameCard from '../components/GameCard.vue'
+import FormField from '../components/FormField.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
 export default {
@@ -376,7 +292,8 @@ export default {
     EmptyState,
     ContextMenu,
     FilterSidebar,
-    GameCard
+    GameCard,
+    FormField
   },
   data() {
     return {

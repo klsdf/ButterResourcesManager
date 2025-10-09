@@ -1,3 +1,4 @@
+<!-- 当列表的物体为空时使用，或者当搜索结果为空时使用 -->
 <template>
   <div class="empty-state">
     <div class="empty-icon">{{ icon }}</div>

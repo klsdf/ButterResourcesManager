@@ -1,3 +1,4 @@
+<!-- 页面左侧的筛选栏，比如筛选标签、作者等信息 -->
 <template>
   <div class="filter-sidebar">
     <!-- 标签筛选 -->

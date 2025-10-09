@@ -93,74 +93,40 @@
           <button class="modal-close" @click="closeAddAlbumDialog">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>漫画名称 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newAlbum.name" 
-              placeholder="留空将自动从文件夹名提取"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>作者 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newAlbum.author" 
-              placeholder="输入作者名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>漫画简介 (可选)</label>
-            <textarea 
-              v-model="newAlbum.description" 
-              placeholder="输入漫画简介或描述..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>漫画标签 (可选)</label>
-            <div class="tags-input-container">
-              <div class="tags-display">
-                <span 
-                  v-for="(tag, index) in newAlbum.tags" 
-                  :key="index" 
-                  class="tag-item"
-                >
-                  {{ tag }}
-                  <button 
-                    type="button" 
-                    class="tag-remove" 
-                    @click="removeTag(index)"
-                  >×</button>
-                </span>
-              </div>
-              <input 
-                type="text" 
-                v-model="tagInput" 
-                @keydown.enter.prevent="addTag"
-                @keydown.comma.prevent="addTag"
-                placeholder="输入标签后按回车或逗号添加"
-                class="tag-input"
-              >
-            </div>
-            <div class="tag-hint">提示：输入标签后按回车键或逗号键添加，点击标签上的×号删除</div>
-          </div>
-          <div class="form-group">
-            <label>漫画文件夹 <span class="required">*</span></label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="newAlbum.folderPath" 
-                placeholder="选择漫画文件夹"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForFolder">浏览</button>
-            </div>
-          </div>
+          <FormField
+            label="漫画名称 (可选)"
+            type="text"
+            v-model="newAlbum.name"
+            placeholder="留空将自动从文件夹名提取"
+          />
+          <FormField
+            label="作者 (可选)"
+            type="text"
+            v-model="newAlbum.author"
+            placeholder="输入作者名称"
+          />
+          <FormField
+            label="漫画简介 (可选)"
+            type="textarea"
+            v-model="newAlbum.description"
+            placeholder="输入漫画简介或描述..."
+            :rows="3"
+          />
+          <FormField
+            label="漫画标签 (可选)"
+            type="tags"
+            v-model="newAlbum.tags"
+            v-model:tagInput="tagInput"
+            @add-tag="addTag"
+            @remove-tag="removeTag"
+          />
+          <FormField
+            label="漫画文件夹"
+            type="file"
+            v-model="newAlbum.folderPath"
+            placeholder="选择漫画文件夹"
+            @browse="browseForFolder"
+          />
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeAddAlbumDialog">取消</button>
@@ -301,86 +267,47 @@
           <button class="modal-close" @click="closeEditAlbumDialog">✕</button>
         </div>
         <div class="modal-body">
-          <div class="form-group">
-            <label>名称</label>
-            <input 
-              type="text" 
-              v-model="editAlbumForm.name" 
-              placeholder="输入漫画名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>作者</label>
-            <input 
-              type="text" 
-              v-model="editAlbumForm.author" 
-              placeholder="输入作者名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>漫画简介</label>
-            <textarea 
-              v-model="editAlbumForm.description" 
-              placeholder="输入漫画简介或描述..."
-              class="form-textarea"
-              rows="3"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>漫画标签</label>
-            <div class="tags-input-container">
-              <div class="tags-display">
-                <span 
-                  v-for="(tag, index) in editAlbumForm.tags" 
-                  :key="index" 
-                  class="tag-item"
-                >
-                  {{ tag }}
-                  <button 
-                    type="button" 
-                    class="tag-remove" 
-                    @click="removeEditTag(index)"
-                  >×</button>
-                </span>
-              </div>
-              <input 
-                type="text" 
-                v-model="editTagInput" 
-                @keydown.enter.prevent="addEditTag"
-                @keydown.comma.prevent="addEditTag"
-                placeholder="输入标签后按回车或逗号添加"
-                class="tag-input"
-              >
-            </div>
-          </div>
-          <div class="form-group">
-            <label>漫画文件夹</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="editAlbumForm.folderPath" 
-                placeholder="选择漫画文件夹"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForFolderEdit">浏览</button>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>封面图片</label>
-            <div class="file-input-group">
-              <input 
-                type="text" 
-                v-model="editAlbumForm.cover" 
-                placeholder="选择封面图片（可选）"
-                class="form-input"
-                readonly
-              >
-              <button class="btn-browse" @click="browseForImageEdit">浏览</button>
-            </div>
-          </div>
+          <FormField
+            label="名称"
+            type="text"
+            v-model="editAlbumForm.name"
+            placeholder="输入漫画名称"
+          />
+          <FormField
+            label="作者"
+            type="text"
+            v-model="editAlbumForm.author"
+            placeholder="输入作者名称"
+          />
+          <FormField
+            label="漫画简介"
+            type="textarea"
+            v-model="editAlbumForm.description"
+            placeholder="输入漫画简介或描述..."
+            :rows="3"
+          />
+          <FormField
+            label="漫画标签"
+            type="tags"
+            v-model="editAlbumForm.tags"
+            v-model:tagInput="editTagInput"
+            @add-tag="addEditTag"
+            @remove-tag="removeEditTag"
+          />
+          <FormField
+            label="漫画文件夹"
+            type="file"
+            v-model="editAlbumForm.folderPath"
+            placeholder="选择漫画文件夹"
+            @browse="browseForFolderEdit"
+          />
+          <FormField
+            label="封面图片"
+            type="file"
+            v-model="editAlbumForm.cover"
+            placeholder="选择封面图片（可选）"
+            @browse="browseForImageEdit"
+          />
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeEditAlbumDialog">取消</button>
@@ -500,6 +427,7 @@ import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
+import FormField from '../components/FormField.vue'
 
 export default {
   name: 'ImageView',
@@ -507,7 +435,8 @@ export default {
     GameToolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar
+    FilterSidebar,
+    FormField
   },
   data() {
     return {
