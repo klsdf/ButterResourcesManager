@@ -10,6 +10,10 @@
         :alt="game.name"
         @error="handleImageError"
       >
+      <!-- 文件夹大小标签 -->
+      <div class="folder-size-badge">
+        {{ formatFolderSize(game.folderSize) }}
+      </div>
       <div class="game-overlay">
         <div class="play-button" @click.stop="$emit('play', game)">
           <span class="play-icon">▶️</span>
@@ -76,6 +80,22 @@ export default {
   methods: {
     formatPlayTime,
     formatLastPlayed,
+    formatFolderSize(sizeInBytes) {
+      if (!sizeInBytes || sizeInBytes === 0) return '未知大小'
+      
+      const units = ['B', 'KB', 'MB', 'GB', 'TB']
+      let size = sizeInBytes
+      let unitIndex = 0
+      
+      while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024
+        unitIndex++
+      }
+      
+      // 保留1位小数，但如果是整数则不显示小数
+      const formattedSize = size % 1 === 0 ? size.toString() : size.toFixed(1)
+      return `${formattedSize} ${units[unitIndex]}`
+    },
     resolveImage(imagePath) {
       // 空值返回默认
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
@@ -149,6 +169,22 @@ export default {
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+}
+
+.folder-size-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .game-card:hover .game-image img {
