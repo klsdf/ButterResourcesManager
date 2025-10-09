@@ -25,16 +25,29 @@
             :alt="album.name"
             @error="handleImageError"
           >
-          <div class="album-overlay">
-            <div class="open-button">
-              <span class="open-icon">📖</span>
-            </div>
-          </div>
+           <div class="album-overlay">
+             <div class="open-button" @click.stop="openAlbum(album)">
+               <span class="open-icon">📖</span>
+             </div>
+           </div>
         </div>
         <div class="album-info">
           <h3 class="album-title">{{ album.name }}</h3>
-          <p class="album-meta">{{ album.pagesCount || 0 }} 页</p>
-          <p class="album-folder" :title="album.folderPath">{{ album.folderPath }}</p>
+          <p class="album-author" v-if="album.author">{{ album.author }}</p>
+          <p class="album-publisher" v-if="album.publisher && album.publisher !== '未知发行商'">{{ album.publisher }}</p>
+          <p class="album-description" v-if="album.description">{{ album.description }}</p>
+          <div class="album-tags" v-if="album.tags && album.tags.length > 0">
+            <span 
+              v-for="tag in album.tags.slice(0, 3)" 
+              :key="tag" 
+              class="album-tag"
+            >{{ tag }}</span>
+            <span v-if="album.tags.length > 3" class="album-tag-more">+{{ album.tags.length - 3 }}</span>
+          </div>
+          <div class="album-meta">
+            <span class="pages-count">{{ album.pagesCount || 0 }} 页</span>
+            <span class="album-folder" :title="album.folderPath">{{ album.folderPath }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -76,6 +89,61 @@
             >
           </div>
           <div class="form-group">
+            <label>作者 (可选)</label>
+            <input 
+              type="text" 
+              v-model="newAlbum.author" 
+              placeholder="输入作者名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>发行商 (可选)</label>
+            <input 
+              type="text" 
+              v-model="newAlbum.publisher" 
+              placeholder="输入发行商名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>漫画简介 (可选)</label>
+            <textarea 
+              v-model="newAlbum.description" 
+              placeholder="输入漫画简介或描述..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>漫画标签 (可选)</label>
+            <div class="tags-input-container">
+              <div class="tags-display">
+                <span 
+                  v-for="(tag, index) in newAlbum.tags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button 
+                    type="button" 
+                    class="tag-remove" 
+                    @click="removeTag(index)"
+                  >×</button>
+                </span>
+              </div>
+              <input 
+                type="text" 
+                v-model="tagInput" 
+                @keydown.enter.prevent="addTag"
+                @keydown.comma.prevent="addTag"
+                placeholder="输入标签后按回车或逗号添加"
+                class="tag-input"
+              >
+            </div>
+            <div class="tag-hint">提示：输入标签后按回车键或逗号键添加，点击标签上的×号删除</div>
+          </div>
+          <div class="form-group">
             <label>漫画文件夹 <span class="required">*</span></label>
             <div class="file-input-group">
               <input 
@@ -112,7 +180,26 @@
           </div>
           <div class="detail-info">
             <h2 class="detail-title">{{ currentAlbum.name }}</h2>
+            <p class="detail-author" v-if="currentAlbum.author">{{ currentAlbum.author }}</p>
+            <p class="detail-publisher" v-if="currentAlbum.publisher && currentAlbum.publisher !== '未知发行商'">{{ currentAlbum.publisher }}</p>
             <p class="detail-folder" :title="currentAlbum.folderPath">{{ currentAlbum.folderPath }}</p>
+            
+            <div class="detail-description" v-if="currentAlbum.description">
+              <h4 class="description-title">漫画简介</h4>
+              <p class="description-content">{{ currentAlbum.description }}</p>
+            </div>
+            
+            <div class="detail-tags" v-if="currentAlbum.tags && currentAlbum.tags.length > 0">
+              <h4 class="tags-title">漫画标签</h4>
+              <div class="tags-container">
+                <span 
+                  v-for="tag in currentAlbum.tags" 
+                  :key="tag" 
+                  class="detail-tag"
+                >{{ tag }}</span>
+              </div>
+            </div>
+            
             <div class="detail-stats">
               <div class="stat-item">
                 <span class="stat-label">总页数</span>
@@ -127,20 +214,24 @@
                 <span class="stat-value">{{ formatDate(currentAlbum.lastViewed) }}</span>
               </div>
             </div>
-            <div class="detail-actions">
-              <button class="btn-open-folder" @click="openAlbumFolder(currentAlbum)">
-                <span class="btn-icon">📁</span>
-                打开文件夹
-              </button>
-          <button class="btn-edit-album" @click="editAlbum(currentAlbum)">
-            <span class="btn-icon">✏️</span>
-            编辑信息
-          </button>
-              <button class="btn-remove-album" @click="removeAlbum(currentAlbum)">
-                <span class="btn-icon">🗑️</span>
-                删除漫画
-              </button>
-            </div>
+             <div class="detail-actions">
+               <button class="btn-start-reading" @click="openAlbum(currentAlbum)">
+                 <span class="btn-icon">📖</span>
+                 开始阅读
+               </button>
+               <button class="btn-open-folder" @click="openAlbumFolder(currentAlbum)">
+                 <span class="btn-icon">📁</span>
+                 打开文件夹
+               </button>
+               <button class="btn-edit-album" @click="editAlbum(currentAlbum)">
+                 <span class="btn-icon">✏️</span>
+                 编辑信息
+               </button>
+               <button class="btn-remove-album" @click="removeAlbum(currentAlbum)">
+                 <span class="btn-icon">🗑️</span>
+                 删除漫画
+               </button>
+             </div>
           </div>
         </div>
         <div class="pages-section" v-if="pages.length > 0">
@@ -214,6 +305,60 @@
               placeholder="输入漫画名称"
               class="form-input"
             >
+          </div>
+          <div class="form-group">
+            <label>作者</label>
+            <input 
+              type="text" 
+              v-model="editAlbumForm.author" 
+              placeholder="输入作者名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>发行商</label>
+            <input 
+              type="text" 
+              v-model="editAlbumForm.publisher" 
+              placeholder="输入发行商名称"
+              class="form-input"
+            >
+          </div>
+          <div class="form-group">
+            <label>漫画简介</label>
+            <textarea 
+              v-model="editAlbumForm.description" 
+              placeholder="输入漫画简介或描述..."
+              class="form-textarea"
+              rows="3"
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label>漫画标签</label>
+            <div class="tags-input-container">
+              <div class="tags-display">
+                <span 
+                  v-for="(tag, index) in editAlbumForm.tags" 
+                  :key="index" 
+                  class="tag-item"
+                >
+                  {{ tag }}
+                  <button 
+                    type="button" 
+                    class="tag-remove" 
+                    @click="removeEditTag(index)"
+                  >×</button>
+                </span>
+              </div>
+              <input 
+                type="text" 
+                v-model="editTagInput" 
+                @keydown.enter.prevent="addEditTag"
+                @keydown.comma.prevent="addEditTag"
+                placeholder="输入标签后按回车或逗号添加"
+                class="tag-input"
+              >
+            </div>
           </div>
           <div class="form-group">
             <label>漫画文件夹</label>
@@ -369,8 +514,13 @@ export default {
       showAddDialog: false,
       newAlbum: {
         name: '',
+        author: '',
+        publisher: '',
+        description: '',
+        tags: [],
         folderPath: ''
       },
+      tagInput: '',
       showDetailModal: false,
       currentAlbum: null,
       showContextMenu: false,
@@ -383,9 +533,14 @@ export default {
       editAlbumForm: {
         id: '',
         name: '',
+        author: '',
+        publisher: '',
+        description: '',
+        tags: [],
         folderPath: '',
         cover: ''
       },
+      editTagInput: '',
       // 排序选项
       imageSortOptions: [
         { value: 'name', label: '按名称排序' },
@@ -462,10 +617,27 @@ export default {
     },
     showAddAlbumDialog() {
       this.showAddDialog = true
-      this.newAlbum = { name: '', folderPath: '' }
+      this.newAlbum = {
+        name: '',
+        author: '',
+        publisher: '',
+        description: '',
+        tags: [],
+        folderPath: ''
+      }
+      this.tagInput = ''
     },
     closeAddAlbumDialog() {
       this.showAddDialog = false
+      this.newAlbum = {
+        name: '',
+        author: '',
+        publisher: '',
+        description: '',
+        tags: [],
+        folderPath: ''
+      }
+      this.tagInput = ''
     },
     async browseForFolder() {
       try {
@@ -514,6 +686,10 @@ export default {
         const album = {
           id: Date.now().toString(),
           name: (this.newAlbum.name || '').trim() || this.extractFolderName(this.newAlbum.folderPath),
+          author: (this.newAlbum.author || '').trim() || '',
+          publisher: (this.newAlbum.publisher || '').trim() || '',
+          description: (this.newAlbum.description || '').trim() || '',
+          tags: [...this.newAlbum.tags],
           folderPath: this.newAlbum.folderPath.trim(),
           cover: cover,
           pagesCount: pages.length,
@@ -534,6 +710,40 @@ export default {
       const parts = String(p || '').replace(/\\/g, '/').split('/')
       return parts[parts.length - 1] || '未命名'
     },
+    addTag() {
+      const tag = this.tagInput.trim()
+      if (tag && !this.newAlbum.tags.includes(tag)) {
+        this.newAlbum.tags.push(tag)
+        this.tagInput = ''
+      }
+    },
+    removeTag(index) {
+      this.newAlbum.tags.splice(index, 1)
+    },
+    addEditTag() {
+      const tag = this.editTagInput.trim()
+      if (tag && !this.editAlbumForm.tags.includes(tag)) {
+        this.editAlbumForm.tags.push(tag)
+        this.editTagInput = ''
+      }
+    },
+     removeEditTag(index) {
+       this.editAlbumForm.tags.splice(index, 1)
+     },
+     async openAlbum(album) {
+       // 直接打开漫画阅读器，从第一页开始
+       this.currentAlbum = album
+       this.currentPageIndex = 0
+       this.jumpToPage = 1
+       this.showComicViewer = true
+       
+       // 清空之前的页面数据，确保重新加载
+       this.pages = []
+       this.currentPageImage = null
+       
+       // 加载当前漫画的图片文件
+       await this.loadAlbumPages()
+     },
     async showAlbumDetail(album) {
       try {
         this.currentAlbum = album
@@ -615,9 +825,14 @@ export default {
       this.editAlbumForm = {
         id: album.id,
         name: album.name || '',
+        author: album.author || '',
+        publisher: album.publisher || '',
+        description: album.description || '',
+        tags: Array.isArray(album.tags) ? [...album.tags] : [],
         folderPath: album.folderPath || '',
         cover: album.cover || ''
       }
+      this.editTagInput = ''
       this.showEditDialog = true
     },
     closeEditAlbumDialog() {
@@ -658,6 +873,10 @@ export default {
         }
         const target = this.albums[index]
         target.name = (this.editAlbumForm.name || '').trim() || target.name
+        target.author = (this.editAlbumForm.author || '').trim() || ''
+        target.publisher = (this.editAlbumForm.publisher || '').trim() || ''
+        target.description = (this.editAlbumForm.description || '').trim() || ''
+        target.tags = [...this.editAlbumForm.tags]
         target.folderPath = (this.editAlbumForm.folderPath || '').trim() || target.folderPath
         target.cover = (this.editAlbumForm.cover || '').trim()
 
@@ -735,14 +954,43 @@ export default {
       return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
     },
     
-    // 漫画阅读器方法
-    loadCurrentPage() {
-      if (this.pages && this.pages.length > 0 && this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
-        const imagePath = this.pages[this.currentPageIndex]
-        this.currentPageImage = this.resolveImage(imagePath)
-        this.jumpToPage = this.currentPageIndex + 1
-      }
-    },
+     // 漫画阅读器方法
+     loadCurrentPage() {
+       if (this.pages && this.pages.length > 0 && this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
+         const imagePath = this.pages[this.currentPageIndex]
+         this.currentPageImage = this.resolveImage(imagePath)
+         this.jumpToPage = this.currentPageIndex + 1
+       } else if (this.currentAlbum && this.currentAlbum.folderPath) {
+         // 如果pages还没有加载，先加载图片文件
+         this.loadAlbumPages()
+       }
+     },
+     async loadAlbumPages() {
+       try {
+         let files = []
+         if (window.electronAPI && window.electronAPI.listImageFiles) {
+           const resp = await window.electronAPI.listImageFiles(this.currentAlbum.folderPath)
+           if (resp.success) files = resp.files || []
+         }
+         this.pages = files
+         this.totalPages = Math.ceil(files.length / this.pageSize)
+         
+         // 更新专辑的页数信息
+         this.currentAlbum.pagesCount = files.length
+         this.currentAlbum.lastViewed = new Date().toISOString()
+         await this.saveAlbums()
+         
+         // 加载当前页（确保索引在有效范围内）
+         if (files.length > 0) {
+           const targetIndex = Math.max(0, Math.min(this.currentPageIndex, files.length - 1))
+           this.currentPageIndex = targetIndex
+           this.currentPageImage = this.resolveImage(files[targetIndex])
+           this.jumpToPage = targetIndex + 1
+         }
+       } catch (e) {
+         console.error('加载漫画页面失败:', e)
+       }
+     },
     
     nextPage() {
       if (this.currentPageIndex < this.pages.length - 1) {
@@ -789,19 +1037,27 @@ export default {
       }
     },
     
-    closeComicViewer() {
-      this.showComicViewer = false
-      this.currentPageIndex = 0
-      this.currentPageImage = null
-      this.zoomLevel = 1
-      this.jumpToPage = 1
-      
-      // 退出全屏
-      if (this.isFullscreen && document.fullscreenElement) {
-        document.exitFullscreen()
-        this.isFullscreen = false
-      }
-    },
+     closeComicViewer() {
+       this.showComicViewer = false
+       this.currentPageIndex = 0
+       this.currentPageImage = null
+       this.zoomLevel = 1
+       this.jumpToPage = 1
+       
+       // 只清空阅读器相关的状态，保留currentAlbum用于详情页显示
+       // 如果是从详情页打开的，保持详情页状态
+       // 如果是从卡片直接打开的，清空详情页状态
+       if (!this.showDetailModal) {
+         this.currentAlbum = null
+         this.pages = []
+       }
+       
+       // 退出全屏
+       if (this.isFullscreen && document.fullscreenElement) {
+         document.exitFullscreen()
+         this.isFullscreen = false
+       }
+     },
     
     onImageLoad() {
       // 图片加载完成后的处理
@@ -1000,10 +1256,79 @@ export default {
   transition: color 0.3s ease;
 }
 
-.album-meta {
+.album-author {
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.album-publisher {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+  font-style: italic;
+}
+
+.album-description {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.album-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.album-tag {
+  background: var(--accent-color);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.album-tag-more {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.album-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pages-count {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
 }
 
 .album-folder {
@@ -1012,6 +1337,7 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.3s ease;
 }
 
 
@@ -1247,13 +1573,94 @@ export default {
   color: var(--text-primary);
   font-size: 2rem;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 15px 0;
+  transition: color 0.3s ease;
+}
+
+.detail-author {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.detail-publisher {
+  color: var(--text-tertiary);
+  font-size: 1rem;
+  margin: 0 0 15px 0;
+  font-style: italic;
+  transition: color 0.3s ease;
 }
 
 .detail-folder {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  margin: 0 0 20px 0;
+  word-break: break-all;
+  transition: color 0.3s ease;
+}
+
+.detail-description {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+  transition: background-color 0.3s ease;
+}
+
+.description-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  transition: color 0.3s ease;
+}
+
+.description-content {
   color: var(--text-secondary);
   font-size: 0.95rem;
+  line-height: 1.6;
   margin: 0;
+  white-space: pre-wrap;
+  transition: color 0.3s ease;
+}
+
+.detail-tags {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+  transition: background-color 0.3s ease;
+}
+
+.tags-title {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 10px 0;
+  transition: color 0.3s ease;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-tag {
+  background: var(--accent-color);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.detail-tag:hover {
+  background: var(--accent-hover);
 }
 
 .detail-stats {
@@ -1289,30 +1696,50 @@ export default {
   flex-wrap: wrap;
 }
 
-.btn-open-folder, .btn-edit-album, .btn-remove-album {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
+ .btn-start-reading {
+   background: var(--accent-color);
+   color: white;
+   border: none;
+   padding: 12px 24px;
+   border-radius: 8px;
+   cursor: pointer;
+   font-weight: 600;
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   transition: background 0.3s ease;
+   flex: 1;
+   justify-content: center;
+ }
 
-.btn-open-folder:hover,
-.btn-edit-album:hover {
-  background: var(--bg-secondary);
-}
+ .btn-start-reading:hover {
+   background: var(--accent-hover);
+ }
 
-.btn-remove-album {
-  background: #fee2e2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
+ .btn-open-folder, .btn-edit-album, .btn-remove-album {
+   background: var(--bg-tertiary);
+   color: var(--text-primary);
+   border: 1px solid var(--border-color);
+   padding: 12px 20px;
+   border-radius: 8px;
+   cursor: pointer;
+   font-weight: 500;
+   display: flex;
+   align-items: center;
+   gap: 8px;
+   transition: all 0.3s ease;
+ }
+
+ .btn-open-folder:hover,
+ .btn-edit-album:hover {
+   background: var(--bg-secondary);
+ }
+
+ .btn-remove-album {
+   background: #fee2e2;
+   color: #dc2626;
+   border-color: #fecaca;
+ }
 
 .pages-section {
   padding: 0 30px 30px 30px;
@@ -1422,6 +1849,7 @@ export default {
   height: 200px;
   object-fit: cover;
   display: block;
+  cursor: pointer;
 }
 
 .page-index {
