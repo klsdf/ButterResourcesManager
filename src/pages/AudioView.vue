@@ -35,6 +35,9 @@
             <button class="play-button" @click.stop="playAudio(audio)">
               <span class="play-icon">▶️</span>
             </button>
+            <button class="add-to-playlist-button" @click.stop="addToPlaylist(audio)" title="添加到播放列表">
+              <span class="add-icon">➕</span>
+            </button>
           </div>
         </div>
         
@@ -188,6 +191,9 @@
         <div class="modal-footer">
           <button type="button" @click="playAudio(selectedAudio)" class="btn-play">
             ▶️ 播放
+          </button>
+          <button type="button" @click="addToPlaylist(selectedAudio)" class="btn-add-to-playlist">
+            ➕ 添加到播放列表
           </button>
           <button type="button" @click="updateAudioDuration(selectedAudio)" class="btn-update-duration" v-if="!selectedAudio.duration || selectedAudio.duration === 0">
             ⏱️ 更新时长
@@ -353,6 +359,7 @@ export default {
       audioContextMenuItems: [
         { key: 'detail', icon: '👁️', label: '查看详情' },
         { key: 'play', icon: '▶️', label: '播放' },
+        { key: 'addToPlaylist', icon: '➕', label: '添加到播放列表' },
         { key: 'folder', icon: '📁', label: '打开文件夹' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'delete', icon: '🗑️', label: '删除音频' }
@@ -456,23 +463,22 @@ export default {
           this.audios[index] = await audioManager.audios.find(a => a.id === audio.id)
         }
         
-        // 播放音频
-        if (window.electronAPI && window.electronAPI.openExternal) {
-          const result = await window.electronAPI.openExternal(audio.filePath)
-          if (result.success) {
-            console.log('音频播放成功:', audio.name)
-            this.showNotification('开始播放', `正在播放: ${audio.name}`)
-          } else {
-            alert(`播放失败: ${result.error}`)
-          }
-        } else {
-          // 降级处理：在浏览器中显示路径
-          alert(`音频文件位置:\n${audio.filePath}`)
-        }
+        // 使用全局音频播放器播放
+        console.log('🎵 通过全局播放器播放音频:', audio.name)
+        window.dispatchEvent(new CustomEvent('global-play-audio', { detail: audio }))
+        
+        this.showNotification('开始播放', `正在播放: ${audio.name}`)
+        
       } catch (error) {
         console.error('播放音频失败:', error)
         alert('播放音频失败: ' + error.message)
       }
+    },
+    
+    addToPlaylist(audio) {
+      console.log('➕ 添加音频到播放列表:', audio.name)
+      window.dispatchEvent(new CustomEvent('global-add-to-playlist', { detail: audio }))
+      this.showNotification('已添加', `已将 "${audio.name}" 添加到播放列表`)
     },
     
     async openAudioFolder(audio) {
@@ -557,6 +563,9 @@ export default {
           break
         case 'play':
           this.playAudio(audio)
+          break
+        case 'addToPlaylist':
+          this.addToPlaylist(audio)
           break
         case 'folder':
           this.openAudioFolder(audio)
@@ -1036,6 +1045,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -1064,6 +1074,28 @@ export default {
 
 .play-icon {
   font-size: 1.2rem;
+}
+
+.add-to-playlist-button {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-to-playlist-button:hover {
+  background: white;
+  transform: scale(1.1);
+}
+
+.add-icon {
+  font-size: 1rem;
 }
 
 .audio-info {
@@ -1417,6 +1449,21 @@ export default {
 
 .btn-delete:hover {
   background: #dc2626;
+}
+
+.btn-add-to-playlist {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.btn-add-to-playlist:hover {
+  background: #7c3aed;
 }
 
 .btn-update-duration {

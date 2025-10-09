@@ -67,6 +67,12 @@
         />
       </div>
     </main>
+    
+    <!-- 全局音频播放器 -->
+    <GlobalAudioPlayer 
+      @audio-started="onAudioStarted"
+      @playlist-ended="onPlaylistEnded"
+    />
   </div>
 </template>
 
@@ -78,6 +84,7 @@ import NovelView from './pages/NovelView.vue'
 import WebsiteView from './pages/WebsiteView.vue'
 import AudioView from './pages/AudioView.vue'
 import SettingsView from './pages/SettingsView.vue'
+import GlobalAudioPlayer from './components/GlobalAudioPlayer.vue'
 
 export default {
   name: 'App',
@@ -88,7 +95,8 @@ export default {
     NovelView,
     WebsiteView,
     AudioView,
-    SettingsView
+    SettingsView,
+    GlobalAudioPlayer
   },
   data() {
     return {
@@ -172,6 +180,14 @@ export default {
     },
     onThemeChanged(theme) {
       this.theme = theme
+    },
+    onAudioStarted(audio) {
+      console.log('🎵 全局音频播放器开始播放:', audio.name)
+      // 可以在这里添加额外的逻辑，比如显示通知等
+    },
+    onPlaylistEnded() {
+      console.log('🏁 播放列表播放完毕')
+      // 可以在这里添加播放列表结束后的逻辑
     }
   },
   async mounted() {
