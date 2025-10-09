@@ -149,6 +149,10 @@
                 <span class="stat-value">{{ pages.length }}</span>
               </div>
               <div class="stat-item">
+                <span class="stat-label">浏览次数</span>
+                <span class="stat-value">{{ currentAlbum.viewCount || 0 }}</span>
+              </div>
+              <div class="stat-item">
                 <span class="stat-label">添加时间</span>
                 <span class="stat-value">{{ formatDate(currentAlbum.addedDate) }}</span>
               </div>
@@ -424,7 +428,8 @@ export default {
         author: '',
         description: '',
         tags: [],
-        folderPath: ''
+        folderPath: '',
+        viewCount: 0
       },
       tagInput: '',
       showDetailModal: false,
@@ -443,7 +448,8 @@ export default {
         description: '',
         tags: [],
         folderPath: '',
-        cover: ''
+        cover: '',
+        viewCount: 0
       },
       editTagInput: '',
       // 排序选项
@@ -547,7 +553,8 @@ export default {
         author: '',
         description: '',
         tags: [],
-        folderPath: ''
+        folderPath: '',
+        viewCount: 0
       }
       this.tagInput = ''
     },
@@ -558,7 +565,8 @@ export default {
         author: '',
         description: '',
         tags: [],
-        folderPath: ''
+        folderPath: '',
+        viewCount: 0
       }
       this.tagInput = ''
     },
@@ -616,7 +624,8 @@ export default {
           cover: cover,
           pagesCount: pages.length,
           addedDate: new Date().toISOString(),
-          lastViewed: null
+          lastViewed: null,
+          viewCount: 0
         }
         console.log('创建专辑对象:', album)
         this.albums.push(album)
@@ -663,6 +672,11 @@ export default {
        this.pages = []
        this.currentPageImage = null
        
+       // 增加浏览次数
+       album.viewCount = (album.viewCount || 0) + 1
+       album.lastViewed = new Date().toISOString()
+       await this.saveAlbums()
+       
        // 加载当前漫画的图片文件
        await this.loadAlbumPages()
      },
@@ -681,6 +695,10 @@ export default {
         this.totalPages = Math.ceil(files.length / this.pageSize)
         album.pagesCount = files.length
         album.lastViewed = new Date().toISOString()
+        
+        // 增加浏览次数
+        album.viewCount = (album.viewCount || 0) + 1
+        
         await this.saveAlbums()
       } catch (e) {
         console.error('加载漫画详情失败:', e)
@@ -751,7 +769,8 @@ export default {
         description: album.description || '',
         tags: Array.isArray(album.tags) ? [...album.tags] : [],
         folderPath: album.folderPath || '',
-        cover: album.cover || ''
+        cover: album.cover || '',
+        viewCount: album.viewCount || 0
       }
       this.editTagInput = ''
       this.showEditDialog = true
@@ -799,6 +818,11 @@ export default {
         target.tags = [...this.editAlbumForm.tags]
         target.folderPath = (this.editAlbumForm.folderPath || '').trim() || target.folderPath
         target.cover = (this.editAlbumForm.cover || '').trim()
+        
+        // 保持浏览次数不变
+        if (!target.viewCount) {
+          target.viewCount = 0
+        }
 
         // 如更换文件夹，则更新页数与封面（若未手动设置）
         if (this.editAlbumForm.folderPath && this.editAlbumForm.folderPath.trim()) {
@@ -829,6 +853,14 @@ export default {
       this.currentPageIndex = actualIndex
       this.jumpToPage = actualIndex + 1
       this.showComicViewer = true
+      
+      // 增加浏览次数
+      if (this.currentAlbum) {
+        this.currentAlbum.viewCount = (this.currentAlbum.viewCount || 0) + 1
+        this.currentAlbum.lastViewed = new Date().toISOString()
+        await this.saveAlbums()
+      }
+      
       await this.loadCurrentPage()
     },
     resolveImage(imagePath) {
@@ -941,6 +973,12 @@ export default {
          // 更新专辑的页数信息
          this.currentAlbum.pagesCount = files.length
          this.currentAlbum.lastViewed = new Date().toISOString()
+         
+         // 增加浏览次数（如果还没有增加过）
+         if (!this.currentAlbum.viewCount) {
+           this.currentAlbum.viewCount = 1
+         }
+         
          await this.saveAlbums()
          
          // 加载当前页（确保索引在有效范围内）

@@ -60,9 +60,8 @@
           >{{ tag }}</span>
           <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
         </div>
-        <div class="media-meta">
-          <span class="meta-item">{{ item.pagesCount || 0 }} 页</span>
-          <span class="meta-item" :title="item.folderPath">{{ item.folderPath }}</span>
+        <div class="media-stats">
+          <span class="stat-item">{{ formatLastViewed(item.lastViewed) }}</span>
         </div>
       </template>
       
@@ -179,6 +178,26 @@ export default {
       if (diffDays === 1) return '昨天'
       if (diffDays < 7) return `${diffDays}天前`
       if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
+      return this.formatDateTime(date)
+    },
+    formatLastViewed(dateString) {
+      if (!dateString) return '从未查看'
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffTime = Math.abs(now - date)
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
+      const diffMinutes = Math.floor(diffTime / (1000 * 60))
+      
+      if (diffDays === 0) {
+        if (diffMinutes < 1) return '刚刚查看'
+        if (diffMinutes < 60) return `${diffMinutes}分钟前查看`
+        if (diffHours < 24) return `${diffHours}小时前查看`
+      }
+      
+      if (diffDays === 1) return '昨天查看'
+      if (diffDays < 7) return `${diffDays}天前查看`
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前查看`
       return this.formatDateTime(date)
     },
     formatDateTime(date) {
