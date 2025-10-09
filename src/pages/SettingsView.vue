@@ -73,7 +73,7 @@
                 </label>
                 <div class="setting-control">
                   <label class="toggle-switch">
-                    <input type="checkbox" v-model="settings.autoStart">
+                    <input type="checkbox" v-model="settings.autoStart" @change="onAutoStartChange">
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -86,7 +86,7 @@
                 </label>
                 <div class="setting-control">
                   <label class="toggle-switch">
-                    <input type="checkbox" v-model="settings.minimizeToTray">
+                    <input type="checkbox" v-model="settings.minimizeToTray" @change="onMinimizeToTrayChange">
                     <span class="toggle-slider"></span>
                   </label>
                 </div>
@@ -239,6 +239,18 @@
                 <div class="setting-control">
                   <button class="btn-test-notification" @click="testNotification">
                     测试通知
+                  </button>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">测试系统托盘</span>
+                  <span class="setting-desc">测试最小化到系统托盘功能</span>
+                </label>
+                <div class="setting-control">
+                  <button class="btn-test-tray" @click="testTray">
+                    测试托盘
                   </button>
                 </div>
               </div>
@@ -531,6 +543,68 @@ export default {
       // 实时应用主题变化
       this.applyTheme(this.settings.theme)
     },
+    
+    async onAutoStartChange() {
+      // 实时更新开机自启设置
+      try {
+        if (window.electronAPI && window.electronAPI.setAutoStart) {
+          const result = await window.electronAPI.setAutoStart(this.settings.autoStart)
+          if (result.success) {
+            console.log('开机自启设置更新成功:', result.enabled)
+            this.showNotification(
+              '开机自启设置已更新', 
+              result.enabled ? '应用将在系统启动时自动运行' : '应用已取消开机自启'
+            )
+          } else {
+            console.error('开机自启设置更新失败:', result.error)
+            alert(`开机自启设置失败: ${result.error}`)
+            // 恢复开关状态
+            this.settings.autoStart = !this.settings.autoStart
+          }
+        } else {
+          console.warn('当前环境不支持开机自启功能')
+          alert('当前环境不支持开机自启功能')
+          // 恢复开关状态
+          this.settings.autoStart = !this.settings.autoStart
+        }
+      } catch (error) {
+        console.error('更新开机自启设置失败:', error)
+        alert('更新开机自启设置失败: ' + error.message)
+        // 恢复开关状态
+        this.settings.autoStart = !this.settings.autoStart
+      }
+    },
+    
+    async onMinimizeToTrayChange() {
+      // 实时更新最小化到托盘设置
+      try {
+        if (window.electronAPI && window.electronAPI.setMinimizeToTray) {
+          const result = await window.electronAPI.setMinimizeToTray(this.settings.minimizeToTray)
+          if (result.success) {
+            console.log('最小化到托盘设置更新成功:', result.enabled)
+            this.showNotification(
+              '最小化到托盘设置已更新', 
+              result.enabled ? '关闭窗口时将最小化到系统托盘' : '关闭窗口时将直接退出应用'
+            )
+          } else {
+            console.error('最小化到托盘设置更新失败:', result.error)
+            alert(`最小化到托盘设置失败: ${result.error}`)
+            // 恢复开关状态
+            this.settings.minimizeToTray = !this.settings.minimizeToTray
+          }
+        } else {
+          console.warn('当前环境不支持最小化到托盘功能')
+          alert('当前环境不支持最小化到托盘功能')
+          // 恢复开关状态
+          this.settings.minimizeToTray = !this.settings.minimizeToTray
+        }
+      } catch (error) {
+        console.error('更新最小化到托盘设置失败:', error)
+        alert('更新最小化到托盘设置失败: ' + error.message)
+        // 恢复开关状态
+        this.settings.minimizeToTray = !this.settings.minimizeToTray
+      }
+    },
     async onScreenshotKeyChange() {
       // 实时更新全局快捷键
       try {
@@ -685,6 +759,42 @@ export default {
       } catch (error) {
         console.error('测试通知失败:', error)
         alert('测试通知失败: ' + error.message)
+      }
+    },
+    
+    async testTray() {
+      try {
+        console.log('=== 测试系统托盘功能 ===')
+        
+        if (window.electronAPI && window.electronAPI.minimizeToTray) {
+          // 测试最小化到托盘
+          const result = await window.electronAPI.minimizeToTray()
+          if (result.success) {
+            console.log('✅ 最小化到托盘成功')
+            this.showNotification('托盘测试', '应用已最小化到系统托盘，请检查系统托盘区域')
+            
+            // 3秒后自动恢复窗口
+            setTimeout(async () => {
+              try {
+                if (window.electronAPI && window.electronAPI.restoreFromTray) {
+                  await window.electronAPI.restoreFromTray()
+                  console.log('✅ 从托盘恢复成功')
+                }
+              } catch (error) {
+                console.error('从托盘恢复失败:', error)
+              }
+            }, 3000)
+          } else {
+            console.error('❌ 最小化到托盘失败:', result.error)
+            alert(`最小化到托盘失败: ${result.error}`)
+          }
+        } else {
+          console.warn('当前环境不支持系统托盘功能')
+          alert('当前环境不支持系统托盘功能')
+        }
+      } catch (error) {
+        console.error('测试系统托盘失败:', error)
+        alert('测试系统托盘失败: ' + error.message)
       }
     },
     async showNotification(title, message) {
@@ -868,6 +978,32 @@ export default {
         } catch (error) {
           console.error('获取默认截图目录失败:', error)
         }
+      }
+      
+      // 获取当前开机自启状态
+      try {
+        if (window.electronAPI && window.electronAPI.getAutoStart) {
+          const result = await window.electronAPI.getAutoStart()
+          if (result.success) {
+            this.settings.autoStart = result.enabled
+            console.log('当前开机自启状态:', result.enabled)
+          }
+        }
+      } catch (error) {
+        console.error('获取开机自启状态失败:', error)
+      }
+      
+      // 获取当前最小化到托盘状态
+      try {
+        if (window.electronAPI && window.electronAPI.getMinimizeToTray) {
+          const result = await window.electronAPI.getMinimizeToTray()
+          if (result.success) {
+            this.settings.minimizeToTray = result.enabled
+            console.log('当前最小化到托盘状态:', result.enabled)
+          }
+        }
+      } catch (error) {
+        console.error('获取最小化到托盘状态失败:', error)
       }
     } catch (error) {
       console.error('加载设置失败:', error)
@@ -1132,6 +1268,22 @@ export default {
 
 .btn-test-notification:hover {
   background: var(--accent-hover);
+}
+
+.btn-test-tray {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.btn-test-tray:hover {
+  background: #7c3aed;
 }
 
 .btn-open-folder {

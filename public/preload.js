@@ -71,6 +71,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 打开视频播放窗口
   openVideoWindow: (filePath, options) => ipcRenderer.invoke('open-video-window', filePath, options),
   
+  // 开机自启功能
+  setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
+  getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
+  
+  // 系统托盘功能
+  createTray: () => ipcRenderer.invoke('create-tray'),
+  destroyTray: () => ipcRenderer.invoke('destroy-tray'),
+  setTrayTooltip: (tooltip) => ipcRenderer.invoke('set-tray-tooltip', tooltip),
+  setTrayContextMenu: (menuTemplate) => ipcRenderer.invoke('set-tray-context-menu', menuTemplate),
+  minimizeToTray: () => ipcRenderer.invoke('minimize-to-tray'),
+  restoreFromTray: () => ipcRenderer.invoke('restore-from-tray'),
+  setMinimizeToTray: (enabled) => ipcRenderer.invoke('set-minimize-to-tray', enabled),
+  getMinimizeToTray: () => ipcRenderer.invoke('get-minimize-to-tray'),
+  
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
   onAppUpdate: (callback) => ipcRenderer.on('app-update', callback),

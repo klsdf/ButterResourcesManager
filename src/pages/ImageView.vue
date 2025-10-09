@@ -144,10 +144,54 @@
           </div>
         </div>
         <div class="pages-section" v-if="pages.length > 0">
+          <!-- 分页导航 -->
+          <div class="pagination-nav" v-if="totalPages > 1">
+            <div class="pagination-info">
+              <span>第 {{ currentPage }} 页，共 {{ totalPages }} 页</span>
+              <span class="page-range">
+                显示第 {{ currentPageStartIndex + 1 }} - {{ Math.min(currentPageStartIndex + pageSize, pages.length) }} 张，共 {{ pages.length }} 张
+              </span>
+            </div>
+            <div class="pagination-controls">
+              <button 
+                class="btn-pagination" 
+                @click="previousPageGroup" 
+                :disabled="currentPage <= 1"
+              >
+                ◀ 上一页
+              </button>
+              <div class="page-jump-group">
+                <input 
+                  type="number" 
+                  v-model.number="jumpToPageGroup" 
+                  :min="1" 
+                  :max="totalPages"
+                  @keyup.enter="jumpToPageGroup(jumpToPageGroup)"
+                  class="page-input-group"
+                  placeholder="页码"
+                >
+                <button class="btn-jump-group" @click="jumpToPageGroup(jumpToPageGroup)">跳转</button>
+              </div>
+              <button 
+                class="btn-pagination" 
+                @click="nextPageGroup" 
+                :disabled="currentPage >= totalPages"
+              >
+                下一页 ▶
+              </button>
+            </div>
+          </div>
+          
+          <!-- 图片网格 -->
           <div class="pages-grid">
-            <div v-for="(p, idx) in pages" :key="p" class="page-item" @click="viewPage(idx)">
-              <img :src="resolveImage(p)" :alt="'Page ' + (idx+1)" @error="handleImageError">
-              <div class="page-index">{{ idx + 1 }}</div>
+            <div 
+              v-for="(p, idx) in paginatedPages" 
+              :key="p" 
+              class="page-item" 
+              @click="viewPage(idx)"
+            >
+              <img :src="resolveImage(p)" :alt="'Page ' + (currentPageStartIndex + idx + 1)" @error="handleImageError">
+              <div class="page-index">{{ currentPageStartIndex + idx + 1 }}</div>
             </div>
           </div>
         </div>
@@ -201,6 +245,94 @@
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeEditAlbumDialog">取消</button>
           <button class="btn-confirm" @click="saveEditedAlbum">保存修改</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 漫画阅读器 -->
+    <div v-if="showComicViewer" class="comic-viewer-overlay" @click="closeComicViewer">
+      <div class="comic-viewer-content" @click.stop>
+        <!-- 阅读器头部 -->
+        <div class="comic-viewer-header">
+          <div class="comic-info">
+            <h3 class="comic-title">{{ currentAlbum?.name || '漫画阅读器' }}</h3>
+            <span class="page-info">{{ currentPageIndex + 1 }} / {{ pages.length }}</span>
+          </div>
+          <div class="comic-controls">
+            <button class="btn-zoom-out" @click="zoomOut" :disabled="zoomLevel <= 0.5">
+              <span class="btn-icon">🔍-</span>
+            </button>
+            <span class="zoom-level">{{ Math.round(zoomLevel * 100) }}%</span>
+            <button class="btn-zoom-in" @click="zoomIn" :disabled="zoomLevel >= 3">
+              <span class="btn-icon">🔍+</span>
+            </button>
+            <button class="btn-fullscreen" @click="toggleFullscreen">
+              <span class="btn-icon">⛶</span>
+              全屏
+            </button>
+            <button class="btn-close-viewer" @click="closeComicViewer">
+              <span class="btn-icon">✕</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 阅读器主体 -->
+        <div class="comic-viewer-body" ref="comicViewerBody">
+          <div class="comic-image-container" ref="imageContainer">
+            <img 
+              v-if="currentPageImage"
+              :src="currentPageImage" 
+              :alt="`第 ${currentPageIndex + 1} 页`"
+              class="comic-image"
+              :style="{ transform: `scale(${zoomLevel})` }"
+              @load="onImageLoad"
+              @error="onImageError"
+              @wheel="onImageWheel"
+            >
+            <div v-else class="loading-placeholder">
+              <div class="loading-spinner"></div>
+              <p>加载中...</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 阅读器底部导航 -->
+        <div class="comic-viewer-footer">
+          <div class="navigation-controls">
+            <button 
+              class="btn-nav btn-prev" 
+              @click="previousPage" 
+              :disabled="currentPageIndex <= 0"
+            >
+              <span class="btn-icon">◀</span>
+              上一页
+            </button>
+            <div class="page-jump">
+              <input 
+                type="number" 
+                v-model.number="jumpToPage" 
+                :min="1" 
+                :max="pages.length"
+                @keyup.enter="jumpToPageNumber"
+                class="page-input"
+              >
+              <button class="btn-jump" @click="jumpToPageNumber">跳转</button>
+            </div>
+            <button 
+              class="btn-nav btn-next" 
+              @click="nextPage" 
+              :disabled="currentPageIndex >= pages.length - 1"
+            >
+              下一页
+              <span class="btn-icon">▶</span>
+            </button>
+          </div>
+          <div class="viewer-settings">
+            <label class="setting-item">
+              <input type="checkbox" v-model="showPageNumbers">
+              显示页码
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -268,7 +400,20 @@ export default {
         { key: 'folder', icon: '📁', label: '打开文件夹' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'remove', icon: '🗑️', label: '删除漫画' }
-      ]
+      ],
+      // 漫画阅读器相关
+      showComicViewer: false,
+      currentPageIndex: 0,
+      currentPageImage: null,
+      zoomLevel: 1,
+      showPageNumbers: true,
+      jumpToPage: 1,
+      isFullscreen: false,
+      // 分页相关
+      currentPage: 1,
+      pageSize: 50,
+      totalPages: 0,
+      jumpToPageGroup: 1
     }
   },
   computed: {
@@ -295,6 +440,17 @@ export default {
     },
     canAddAlbum() {
       return this.newAlbum.folderPath && this.newAlbum.folderPath.trim()
+    },
+    // 分页显示的图片
+    paginatedPages() {
+      if (!this.pages || this.pages.length === 0) return []
+      const start = (this.currentPage - 1) * this.pageSize
+      const end = start + this.pageSize
+      return this.pages.slice(start, end)
+    },
+    // 当前页的起始索引
+    currentPageStartIndex() {
+      return (this.currentPage - 1) * this.pageSize
     }
   },
   methods: {
@@ -383,12 +539,14 @@ export default {
         this.currentAlbum = album
         this.showDetailModal = true
         this.pages = []
+        this.currentPage = 1 // 重置到第一页
         let files = []
         if (window.electronAPI && window.electronAPI.listImageFiles) {
           const resp = await window.electronAPI.listImageFiles(album.folderPath)
           if (resp.success) files = resp.files || []
         }
         this.pages = files
+        this.totalPages = Math.ceil(files.length / this.pageSize)
         album.pagesCount = files.length
         album.lastViewed = new Date().toISOString()
         await this.saveAlbums()
@@ -400,6 +558,8 @@ export default {
       this.showDetailModal = false
       this.currentAlbum = null
       this.pages = []
+      this.currentPage = 1
+      this.totalPages = 0
     },
     showAlbumContextMenu(event, album) {
       event.preventDefault()
@@ -525,7 +685,12 @@ export default {
       }
     },
     viewPage(index) {
-      // 目前点击页面不做额外处理，未来可扩展全屏查看
+      // 打开漫画阅读器，index是当前分页中的相对索引
+      const actualIndex = this.currentPageStartIndex + index
+      this.currentPageIndex = actualIndex
+      this.jumpToPage = actualIndex + 1
+      this.showComicViewer = true
+      this.loadCurrentPage()
     },
     resolveImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
@@ -568,6 +733,151 @@ export default {
       const mm = String(d.getMinutes()).padStart(2, '0')
       const ss = String(d.getSeconds()).padStart(2, '0')
       return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
+    },
+    
+    // 漫画阅读器方法
+    loadCurrentPage() {
+      if (this.pages && this.pages.length > 0 && this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
+        const imagePath = this.pages[this.currentPageIndex]
+        this.currentPageImage = this.resolveImage(imagePath)
+        this.jumpToPage = this.currentPageIndex + 1
+      }
+    },
+    
+    nextPage() {
+      if (this.currentPageIndex < this.pages.length - 1) {
+        this.currentPageIndex++
+        this.loadCurrentPage()
+      }
+    },
+    
+    previousPage() {
+      if (this.currentPageIndex > 0) {
+        this.currentPageIndex--
+        this.loadCurrentPage()
+      }
+    },
+    
+    jumpToPageNumber() {
+      const pageNum = parseInt(this.jumpToPage)
+      if (pageNum >= 1 && pageNum <= this.pages.length) {
+        this.currentPageIndex = pageNum - 1
+        this.loadCurrentPage()
+      }
+    },
+    
+    zoomIn() {
+      if (this.zoomLevel < 3) {
+        this.zoomLevel = Math.min(3, this.zoomLevel + 0.25)
+      }
+    },
+    
+    zoomOut() {
+      if (this.zoomLevel > 0.5) {
+        this.zoomLevel = Math.max(0.5, this.zoomLevel - 0.25)
+      }
+    },
+    
+    
+    toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        this.$refs.comicViewerContent?.requestFullscreen()
+        this.isFullscreen = true
+      } else {
+        document.exitFullscreen()
+        this.isFullscreen = false
+      }
+    },
+    
+    closeComicViewer() {
+      this.showComicViewer = false
+      this.currentPageIndex = 0
+      this.currentPageImage = null
+      this.zoomLevel = 1
+      this.jumpToPage = 1
+      
+      // 退出全屏
+      if (this.isFullscreen && document.fullscreenElement) {
+        document.exitFullscreen()
+        this.isFullscreen = false
+      }
+    },
+    
+    onImageLoad() {
+      // 图片加载完成后的处理
+    },
+    
+    onImageError() {
+      console.error('图片加载失败:', this.pages[this.currentPageIndex])
+      this.currentPageImage = '/default-novel.svg'
+    },
+    
+    onImageWheel(event) {
+      // 鼠标滚轮缩放
+      event.preventDefault()
+      if (event.deltaY < 0) {
+        this.zoomIn()
+      } else {
+        this.zoomOut()
+      }
+    },
+    
+    // 分页导航方法
+    nextPageGroup() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++
+      }
+    },
+    
+    previousPageGroup() {
+      if (this.currentPage > 1) {
+        this.currentPage--
+      }
+    },
+    
+    jumpToPageGroup(pageNum) {
+      if (pageNum >= 1 && pageNum <= this.totalPages) {
+        this.currentPage = pageNum
+      }
+    },
+    
+    
+    // 键盘快捷键处理
+    handleKeydown(event) {
+      if (!this.showComicViewer) return
+      
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault()
+          this.previousPage()
+          break
+        case 'ArrowRight':
+          event.preventDefault()
+          this.nextPage()
+          break
+        case 'Escape':
+          event.preventDefault()
+          this.closeComicViewer()
+          break
+        case '+':
+        case '=':
+          event.preventDefault()
+          this.zoomIn()
+          break
+        case '-':
+          event.preventDefault()
+          this.zoomOut()
+          break
+        case '0':
+          event.preventDefault()
+          this.zoomLevel = 1
+          break
+        case 'f':
+        case 'F':
+          event.preventDefault()
+          this.toggleFullscreen()
+          break
+      }
     }
   },
   async mounted() {
@@ -577,6 +887,14 @@ export default {
     document.addEventListener('click', () => {
       this.showContextMenu = false
     })
+    
+    // 添加键盘事件监听
+    document.addEventListener('keydown', this.handleKeydown)
+  },
+  
+  beforeUnmount() {
+    // 清理事件监听器
+    document.removeEventListener('keydown', this.handleKeydown)
   }
 }
 </script>
@@ -1000,6 +1318,91 @@ export default {
   padding: 0 30px 30px 30px;
 }
 
+/* 分页导航样式 */
+.pagination-nav {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.pagination-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.page-range {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-pagination {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.btn-pagination:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-pagination:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.page-jump-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-input-group {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.btn-jump-group {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-jump-group:hover {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
 .pages-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -1032,6 +1435,267 @@ export default {
   border-radius: 4px;
 }
 
+/* 漫画阅读器样式 */
+.comic-viewer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  backdrop-filter: blur(5px);
+}
+
+.comic-viewer-content {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  width: 95vw;
+  height: 95vh;
+  max-width: 1400px;
+  max-height: 900px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  transition: background-color 0.3s ease;
+}
+
+.comic-viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-radius: 12px 12px 0 0;
+}
+
+.comic-info {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.comic-title {
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+.page-info {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background: var(--bg-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.comic-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.comic-controls button {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.comic-controls button:hover:not(:disabled) {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.comic-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.zoom-level {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  min-width: 50px;
+  text-align: center;
+}
+
+.comic-viewer-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+  position: relative;
+}
+
+.comic-image-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.comic-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+  cursor: grab;
+  user-select: none;
+}
+
+.comic-image:active {
+  cursor: grabbing;
+}
+
+.loading-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  gap: 15px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.comic-viewer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  border-radius: 0 0 12px 12px;
+}
+
+.navigation-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-nav {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.3s ease;
+}
+
+.btn-nav:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-nav:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.btn-jump {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-jump:hover {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.viewer-settings {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.setting-item input[type="checkbox"] {
+  margin: 0;
+}
+
+/* 全屏模式 */
+.comic-viewer-content:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  max-width: none;
+  max-height: none;
+}
+
+.comic-viewer-content:fullscreen .comic-viewer-header,
+.comic-viewer-content:fullscreen .comic-viewer-footer {
+  border-radius: 0;
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .albums-grid {
@@ -1042,5 +1706,62 @@ export default {
   .detail-body { flex-direction: column; gap: 20px; }
   .detail-cover { width: 100%; height: 250px; }
   .detail-stats { grid-template-columns: 1fr; }
+  
+  /* 漫画阅读器响应式 */
+  .comic-viewer-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .comic-viewer-header {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 15px;
+  }
+  
+  .comic-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .comic-controls button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .comic-viewer-footer {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 15px;
+  }
+  
+  .navigation-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .viewer-settings {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  /* 分页导航响应式 */
+  .pagination-info {
+    flex-direction: column;
+    gap: 5px;
+    text-align: center;
+  }
+  
+  .pagination-controls {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .page-jump-group {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

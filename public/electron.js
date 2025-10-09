@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell, screen, desktopCapturer, globalShortcut } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell, screen, desktopCapturer, globalShortcut, Tray, nativeImage } = require('electron')
 const path = require('path')
 const { spawn } = require('child_process')
 const fs = require('fs')
@@ -10,6 +10,10 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 let mainWindow
 // 持有视频窗口的全局引用，防止被垃圾回收
 let videoWindows = []
+// 系统托盘对象
+let tray = null
+// 是否启用最小化到托盘功能
+let minimizeToTrayEnabled = true
 
 function createWindow() {
   // 创建浏览器窗口
@@ -65,6 +69,34 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null
   })
+  
+  // 处理窗口关闭事件（支持最小化到托盘）
+  mainWindow.on('close', (event) => {
+    if (minimizeToTrayEnabled && tray) {
+      // 阻止默认的关闭行为
+      event.preventDefault()
+      // 最小化到托盘
+      mainWindow.hide()
+      // 显示托盘通知
+      if (tray) {
+        tray.displayBalloon({
+          title: 'Butter Manager Vue',
+          content: '应用已最小化到系统托盘',
+          icon: nativeImage.createFromPath(path.join(__dirname, 'butter-modern.svg'))
+        })
+      }
+    }
+  })
+  
+  // 处理窗口最小化事件
+  mainWindow.on('minimize', (event) => {
+    if (minimizeToTrayEnabled && tray) {
+      // 阻止默认的最小化行为
+      event.preventDefault()
+      // 最小化到托盘
+      mainWindow.hide()
+    }
+  })
 
   // 处理窗口大小变化
   mainWindow.on('resize', () => {
@@ -76,6 +108,7 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow()
   createMenu()
+  createTray() // 创建系统托盘
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建窗口
   app.on('activate', () => {
@@ -171,6 +204,106 @@ function createMenu() {
 
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
+}
+
+// 创建系统托盘
+function createTray() {
+  try {
+    // 创建托盘图标
+    const iconPath = path.join(__dirname, 'butter-modern.svg')
+    const trayIcon = nativeImage.createFromPath(iconPath)
+    
+    // 如果SVG图标创建失败，尝试使用PNG图标
+    if (trayIcon.isEmpty()) {
+      const pngIconPath = path.join(__dirname, 'icon.svg')
+      const pngTrayIcon = nativeImage.createFromPath(pngIconPath)
+      if (!pngTrayIcon.isEmpty()) {
+        tray = new Tray(pngTrayIcon)
+      } else {
+        console.warn('无法创建托盘图标，使用默认图标')
+        // 创建一个简单的默认图标
+        const defaultIcon = nativeImage.createEmpty()
+        tray = new Tray(defaultIcon)
+      }
+    } else {
+      tray = new Tray(trayIcon)
+    }
+    
+    // 设置托盘提示文本
+    tray.setToolTip('Butter Manager Vue')
+    
+    // 创建托盘右键菜单
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: '显示主窗口',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show()
+            mainWindow.focus()
+          }
+        }
+      },
+      {
+        label: '最小化到托盘',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.hide()
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: '设置',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show()
+            mainWindow.focus()
+            // 可以在这里添加跳转到设置页面的逻辑
+            mainWindow.webContents.send('navigate-to-settings')
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: '退出',
+        click: () => {
+          // 禁用最小化到托盘功能，然后退出
+          minimizeToTrayEnabled = false
+          app.quit()
+        }
+      }
+    ])
+    
+    tray.setContextMenu(contextMenu)
+    
+    // 双击托盘图标显示主窗口
+    tray.on('double-click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide()
+        } else {
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      }
+    })
+    
+    // 单击托盘图标显示/隐藏主窗口
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.hide()
+        } else {
+          mainWindow.show()
+          mainWindow.focus()
+        }
+      }
+    })
+    
+    console.log('系统托盘创建成功')
+  } catch (error) {
+    console.error('创建系统托盘失败:', error)
+  }
 }
 
 // IPC处理程序
@@ -1465,7 +1598,164 @@ ipcMain.handle('list-image-files', async (event, folderPath) => {
   }
 })
 
-// 应用退出时注销快捷键
+// 开机自启功能
+ipcMain.handle('set-auto-start', async (event, enabled) => {
+  try {
+    console.log('设置开机自启:', enabled)
+    
+    if (enabled) {
+      // 启用开机自启
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        openAsHidden: false, // 启动时显示窗口
+        name: 'Butter Manager Vue',
+        path: process.execPath,
+        args: []
+      })
+      console.log('开机自启已启用')
+    } else {
+      // 禁用开机自启
+      app.setLoginItemSettings({
+        openAtLogin: false
+      })
+      console.log('开机自启已禁用')
+    }
+    
+    return { success: true, enabled }
+  } catch (error) {
+    console.error('设置开机自启失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-auto-start', async () => {
+  try {
+    const loginItemSettings = app.getLoginItemSettings()
+    const isEnabled = loginItemSettings.openAtLogin
+    
+    console.log('当前开机自启状态:', isEnabled)
+    return { success: true, enabled: isEnabled }
+  } catch (error) {
+    console.error('获取开机自启状态失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 系统托盘相关的IPC处理程序
+ipcMain.handle('create-tray', async () => {
+  try {
+    if (!tray) {
+      createTray()
+      return { success: true, message: '系统托盘创建成功' }
+    } else {
+      return { success: true, message: '系统托盘已存在' }
+    }
+  } catch (error) {
+    console.error('创建系统托盘失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('destroy-tray', async () => {
+  try {
+    if (tray) {
+      tray.destroy()
+      tray = null
+      return { success: true, message: '系统托盘已销毁' }
+    } else {
+      return { success: true, message: '系统托盘不存在' }
+    }
+  } catch (error) {
+    console.error('销毁系统托盘失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('set-tray-tooltip', async (event, tooltip) => {
+  try {
+    if (tray) {
+      tray.setToolTip(tooltip)
+      return { success: true, message: '托盘提示文本已更新' }
+    } else {
+      return { success: false, error: '系统托盘不存在' }
+    }
+  } catch (error) {
+    console.error('设置托盘提示文本失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('set-tray-context-menu', async (event, menuTemplate) => {
+  try {
+    if (tray) {
+      const contextMenu = Menu.buildFromTemplate(menuTemplate)
+      tray.setContextMenu(contextMenu)
+      return { success: true, message: '托盘右键菜单已更新' }
+    } else {
+      return { success: false, error: '系统托盘不存在' }
+    }
+  } catch (error) {
+    console.error('设置托盘右键菜单失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('minimize-to-tray', async () => {
+  try {
+    if (mainWindow && tray) {
+      mainWindow.hide()
+      return { success: true, message: '已最小化到系统托盘' }
+    } else {
+      return { success: false, error: '主窗口或系统托盘不存在' }
+    }
+  } catch (error) {
+    console.error('最小化到托盘失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('restore-from-tray', async () => {
+  try {
+    if (mainWindow) {
+      mainWindow.show()
+      mainWindow.focus()
+      return { success: true, message: '已从系统托盘恢复' }
+    } else {
+      return { success: false, error: '主窗口不存在' }
+    }
+  } catch (error) {
+    console.error('从托盘恢复失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 设置最小化到托盘功能
+ipcMain.handle('set-minimize-to-tray', async (event, enabled) => {
+  try {
+    minimizeToTrayEnabled = enabled
+    console.log('最小化到托盘功能:', enabled ? '已启用' : '已禁用')
+    return { success: true, enabled }
+  } catch (error) {
+    console.error('设置最小化到托盘功能失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取最小化到托盘功能状态
+ipcMain.handle('get-minimize-to-tray', async () => {
+  try {
+    return { success: true, enabled: minimizeToTrayEnabled }
+  } catch (error) {
+    console.error('获取最小化到托盘功能状态失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 应用退出时注销快捷键和销毁托盘
 app.on('will-quit', () => {
   unregisterGlobalShortcuts()
+  if (tray) {
+    tray.destroy()
+    tray = null
+  }
 })
