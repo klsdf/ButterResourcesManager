@@ -523,12 +523,16 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
     <div class="video-container">
         <div id="loadingMessage" class="loading-message">正在加载视频...</div>
         <video id="videoPlayer" controls style="display: none;">
+            <source id="videoSource" src="" type="">
+            <source id="videoSourceFallback" src="" type="">
             您的浏览器不支持视频播放。
         </video>
     </div>
     
     <script>
         const video = document.getElementById('videoPlayer');
+        const videoSource = document.getElementById('videoSource');
+        const videoSourceFallback = document.getElementById('videoSourceFallback');
         const loadingMessage = document.getElementById('loadingMessage');
         
         // 获取视频文件路径
@@ -542,9 +546,54 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
             return supportedFormats.includes(extension);
         }
         
+        // 获取视频MIME类型
+        function getVideoMimeType(filePath) {
+            const extension = filePath.toLowerCase().split('.').pop();
+            const mimeTypes = {
+                'mp4': 'video/mp4',
+                'webm': 'video/webm',
+                'ogg': 'video/ogg',
+                'avi': 'video/x-msvideo',
+                'mov': 'video/quicktime',
+                'mkv': 'video/x-matroska',
+                'flv': 'video/x-flv',
+                'wmv': 'video/x-ms-wmv',
+                'm4v': 'video/mp4',
+                '3gp': 'video/3gpp',
+                'ogv': 'video/ogg'
+            };
+            return mimeTypes[extension] || 'video/mp4'; // 默认使用mp4
+        }
+        
+        // 构建正确的 file:// URL
+        function buildFileUrl(filePath) {
+            try {
+                // 将反斜杠转换为正斜杠，并确保路径以 / 开头
+                const normalized = filePath.replace(/\\\\/g, '/').replace(/^([A-Za-z]:)/, '/$1');
+                
+                // 对路径进行编码，处理中文和特殊字符
+                const encoded = normalized.split('/').map(seg => {
+                    if (seg.includes(':')) {
+                        // 处理 Windows 盘符（如 C:）
+                        return seg;
+                    }
+                    return encodeURIComponent(seg);
+                }).join('/');
+                
+                const fileUrl = 'file://' + encoded;
+                console.log('构建的 file:// URL:', fileUrl);
+                return fileUrl;
+            } catch (error) {
+                console.error('构建文件URL失败:', error);
+                return filePath; // 降级返回原始路径
+            }
+        }
+        
         // 设置视频源
         function setupVideoSource() {
             try {
+                console.log('开始设置视频源...');
+                
                 // 检查文件格式
                 if (!checkVideoFormatSupport(videoPath)) {
                     const extension = videoPath.toLowerCase().split('.').pop();
@@ -552,16 +601,28 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
                     return;
                 }
                 
-                // 在Electron环境中，使用file://协议
-                const videoUrl = 'file://' + videoPath;
+                // 构建正确的 file:// URL
+                const videoUrl = buildFileUrl(videoPath);
+                const mimeType = getVideoMimeType(videoPath);
                 console.log('设置视频URL:', videoUrl);
+                console.log('视频MIME类型:', mimeType);
                 
-                video.src = videoUrl;
+                // 使用 source 元素设置视频源
+                videoSource.src = videoUrl;
+                videoSource.type = mimeType;
+                
+                // 设置备用source（使用通用MIME类型）
+                videoSourceFallback.src = videoUrl;
+                videoSourceFallback.type = 'video/*';
+                
+                // 显示视频元素
                 video.style.display = 'block';
                 loadingMessage.style.display = 'none';
                 
-                // 尝试播放
+                // 重新加载视频
                 video.load();
+                
+                console.log('✅ 视频源设置完成');
             } catch (error) {
                 console.error('设置视频源失败:', error);
                 showError('设置视频源失败: ' + error.message);
@@ -662,6 +723,31 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
             
             const fullMessage = errorMessage + '\\n\\n' + suggestion + '\\n\\n请检查：\\n1. 文件是否存在\\n2. 文件格式是否支持\\n3. 文件是否损坏';
             showError(fullMessage);
+        });
+        
+        // source 元素错误处理
+        videoSource.addEventListener('error', (e) => {
+            console.error('主视频源加载错误:', e);
+            console.log('尝试的源URL:', videoSource.src);
+            console.log('尝试的MIME类型:', videoSource.type);
+            console.log('🔄 主source失败，浏览器将尝试备用source');
+        });
+        
+        // 备用source元素错误处理
+        videoSourceFallback.addEventListener('error', (e) => {
+            console.error('备用视频源加载错误:', e);
+            console.log('尝试的备用源URL:', videoSourceFallback.src);
+            console.log('尝试的备用MIME类型:', videoSourceFallback.type);
+            
+            // 如果所有source都失败，尝试直接设置video.src作为最后的降级方案
+            console.log('🔄 所有source元素都失败，尝试直接设置video.src作为最后降级方案');
+            try {
+                video.src = videoSource.src;
+                video.load();
+            } catch (fallbackError) {
+                console.error('最后降级方案也失败:', fallbackError);
+                showError('所有视频源加载失败，无法播放此文件\\n\\n建议使用外部播放器');
+            }
         });
         
         // 键盘快捷键

@@ -41,7 +41,14 @@
     </div>
 
     <!-- 主内容区域 -->
-    <div class="video-content">
+    <div 
+      class="video-content"
+      @drop="handleDrop"
+      @dragover="handleDragOver"
+      @dragenter="handleDragEnter"
+      @dragleave="handleDragLeave"
+      :class="{ 'drag-over': isDragOver }"
+    >
       <!-- 工具栏 -->
       <GameToolbar 
         v-model:searchQuery="searchQuery"
@@ -53,12 +60,24 @@
       />
       
       <!-- 测试按钮组 -->
-      <div class="test-buttons" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+      <div 
+        class="test-buttons" 
+        style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;"
+        @dragenter.stop
+        @dragover.stop
+        @dragleave.stop
+      >
         <button class="btn-test-settings" @click="testSettings" style="padding: 8px 16px; background: #007acc; color: white; border: none; border-radius: 6px; cursor: pointer;">
           测试设置
         </button>
         <button class="btn-test-internal" @click="testInternalPlayer" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
           测试内部播放器
+        </button>
+        <button class="btn-test-path" @click="testVideoPathHandling" style="padding: 8px 16px; background: #6f42c1; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试路径处理
+        </button>
+        <button class="btn-test-source" @click="testVideoSourceImplementation" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试video+source
         </button>
         <button class="btn-test-thumbnail" @click="testThumbnailSave" style="padding: 8px 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer;">
           测试缩略图保存
@@ -84,7 +103,7 @@
       v-else-if="videos.length === 0"
       icon="🎬"
       title="你的视频库是空的"
-      description="点击&quot;添加视频&quot;按钮来添加你的第一个视频"
+      description="点击&quot;添加视频&quot;按钮来添加你的第一个视频，或直接拖拽视频文件到此处"
       :show-button="true"
       button-text="添加第一个视频"
       @action="showAddVideoDialog"
@@ -364,6 +383,7 @@ export default {
       searchQuery: '',
       sortBy: 'name',
       showAddDialog: false,
+      isDragOver: false,
       showDetailDialog: false,
       selectedVideo: null,
       showContextMenu: false,
@@ -482,6 +502,133 @@ export default {
         this.videos = this.videoManager.getVideos()
         this.extractAllFilters()
       }
+    },
+
+    // 拖拽处理方法
+    handleDragOver(event) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+    },
+    
+    handleDragEnter(event) {
+      event.preventDefault()
+      // 防止子元素触发 dragenter 时重复设置状态
+      if (!this.isDragOver) {
+        this.isDragOver = true
+      }
+    },
+    
+    handleDragLeave(event) {
+      event.preventDefault()
+      // 只有当离开整个拖拽区域时才取消高亮
+      // 检查 relatedTarget 是否存在且不在当前元素内
+      if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+        this.isDragOver = false
+      }
+    },
+    
+    async handleDrop(event) {
+      event.preventDefault()
+      this.isDragOver = false
+      
+      try {
+        const files = Array.from(event.dataTransfer.files)
+        
+        console.log('=== 拖拽调试信息 ===')
+        console.log('拖拽文件数量:', files.length)
+        console.log('拖拽文件详细信息:', files.map(f => ({
+          name: f.name,
+          path: f.path,
+          type: f.type,
+          size: f.size
+        })))
+        
+        if (files.length === 0) {
+          this.showNotification('拖拽失败', '请拖拽视频文件到此处')
+          return
+        }
+        
+        // 筛选出视频文件
+        const videoFiles = files.filter(file => {
+          const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ogv']
+          const fileName = file.name.toLowerCase()
+          return videoExtensions.some(ext => fileName.endsWith(ext))
+        })
+        
+        if (videoFiles.length === 0) {
+          this.showNotification('拖拽失败', '没有检测到视频文件，请拖拽视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）')
+          return
+        }
+        
+        console.log('检测到视频文件数量:', videoFiles.length)
+        
+        // 批量添加视频文件
+        let addedCount = 0
+        let failedCount = 0
+        
+        for (const videoFile of videoFiles) {
+          try {
+            // 检查是否已经存在相同的文件
+            const existingVideo = this.videos.find(video => video.filePath === videoFile.path)
+            if (existingVideo) {
+              console.log(`视频文件已存在: ${videoFile.name}`)
+              failedCount++
+              continue
+            }
+            
+            // 创建新的视频对象
+            const video = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              name: this.extractVideoName(videoFile.name),
+              description: '',
+              tags: [],
+              actors: [],
+              series: '',
+              duration: 0,
+              filePath: videoFile.path,
+              thumbnail: '',
+              watchCount: 0,
+              lastWatched: null,
+              addedDate: new Date().toISOString()
+            }
+            
+            console.log('创建视频对象:', video)
+            
+            // 添加到视频管理器
+            if (this.videoManager) {
+              await this.videoManager.addVideo(video)
+              addedCount++
+            }
+            
+          } catch (error) {
+            console.error(`添加视频文件失败: ${videoFile.name}`, error)
+            failedCount++
+          }
+        }
+        
+        // 重新加载视频列表
+        await this.loadVideos()
+        
+        // 显示结果通知
+        if (addedCount > 0) {
+          this.showNotification(
+            '添加成功', 
+            `成功添加 ${addedCount} 个视频文件${failedCount > 0 ? `，${failedCount} 个文件添加失败` : ''}`
+          )
+        } else {
+          this.showNotification('添加失败', '没有成功添加任何视频文件')
+        }
+        
+      } catch (error) {
+        console.error('拖拽添加视频失败:', error)
+        this.showNotification('添加失败', `添加视频失败: ${error.message}`)
+      }
+    },
+    
+    // 从文件名提取视频名称（去掉扩展名）
+    extractVideoName(fileName) {
+      const lastDotIndex = fileName.lastIndexOf('.')
+      return lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName
     },
 
     showAddVideoDialog() {
@@ -1426,27 +1573,47 @@ export default {
        })
      },
 
-     // 构建文件URL的辅助方法
-     buildFileUrl(filePath) {
-       try {
-         // 将反斜杠转换为正斜杠，并确保路径以 / 开头
-         const normalized = filePath.replace(/\\/g, '/').replace(/^([A-Za-z]:)/, '/$1')
-         // 对路径进行编码，处理中文和特殊字符
-         const encoded = normalized.split('/').map(seg => {
-           if (seg.includes(':')) {
-             // 处理 Windows 盘符（如 C:）
-             return seg
-           }
-           return encodeURIComponent(seg)
-         }).join('/')
-         const fileUrl = 'file://' + encoded
-         console.log('🔧 手动构建的 file:// URL:', fileUrl)
-         return fileUrl
-       } catch (e) {
-         console.error('构建文件URL失败:', e)
-         return filePath // 降级返回原始路径
-       }
-     },
+    // 构建文件URL的辅助方法
+    buildFileUrl(filePath) {
+      try {
+        // 将反斜杠转换为正斜杠，并确保路径以 / 开头
+        const normalized = filePath.replace(/\\/g, '/').replace(/^([A-Za-z]:)/, '/$1')
+        // 对路径进行编码，处理中文和特殊字符
+        const encoded = normalized.split('/').map(seg => {
+          if (seg.includes(':')) {
+            // 处理 Windows 盘符（如 C:）
+            return seg
+          }
+          return encodeURIComponent(seg)
+        }).join('/')
+        const fileUrl = 'file://' + encoded
+        console.log('🔧 手动构建的 file:// URL:', fileUrl)
+        return fileUrl
+      } catch (e) {
+        console.error('构建文件URL失败:', e)
+        return filePath // 降级返回原始路径
+      }
+    },
+
+    // 检查视频文件是否可访问
+    async checkVideoFileAccess(filePath) {
+      try {
+        if (window.electronAPI && window.electronAPI.getFileUrl) {
+          const result = await window.electronAPI.getFileUrl(filePath)
+          if (result.success) {
+            console.log('✅ 视频文件可访问:', result.url)
+            return { accessible: true, url: result.url }
+          } else {
+            console.warn('⚠️ 视频文件不可访问:', result.error)
+            return { accessible: false, error: result.error }
+          }
+        }
+        return { accessible: true, url: this.buildFileUrl(filePath) }
+      } catch (error) {
+        console.error('检查视频文件访问失败:', error)
+        return { accessible: false, error: error.message }
+      }
+    },
 
     // 加载设置
     async loadSettings() {
@@ -1470,6 +1637,15 @@ export default {
         console.log('视频路径:', video.filePath)
         console.log('当前环境:', typeof window.electronAPI !== 'undefined' ? 'Electron' : '浏览器')
         
+        // 首先检查视频文件是否可访问
+        const accessCheck = await this.checkVideoFileAccess(video.filePath)
+        if (!accessCheck.accessible) {
+          console.error('❌ 视频文件不可访问:', accessCheck.error)
+          alert(`❌ 视频文件不可访问\n错误: ${accessCheck.error}\n\n将尝试使用外部播放器`)
+          await this.playVideoExternal(video)
+          return
+        }
+        
         if (window.electronAPI && window.electronAPI.openVideoWindow) {
           console.log('✅ Electron API 可用，调用 openVideoWindow')
           
@@ -1489,7 +1665,15 @@ export default {
             this.showNotification('视频播放', `正在播放: ${video.name}`)
           } else {
             console.error('❌ 打开视频窗口失败:', result.error)
-            alert(`❌ 打开视频窗口失败\n错误: ${result.error}\n\n将尝试使用外部播放器`)
+            
+            // 检查是否是路径编码问题
+            if (result.error && (result.error.includes('ERR_FILE_NOT_FOUND') || result.error.includes('路径'))) {
+              console.log('🔄 检测到路径问题，尝试使用外部播放器')
+              alert(`❌ 视频文件路径问题\n错误: ${result.error}\n\n将使用外部播放器播放`)
+            } else {
+              alert(`❌ 打开视频窗口失败\n错误: ${result.error}\n\n将尝试使用外部播放器`)
+            }
+            
             // 降级到外部播放器
             await this.playVideoExternal(video)
           }
@@ -1503,7 +1687,17 @@ export default {
         }
       } catch (error) {
         console.error('❌ 内部播放视频失败:', error)
-        alert(`❌ 内部播放视频失败: ${error.message}\n\n将尝试使用外部播放器`)
+        
+        // 检查是否是特定类型的错误
+        let errorMessage = error.message
+        if (error.message.includes('ERR_FILE_NOT_FOUND')) {
+          errorMessage = '视频文件未找到，可能是路径包含特殊字符或文件不存在'
+        } else if (error.message.includes('ERR_ACCESS_DENIED')) {
+          errorMessage = '无法访问视频文件，请检查文件权限'
+        }
+        
+        alert(`❌ 内部播放视频失败: ${errorMessage}\n\n将尝试使用外部播放器`)
+        
         // 降级到外部播放器
         try {
           await this.playVideoExternal(video)
@@ -1589,6 +1783,10 @@ export default {
             console.log('使用默认测试文件:', testVideoPath)
           }
           
+          // 先检查文件访问性
+          const accessCheck = await this.checkVideoFileAccess(testVideoPath)
+          console.log('文件访问检查结果:', accessCheck)
+          
           const result = await window.electronAPI.openVideoWindow(testVideoPath, {
             title: '测试视频播放器',
             width: 1200,
@@ -1603,7 +1801,7 @@ export default {
           if (result.success) {
             alert(`✅ 内部播放器测试成功！\n新窗口已打开，正在播放: ${testVideoPath}`)
           } else {
-            alert(`❌ 内部播放器测试失败\n错误: ${result.error || '未知错误'}`)
+            alert(`❌ 内部播放器测试失败\n错误: ${result.error || '未知错误'}\n\n文件访问检查: ${accessCheck.accessible ? '可访问' : '不可访问'}`)
           }
         } else {
           console.warn('openVideoWindow API 不可用')
@@ -1612,6 +1810,90 @@ export default {
       } catch (error) {
         console.error('测试内部播放器失败:', error)
         alert('❌ 测试内部播放器失败: ' + error.message)
+      }
+    },
+
+    // 测试视频文件路径处理
+    async testVideoPathHandling() {
+      try {
+        console.log('=== 测试视频路径处理 ===')
+        
+        // 测试包含特殊字符的路径
+        const testPaths = [
+          'G:/下载的数据/telegram/#绳艺_#窒息_#HUI_HUI_SM_001_新收一枚00后萝莉M叫床床，超狠SP，强制GC，柔软易推倒，叫声甜美.mp4',
+          'C:/Users/用户名/Desktop/测试视频.mp4',
+          'D:/Videos/电影/【高清】电影名称.mp4',
+          'E:/Media/视频文件 (1).mp4'
+        ]
+        
+        for (const testPath of testPaths) {
+          console.log(`\n--- 测试路径: ${testPath} ---`)
+          
+          // 测试文件访问检查
+          const accessCheck = await this.checkVideoFileAccess(testPath)
+          console.log('访问检查结果:', accessCheck)
+          
+          // 测试URL构建
+          const builtUrl = this.buildFileUrl(testPath)
+          console.log('构建的URL:', builtUrl)
+          
+          // 测试Electron API
+          if (window.electronAPI && window.electronAPI.getFileUrl) {
+            try {
+              const electronResult = await window.electronAPI.getFileUrl(testPath)
+              console.log('Electron API结果:', electronResult)
+            } catch (e) {
+              console.log('Electron API错误:', e.message)
+            }
+          }
+        }
+        
+        alert('✅ 视频路径处理测试完成，请查看控制台输出')
+      } catch (error) {
+        console.error('测试视频路径处理失败:', error)
+        alert('❌ 测试视频路径处理失败: ' + error.message)
+      }
+    },
+
+    // 测试新的video+source实现
+    async testVideoSourceImplementation() {
+      try {
+        console.log('=== 测试video+source实现 ===')
+        
+        if (!window.electronAPI || !window.electronAPI.openVideoWindow) {
+          alert('❌ Electron API不可用，无法测试video+source实现')
+          return
+        }
+        
+        // 使用视频库中的第一个视频进行测试
+        let testVideo = null
+        if (this.videos && this.videos.length > 0) {
+          testVideo = this.videos[0]
+        } else {
+          alert('❌ 没有可用的视频文件进行测试\n\n请先添加一些视频文件到库中')
+          return
+        }
+        
+        console.log('测试视频:', testVideo)
+        
+        // 测试新的内部播放器实现
+        const result = await window.electronAPI.openVideoWindow(testVideo.filePath, {
+          title: `测试video+source: ${testVideo.name}`,
+          width: 1200,
+          height: 800,
+          resizable: true,
+          minimizable: true,
+          maximizable: true
+        })
+        
+        if (result.success) {
+          alert(`✅ video+source实现测试成功！\n\n新窗口已打开，正在播放: ${testVideo.name}\n\n请检查：\n1. 视频是否正常播放\n2. 控制台是否有错误信息\n3. 特殊字符路径是否处理正确`)
+        } else {
+          alert(`❌ video+source实现测试失败\n错误: ${result.error}`)
+        }
+      } catch (error) {
+        console.error('测试video+source实现失败:', error)
+        alert('❌ 测试video+source实现失败: ' + error.message)
       }
     },
 
@@ -2570,5 +2852,34 @@ export default {
     width: 95%;
     margin: 20px;
   }
+}
+
+/* 拖拽样式 */
+.video-content {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.video-content.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed var(--accent-color);
+  border-radius: 12px;
+}
+
+.video-content.drag-over::before {
+  content: '拖拽视频文件到这里添加视频';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-color);
+  color: white;
+  padding: 20px 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
 }
 </style>
