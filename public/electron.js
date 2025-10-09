@@ -1105,6 +1105,116 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
   }
 })
 
+// 获取文件夹大小
+ipcMain.handle('get-folder-size', async (event, filePath) => {
+  try {
+    console.log('获取文件夹大小:', filePath)
+    
+    // 处理空路径或无效路径
+    if (!filePath || filePath.trim() === '') {
+      return { success: false, error: '无效的文件路径' }
+    }
+    
+    // 如果是相对路径，转换为绝对路径
+    let absolutePath = filePath
+    if (!path.isAbsolute(filePath)) {
+      absolutePath = path.resolve(process.cwd(), filePath)
+    }
+    
+    console.log('解析后的绝对路径:', absolutePath)
+    
+    // 确保文件/文件夹存在
+    if (!fs.existsSync(absolutePath)) {
+      console.error('文件/文件夹不存在:', absolutePath)
+      return { success: false, error: `文件/文件夹不存在: ${absolutePath}` }
+    }
+    
+    // 获取文件/文件夹信息
+    const stats = fs.statSync(absolutePath)
+    
+    let totalSize = 0
+    let targetFolderPath = absolutePath
+    
+    if (stats.isFile()) {
+      // 如果是文件，获取其所在文件夹的路径
+      targetFolderPath = path.dirname(absolutePath)
+      console.log('文件路径，计算其所在文件夹大小:', targetFolderPath)
+    } else if (stats.isDirectory()) {
+      // 如果是文件夹，直接使用该路径
+      targetFolderPath = absolutePath
+      console.log('文件夹路径，直接计算大小:', targetFolderPath)
+    }
+    
+    // 递归计算文件夹大小
+    let processedFiles = 0
+    let processedFolders = 0
+    const startTime = Date.now()
+    
+    const calculateFolderSize = (dirPath, depth = 0) => {
+      let size = 0
+      const indent = '  '.repeat(depth)
+      
+      try {
+        const items = fs.readdirSync(dirPath)
+        console.log(`${indent}📁 扫描文件夹: ${path.basename(dirPath)} (${items.length} 个项目)`)
+        
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i]
+          const itemPath = path.join(dirPath, item)
+          
+          try {
+            const itemStats = fs.statSync(itemPath)
+            if (itemStats.isFile()) {
+              size += itemStats.size
+              processedFiles++
+              
+              // 每处理100个文件显示一次进度
+              if (processedFiles % 100 === 0) {
+                const elapsed = Date.now() - startTime
+                console.log(`${indent}  📄 已处理 ${processedFiles} 个文件，当前大小: ${(size / 1024 / 1024).toFixed(2)} MB，耗时: ${elapsed}ms`)
+              }
+            } else if (itemStats.isDirectory()) {
+              processedFolders++
+              const subSize = calculateFolderSize(itemPath, depth + 1)
+              size += subSize
+              
+              // 每处理10个文件夹显示一次进度
+              if (processedFolders % 10 === 0) {
+                const elapsed = Date.now() - startTime
+                console.log(`${indent}  📁 已处理 ${processedFolders} 个文件夹，当前大小: ${(size / 1024 / 1024).toFixed(2)} MB，耗时: ${elapsed}ms`)
+              }
+            }
+          } catch (error) {
+            // 忽略无法访问的文件/文件夹
+            console.warn(`${indent}  ⚠️ 无法访问: ${item} - ${error.message}`)
+          }
+        }
+      } catch (error) {
+        console.warn(`${indent}  ❌ 无法读取文件夹: ${dirPath} - ${error.message}`)
+      }
+      
+      return size
+    }
+    
+    console.log(`🚀 开始计算文件夹大小: ${targetFolderPath}`)
+    totalSize = calculateFolderSize(targetFolderPath)
+    const totalTime = Date.now() - startTime
+    
+    console.log(`✅ 计算完成！`)
+    console.log(`📊 统计信息:`)
+    console.log(`   📁 目标文件夹: ${targetFolderPath}`)
+    console.log(`   📄 处理文件数: ${processedFiles}`)
+    console.log(`   📁 处理文件夹数: ${processedFolders}`)
+    console.log(`   💾 总大小: ${(totalSize / 1024 / 1024).toFixed(2)} MB (${totalSize} 字节)`)
+    console.log(`   ⏱️ 总耗时: ${totalTime}ms`)
+    
+    return { success: true, size: totalSize }
+  } catch (error) {
+    console.error('获取文件夹大小失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // 获取可用窗口列表
 ipcMain.handle('get-available-windows', async () => {
   try {

@@ -24,6 +24,20 @@
         :sort-options="gameSortOptions"
         @add-item="showAddGameDialog"
       />
+      
+      <!-- 更新文件夹大小按钮 -->
+      <div class="update-folder-size-section" v-if="games.length > 0">
+        <button 
+          class="btn-update-folder-size" 
+          @click="updateAllGamesFolderSize"
+          :disabled="isUpdatingFolderSize"
+        >
+          <span v-if="isUpdatingFolderSize" class="loading-spinner"></span>
+          <span v-else class="btn-icon">📊</span>
+          {{ isUpdatingFolderSize ? '正在更新...' : '更新所有游戏文件夹大小' }}
+        </button>
+        <span class="update-hint">重新计算所有游戏的文件夹大小</span>
+      </div>
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="filteredGames.length > 0">
@@ -353,7 +367,9 @@ export default {
       selectedTag: null,
       // 开发商筛选相关
       allDevelopers: [],
-      selectedDeveloper: null
+      selectedDeveloper: null,
+      // 更新文件夹大小相关
+      isUpdatingFolderSize: false
     }
   },
   computed: {
@@ -506,13 +522,26 @@ export default {
       // 首字母大写
       return cleanName.charAt(0).toUpperCase() + cleanName.slice(1)
     },
-    addGame() {
+    async addGame() {
       if (!this.canAddGame) return
       
       // 如果没有输入名称，从文件路径自动提取
       let gameName = this.newGame.name.trim()
       if (!gameName) {
         gameName = this.extractGameNameFromPath(this.newGame.executablePath)
+      }
+      
+      // 获取游戏文件夹大小
+      let folderSize = 0
+      if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFolderSize) {
+        try {
+          const result = await window.electronAPI.getFolderSize(this.newGame.executablePath)
+          if (result.success) {
+            folderSize = result.size
+          }
+        } catch (error) {
+          console.error('获取文件夹大小失败:', error)
+        }
       }
       
       const game = {
@@ -524,6 +553,7 @@ export default {
         tags: [...this.newGame.tags], // 复制标签数组
         executablePath: this.newGame.executablePath.trim(),
         image: this.newGame.imagePath.trim(),
+        folderSize: folderSize,
         playTime: 0,
         playCount: 0,
         lastPlayed: null,
@@ -736,6 +766,22 @@ export default {
         target.executablePath = this.editGameForm.executablePath.trim() || target.executablePath
         target.image = (this.editGameForm.imagePath || '').trim()
 
+        // 如果可执行文件路径发生变化，重新计算文件夹大小
+        if (this.editGameForm.executablePath.trim() && this.editGameForm.executablePath.trim() !== target.executablePath) {
+          let folderSize = 0
+          if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFolderSize) {
+            try {
+              const result = await window.electronAPI.getFolderSize(this.editGameForm.executablePath.trim())
+              if (result.success) {
+                folderSize = result.size
+              }
+            } catch (error) {
+              console.error('获取文件夹大小失败:', error)
+            }
+          }
+          target.folderSize = folderSize
+        }
+
         await this.saveGames()
         this.showNotification('保存成功', '游戏信息已更新')
         this.closeEditGameDialog()
@@ -786,6 +832,113 @@ export default {
     async loadGames() {
       this.games = await saveManager.loadGames()
       this.extractAllTags()
+      
+      // 为现有游戏计算文件夹大小（如果还没有的话）
+      await this.updateExistingGamesFolderSize()
+    },
+    async updateExistingGamesFolderSize() {
+      // 为没有folderSize字段的现有游戏计算文件夹大小
+      const gamesNeedingUpdate = this.games.filter(game => 
+        game.executablePath && 
+        (game.folderSize === undefined || game.folderSize === null || game.folderSize === 0)
+      )
+      
+      if (gamesNeedingUpdate.length === 0) {
+        console.log('所有游戏都已包含文件夹大小信息')
+        return
+      }
+      
+      console.log(`需要更新 ${gamesNeedingUpdate.length} 个游戏的文件夹大小`)
+      
+      let updatedCount = 0
+      for (const game of gamesNeedingUpdate) {
+        try {
+          if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFolderSize) {
+            const result = await window.electronAPI.getFolderSize(game.executablePath)
+            if (result.success) {
+              game.folderSize = result.size
+              updatedCount++
+              console.log(`更新游戏 ${game.name} 的文件夹大小: ${result.size} 字节`)
+            } else {
+              console.warn(`获取游戏 ${game.name} 文件夹大小失败:`, result.error)
+            }
+          }
+        } catch (error) {
+          console.error(`计算游戏 ${game.name} 文件夹大小失败:`, error)
+        }
+      }
+      
+      if (updatedCount > 0) {
+        console.log(`成功更新了 ${updatedCount} 个游戏的文件夹大小`)
+        // 保存更新后的数据
+        await this.saveGames()
+      }
+    },
+    async updateAllGamesFolderSize() {
+      if (this.isUpdatingFolderSize) return
+      
+      const gamesWithPath = this.games.filter(game => game.executablePath)
+      if (gamesWithPath.length === 0) {
+        alert('没有找到可更新文件夹大小的游戏')
+        return
+      }
+      
+      if (!confirm(`确定要重新计算所有 ${gamesWithPath.length} 个游戏的文件夹大小吗？\n\n这可能需要几分钟时间，请耐心等待。`)) {
+        return
+      }
+      
+      this.isUpdatingFolderSize = true
+      console.log(`🚀 开始强制更新所有 ${gamesWithPath.length} 个游戏的文件夹大小`)
+      
+      let updatedCount = 0
+      let failedCount = 0
+      
+      for (let i = 0; i < gamesWithPath.length; i++) {
+        const game = gamesWithPath[i]
+        console.log(`\n📊 [${i + 1}/${gamesWithPath.length}] 正在更新游戏: ${game.name}`)
+        
+        try {
+          if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFolderSize) {
+            const result = await window.electronAPI.getFolderSize(game.executablePath)
+            if (result.success) {
+              const oldSize = game.folderSize || 0
+              game.folderSize = result.size
+              updatedCount++
+              
+              const oldSizeMB = (oldSize / 1024 / 1024).toFixed(2)
+              const newSizeMB = (result.size / 1024 / 1024).toFixed(2)
+              
+              console.log(`✅ 游戏 ${game.name} 文件夹大小已更新:`)
+              console.log(`   旧大小: ${oldSizeMB} MB (${oldSize} 字节)`)
+              console.log(`   新大小: ${newSizeMB} MB (${result.size} 字节)`)
+            } else {
+              failedCount++
+              console.error(`❌ 获取游戏 ${game.name} 文件夹大小失败:`, result.error)
+            }
+          } else {
+            failedCount++
+            console.error(`❌ Electron API 不可用，无法更新游戏 ${game.name}`)
+          }
+        } catch (error) {
+          failedCount++
+          console.error(`❌ 计算游戏 ${game.name} 文件夹大小失败:`, error)
+        }
+      }
+      
+      // 保存更新后的数据
+      if (updatedCount > 0) {
+        await this.saveGames()
+      }
+      
+      this.isUpdatingFolderSize = false
+      
+      // 显示结果
+      const message = `文件夹大小更新完成！\n\n✅ 成功更新: ${updatedCount} 个游戏\n❌ 更新失败: ${failedCount} 个游戏\n\n请查看控制台了解详细信息。`
+      alert(message)
+      
+      console.log(`\n🎉 文件夹大小更新完成！`)
+      console.log(`✅ 成功更新: ${updatedCount} 个游戏`)
+      console.log(`❌ 更新失败: ${failedCount} 个游戏`)
     },
     extractAllTags() {
       // 从所有游戏中提取标签并统计数量
@@ -1213,6 +1366,68 @@ export default {
   padding: 0;
   height: 100%;
   overflow-y: auto;
+}
+
+/* 更新文件夹大小按钮区域 */
+.update-folder-size-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 20px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 10px;
+}
+
+.btn-update-folder-size {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.btn-update-folder-size:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-update-folder-size:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-update-folder-size .btn-icon {
+  font-size: 1rem;
+}
+
+.update-hint {
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 
