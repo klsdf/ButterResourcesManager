@@ -40,6 +40,10 @@
             :alt="album.name"
             @error="handleImageError"
           >
+          <!-- 页数标签 -->
+          <div class="pages-badge">
+            {{ album.pagesCount || 0 }} 页
+          </div>
            <div class="album-overlay">
              <div class="open-button" @click.stop="openAlbum(album)">
                <span class="open-icon">📖</span>
@@ -1245,6 +1249,22 @@ export default {
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
+}
+
+.pages-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .album-card:hover .album-image img {
