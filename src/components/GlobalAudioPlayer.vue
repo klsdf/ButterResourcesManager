@@ -1,7 +1,7 @@
 <template>
   <div class="global-audio-player" v-if="currentAudio || playlist.length > 0">
     <!-- 播放器主体 -->
-    <div class="player-main">
+    <div class="player-main" v-if="!isHidden">
       <!-- 音频信息 -->
       <div class="audio-info">
         <div class="audio-thumbnail">
@@ -66,10 +66,15 @@
         <span class="btn-icon">📋</span>
         <span class="playlist-count" v-if="playlist.length > 0">{{ playlist.length }}</span>
       </button>
+
+      <!-- 隐藏按钮 -->
+      <button class="control-btn hide-btn" @click="hidePlayer" title="隐藏播放器">
+        <span class="btn-icon">⬇️</span>
+      </button>
     </div>
 
     <!-- 播放列表 -->
-    <div class="playlist-panel" v-if="showPlaylist">
+    <div class="playlist-panel" v-if="showPlaylist && !isHidden">
       <div class="playlist-header">
         <h4>播放列表</h4>
         <button class="btn-close-playlist" @click="showPlaylist = false">×</button>
@@ -117,6 +122,16 @@
       @playing="onPlaying"
       @pause="onPause"
     ></audio>
+
+    <!-- 显示按钮（当播放器隐藏时显示） -->
+    <div class="show-player-btn" v-if="isHidden" @click="showPlayer">
+      <div class="show-btn-content">
+        <span class="show-btn-icon">🎵</span>
+        <span class="show-btn-text" v-if="currentAudio">{{ currentAudio.name }}</span>
+        <span class="show-btn-text" v-else>音频播放器</span>
+        <span class="show-btn-arrow">⬆️</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -142,6 +157,7 @@ export default {
       
       // UI状态
       showPlaylist: false,
+      isHidden: false,
       
       // 当前音频
       currentAudio: null,
@@ -436,6 +452,17 @@ export default {
       this.showPlaylist = !this.showPlaylist
     },
     
+    hidePlayer() {
+      this.isHidden = true
+      this.showPlaylist = false
+      console.log('🎵 播放器已隐藏')
+    },
+    
+    showPlayer() {
+      this.isHidden = false
+      console.log('🎵 播放器已显示')
+    },
+    
     // 音频事件处理
     onLoadedMetadata() {
       const audioElement = this.$refs.audioElement
@@ -600,21 +627,12 @@ export default {
 </script>
 
 <style scoped>
-.global-audio-player {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
-  box-shadow: 0 -2px 10px var(--shadow-light);
-  z-index: 1000;
-  transition: all 0.3s ease;
-}
+/* 全局音频播放器样式已移至全局样式文件 */
 
 .player-main {
   display: flex;
   align-items: center;
+  justify-content: center;
   padding: 12px 20px;
   gap: 20px;
   max-width: 1400px;
@@ -854,6 +872,126 @@ export default {
   line-height: 1;
 }
 
+/* 隐藏按钮 */
+.hide-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.hide-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* 显示播放器按钮 */
+.show-player-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 25px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 1001;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.show-player-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(-50%) scale(1.05);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+}
+
+.show-btn-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+.show-btn-icon {
+  font-size: 1.2rem;
+}
+
+.show-btn-text {
+  font-size: 0.9rem;
+  font-weight: 500;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.show-btn-arrow {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+/* 暗色主题下的显示按钮 */
+[data-theme="dark"] .show-player-btn {
+  background: rgba(42, 71, 94, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .show-player-btn:hover {
+  background: rgba(42, 71, 94, 0.5);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+}
+
+/* 浮世绘主题下的显示按钮 */
+[data-theme="ukiyoe"] .show-player-btn {
+  background: rgba(255, 248, 240, 0.2);
+  border: 1px solid rgba(211, 47, 47, 0.3);
+  box-shadow: 0 4px 20px rgba(211, 47, 47, 0.2);
+}
+
+[data-theme="ukiyoe"] .show-player-btn:hover {
+  background: rgba(255, 248, 240, 0.3);
+  box-shadow: 0 6px 25px rgba(211, 47, 47, 0.3);
+}
+
+/* 中国古风主题下的显示按钮 */
+[data-theme="chinese"] .show-player-btn {
+  background: rgba(231, 226, 220, 0.2);
+  border: 1px solid rgba(198, 73, 58, 0.3);
+  box-shadow: 0 4px 20px rgba(198, 73, 58, 0.2);
+}
+
+[data-theme="chinese"] .show-player-btn:hover {
+  background: rgba(231, 226, 220, 0.3);
+  box-shadow: 0 6px 25px rgba(198, 73, 58, 0.3);
+}
+
+/* 森林主题下的显示按钮 */
+[data-theme="forest"] .show-player-btn {
+  background: rgba(232, 245, 232, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.2);
+}
+
+[data-theme="forest"] .show-player-btn:hover {
+  background: rgba(232, 245, 232, 0.3);
+  box-shadow: 0 6px 25px rgba(76, 175, 80, 0.3);
+}
+
+/* 海洋主题下的显示按钮 */
+[data-theme="ocean"] .show-player-btn {
+  background: rgba(225, 245, 254, 0.2);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  box-shadow: 0 4px 20px rgba(33, 150, 243, 0.2);
+}
+
+[data-theme="ocean"] .show-player-btn:hover {
+  background: rgba(225, 245, 254, 0.3);
+  box-shadow: 0 6px 25px rgba(33, 150, 243, 0.3);
+}
+
 /* 播放列表面板 */
 .playlist-panel {
   position: absolute;
@@ -1091,6 +1229,18 @@ export default {
   
   .playlist-btn {
     order: 5;
+  }
+  
+  .show-player-btn {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    transform: none;
+    width: auto;
+  }
+  
+  .show-btn-text {
+    max-width: 150px;
   }
 }
 </style>

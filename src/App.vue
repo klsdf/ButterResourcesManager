@@ -7,27 +7,19 @@
         <h1> Butter Manager</h1>
         <p>绿色游戏管理器</p>
       </div>
-      
+
       <ul class="nav-menu">
-        <li 
-          v-for="item in navItems" 
-          :key="item.id"
-          :class="{ active: currentView === item.id }"
-          @click="switchView(item.id)"
-          class="nav-item"
-        >
+        <li v-for="item in navItems" :key="item.id" :class="{ active: currentView === item.id }"
+          @click="switchView(item.id)" class="nav-item">
           <span class="nav-icon">{{ item.icon }}</span>
           <span class="nav-text">{{ item.name }}</span>
         </li>
       </ul>
-      
+
       <!-- 设置按钮 -->
       <div class="nav-footer">
-        <div 
-          :class="{ active: currentView === 'settings' }"
-          @click="switchView('settings')"
-          class="nav-item settings-item"
-        >
+        <div :class="{ active: currentView === 'settings' }" @click="switchView('settings')"
+          class="nav-item settings-item">
           <span class="nav-icon">⚙️</span>
           <span class="nav-text">设置</span>
         </div>
@@ -40,39 +32,35 @@
         <h2>{{ getCurrentViewTitle() }}</h2>
         <p>{{ getCurrentViewDescription() }}</p>
       </header>
-      
+
       <div class="content-body">
         <!-- 游戏页面 -->
         <GameView v-if="currentView === 'games'" />
-        
+
         <!-- 图片页面 -->
         <ImageView v-if="currentView === 'images'" />
-        
+
         <!-- 视频页面 -->
         <VideoView v-if="currentView === 'videos'" />
-        
+
         <!-- 小说页面 -->
         <NovelView v-if="currentView === 'novels'" />
-        
+
         <!-- 网站页面 -->
         <WebsiteView v-if="currentView === 'websites'" />
-        
+
         <!-- 声音页面 -->
         <AudioView v-if="currentView === 'audio'" />
-        
+
         <!-- 设置页面 -->
-        <SettingsView 
-          v-if="currentView === 'settings'" 
-          @theme-changed="onThemeChanged"
-        />
+        <SettingsView v-if="currentView === 'settings'" @theme-changed="onThemeChanged" />
+        
       </div>
+      <!-- 全局音频播放器 -->
+      <GlobalAudioPlayer @audio-started="onAudioStarted" @playlist-ended="onPlaylistEnded" />
     </main>
-    
-    <!-- 全局音频播放器 -->
-    <GlobalAudioPlayer 
-      @audio-started="onAudioStarted"
-      @playlist-ended="onPlaylistEnded"
-    />
+
+
   </div>
 </template>
 
@@ -163,7 +151,7 @@ export default {
     },
     applyTheme(theme) {
       this.theme = theme
-      
+
       // 处理跟随系统主题
       let actualTheme = theme
       if (theme === 'auto') {
@@ -171,11 +159,11 @@ export default {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
         actualTheme = prefersDark ? 'dark' : 'light'
       }
-      
+
       // 应用实际主题
       document.documentElement.setAttribute('data-theme', actualTheme)
       localStorage.setItem('butter-manager-theme', theme)
-      
+
       console.log('应用主题:', theme, '实际主题:', actualTheme)
     },
     onThemeChanged(theme) {
@@ -204,7 +192,7 @@ export default {
     } catch (error) {
       console.error('存档系统初始化出错:', error)
     }
-    
+
     // 然后从 SaveManager 加载设置
     try {
       const saveManager = (await import('./utils/SaveManager.js')).default
@@ -217,7 +205,7 @@ export default {
     } catch (error) {
       console.warn('从 SaveManager 加载设置失败，使用本地存储:', error)
     }
-    
+
     // 降级到本地存储
     const savedTheme = localStorage.getItem('butter-manager-theme')
     if (savedTheme) {

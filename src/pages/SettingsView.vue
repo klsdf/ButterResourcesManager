@@ -81,8 +81,8 @@
               
               <div class="setting-item">
                 <label class="setting-label">
-                  <span class="setting-title">最小化到系统托盘</span>
-                  <span class="setting-desc">关闭窗口时最小化到系统托盘</span>
+                  <span class="setting-title">关闭窗口时最小化到系统托盘</span>
+                  <span class="setting-desc">点击关闭按钮时最小化到系统托盘，普通最小化仍会显示在任务栏</span>
                 </label>
                 <div class="setting-control">
                   <label class="toggle-switch">
@@ -583,8 +583,8 @@ export default {
           if (result.success) {
             console.log('最小化到托盘设置更新成功:', result.enabled)
             this.showNotification(
-              '最小化到托盘设置已更新', 
-              result.enabled ? '关闭窗口时将最小化到系统托盘' : '关闭窗口时将直接退出应用'
+              '关闭窗口行为设置已更新', 
+              result.enabled ? '关闭窗口时将最小化到系统托盘，普通最小化仍显示在任务栏' : '关闭窗口时将直接退出应用'
             )
           } else {
             console.error('最小化到托盘设置更新失败:', result.error)

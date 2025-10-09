@@ -41,15 +41,16 @@
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="filteredGames.length > 0">
-      <GameCard 
+      <MediaCard 
         v-for="game in filteredGames" 
         :key="game.id"
-        :game="game"
+        :item="game"
+        type="game"
         :is-running="isGameRunning(game)"
         :is-electron-environment="isElectronEnvironment"
         @click="showGameDetail"
         @contextmenu="showGameContextMenu"
-        @play="launchGame"
+        @action="launchGame"
       />
     </div>
 
@@ -295,7 +296,7 @@ import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
-import GameCard from '../components/GameCard.vue'
+import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
@@ -306,7 +307,7 @@ export default {
     EmptyState,
     ContextMenu,
     FilterSidebar,
-    GameCard,
+    MediaCard,
     FormField
   },
   data() {

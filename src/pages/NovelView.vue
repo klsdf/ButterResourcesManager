@@ -28,57 +28,16 @@
     
         <!-- 小说网格 -->
         <div class="novels-grid" v-if="filteredNovels.length > 0">
-          <div 
+          <MediaCard
             v-for="novel in filteredNovels" 
             :key="novel.id"
-            class="novel-card"
-            :class="{ 'selected': currentReadingNovel && currentReadingNovel.id === novel.id }"
-            @click="handleNovelClick(novel)"
-            @contextmenu="showNovelContextMenu($event, novel)"
-          >
-            <div class="novel-cover">
-              <img 
-                :src="resolveCoverImage(novel.coverImage)" 
-                :alt="novel.name"
-                @error="handleImageError"
-              >
-              <div class="novel-overlay">
-                <div class="read-button" @click.stop="handleNovelClick(novel)">
-                  <span class="read-icon">📖</span>
-                </div>
-              </div>
-              <div class="novel-status" :class="novel.status">
-                <span class="status-text">{{ getStatusText(novel.status) }}</span>
-              </div>
-            </div>
-            <div class="novel-info">
-              <h3 class="novel-title">{{ novel.name }}</h3>
-              <p class="novel-author">{{ novel.author }}</p>
-              <p class="novel-genre" v-if="novel.genre">{{ novel.genre }}</p>
-              <p class="novel-description" v-if="novel.description">{{ novel.description }}</p>
-              <div class="novel-tags" v-if="novel.tags && novel.tags.length > 0">
-                <span 
-                  v-for="tag in novel.tags.slice(0, 3)" 
-                  :key="tag" 
-                  class="novel-tag"
-                >{{ tag }}</span>
-                <span v-if="novel.tags.length > 3" class="novel-tag-more">+{{ novel.tags.length - 3 }}</span>
-              </div>
-              <div class="novel-stats">
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: novel.readProgress + '%' }"></div>
-                </div>
-                <div class="stats-row">
-                  <span class="read-progress">{{ novel.readProgress || 0 }}%</span>
-                  <span class="read-time">{{ formatReadTime(novel.readTime) }}</span>
-                </div>
-                <div class="last-read">
-                  <span v-if="novel.lastRead">{{ formatLastRead(novel.lastRead) }}</span>
-                  <span v-else>从未阅读</span>
-                </div>
-              </div>
-            </div>
-          </div>
+            :item="novel"
+            type="novel"
+            :isElectronEnvironment="true"
+            @click="handleNovelClick"
+            @contextmenu="showNovelContextMenu"
+            @action="handleNovelClick"
+          />
         </div>
 
         <!-- 空状态 -->
@@ -383,6 +342,7 @@ import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
+import MediaCard from '../components/MediaCard.vue'
 
 export default {
   name: 'NovelView',
@@ -390,7 +350,8 @@ export default {
     Toolbar,
     EmptyState,
     ContextMenu,
-    FormField
+    FormField,
+    MediaCard
   },
   data() {
     return {
@@ -667,12 +628,15 @@ export default {
         if (window.electronAPI && window.electronAPI.readTextFile) {
           const result = await window.electronAPI.readTextFile(filePath)
           if (result.success && result.content) {
-            // 简单的字数统计
-            const wordCount = result.content.length
-            this.newNovel.totalWords = wordCount
+            // 使用API返回的字数统计
+            this.newNovel.totalWords = result.wordCount || 0
             this.newNovel.fileSize = result.fileSize || 0
             this.newNovel.encoding = result.encoding || 'utf-8'
-            console.log('文件分析结果:', { wordCount, fileSize: result.fileSize, encoding: result.encoding })
+            console.log('文件分析结果:', { 
+              wordCount: result.wordCount, 
+              fileSize: result.fileSize, 
+              encoding: result.encoding 
+            })
           }
         }
       } catch (error) {
@@ -1029,6 +993,30 @@ export default {
     },
     async loadNovels() {
       this.novels = await novelManager.loadNovels()
+      // 为没有字数信息的小说重新计算字数
+      await this.updateNovelsWordCount()
+    },
+    async updateNovelsWordCount() {
+      for (let novel of this.novels) {
+        if (novel.totalWords === 0 && novel.filePath) {
+          try {
+            console.log('重新计算小说字数:', novel.name)
+            const result = await window.electronAPI.readTextFile(novel.filePath)
+            if (result.success && result.wordCount > 0) {
+              novel.totalWords = result.wordCount
+              novel.fileSize = result.fileSize || novel.fileSize
+              // 保存更新
+              await novelManager.updateNovel(novel.id, {
+                totalWords: novel.totalWords,
+                fileSize: novel.fileSize
+              })
+              console.log('字数更新成功:', novel.name, '字数:', novel.totalWords)
+            }
+          } catch (error) {
+            console.error('更新小说字数失败:', novel.name, error)
+          }
+        }
+      }
     },
     async updateReadingStats(novel) {
       try {
@@ -1482,224 +1470,6 @@ export default {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 20px;
   padding: 10px 0;
-}
-
-.novel-card {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid var(--border-color);
-  position: relative;
-}
-
-.novel-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px var(--shadow-medium);
-  border-color: var(--accent-color);
-}
-
-.novel-cover {
-  position: relative;
-  width: 100%;
-  height: 280px;
-  overflow: hidden;
-}
-
-.novel-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.novel-card:hover .novel-cover img {
-  transform: scale(1.05);
-}
-
-.novel-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.novel-card:hover .novel-overlay {
-  opacity: 1;
-}
-
-.read-button {
-  background: var(--accent-color);
-  color: white;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  transition: all 0.3s ease;
-}
-
-.read-button:hover {
-  background: var(--accent-hover);
-  transform: scale(1.1);
-}
-
-.novel-status {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.novel-status.unread {
-  background: #6b7280;
-  color: white;
-}
-
-.novel-status.reading {
-  background: #3b82f6;
-  color: white;
-}
-
-.novel-status.completed {
-  background: #10b981;
-  color: white;
-}
-
-.novel-status.paused {
-  background: #f59e0b;
-  color: white;
-}
-
-.novel-info {
-  padding: 15px;
-}
-
-.novel-title {
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-}
-
-.novel-author {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-}
-
-.novel-genre {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-  font-style: italic;
-}
-
-.novel-description {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  margin-bottom: 8px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-}
-
-.novel-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.novel-tag {
-  background: var(--accent-color);
-  color: white;
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.novel-tag-more {
-  background: var(--bg-tertiary);
-  color: var(--text-tertiary);
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-}
-
-.novel-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 4px;
-  background: var(--bg-tertiary);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--accent-color);
-  transition: width 0.3s ease;
-}
-
-.stats-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.read-progress, .read-time {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  transition: color 0.3s ease;
-}
-
-.last-read {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  transition: color 0.3s ease;
 }
 
 /* 空状态样式 */

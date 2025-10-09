@@ -88,14 +88,10 @@ function createWindow() {
     }
   })
   
-  // 处理窗口最小化事件
+  // 处理窗口最小化事件 - 正常最小化到任务栏，不干预
   mainWindow.on('minimize', (event) => {
-    if (minimizeToTrayEnabled && tray) {
-      // 阻止默认的最小化行为
-      event.preventDefault()
-      // 最小化到托盘
-      mainWindow.hide()
-    }
+    // 允许正常的最小化行为，不干预
+    console.log('窗口已最小化到任务栏')
   })
 
   // 处理窗口大小变化
@@ -1644,8 +1640,17 @@ ipcMain.handle('read-text-file', async (event, filePath) => {
     // 读取文件内容
     const content = fs.readFileSync(filePath, 'utf8')
     
-    // 计算字数（简单统计）
-    const wordCount = content.length
+    // 计算字数（更适合中文文本的统计）
+    // 移除空白字符和换行符，然后统计字符数
+    const cleanContent = content.replace(/\s+/g, '')
+    const wordCount = cleanContent.length
+    
+    console.log('文本文件分析:', {
+      filePath: filePath,
+      totalChars: content.length,
+      cleanChars: wordCount,
+      fileSize: fileSize
+    })
     
     return {
       success: true,

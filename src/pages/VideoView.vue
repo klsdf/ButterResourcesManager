@@ -907,7 +907,7 @@ export default {
             // 构建 file:// URL 格式
             // 格式：file:///SaveData/Video/Covers/video_123.jpg
             url = 'file:///' + encoded
-            console.log('尝试路径格式1:', url)
+            // console.log('尝试路径格式1:', url)
           } else {
             // 4.2 绝对路径处理（如 E:/app/SaveData/...）
             // 将 Windows 路径格式转换为 file:// URL 格式

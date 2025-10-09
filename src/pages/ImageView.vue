@@ -27,47 +27,16 @@
 
     <!-- 专辑网格 -->
     <div class="albums-grid" v-if="filteredAlbums.length > 0">
-      <div 
+      <MediaCard
         v-for="album in filteredAlbums" 
         :key="album.id"
-        class="album-card"
-        @click="showAlbumDetail(album)"
-        @contextmenu="showAlbumContextMenu($event, album)"
-      >
-        <div class="album-image">
-          <img 
-            :src="resolveImage(album.cover)" 
-            :alt="album.name"
-            @error="handleImageError"
-          >
-          <!-- 页数标签 -->
-          <div class="pages-badge">
-            {{ album.pagesCount || 0 }} 页
-          </div>
-           <div class="album-overlay">
-             <div class="open-button" @click.stop="openAlbum(album)">
-               <span class="open-icon">📖</span>
-             </div>
-           </div>
-        </div>
-        <div class="album-info">
-          <h3 class="album-title">{{ album.name }}</h3>
-          <p class="album-author" v-if="album.author">{{ album.author }}</p>
-          <p class="album-description" v-if="album.description">{{ album.description }}</p>
-          <div class="album-tags" v-if="album.tags && album.tags.length > 0">
-            <span 
-              v-for="tag in album.tags.slice(0, 3)" 
-              :key="tag" 
-              class="album-tag"
-            >{{ tag }}</span>
-            <span v-if="album.tags.length > 3" class="album-tag-more">+{{ album.tags.length - 3 }}</span>
-          </div>
-          <div class="album-meta">
-            <span class="pages-count">{{ album.pagesCount || 0 }} 页</span>
-            <span class="album-folder" :title="album.folderPath">{{ album.folderPath }}</span>
-          </div>
-        </div>
-      </div>
+        :item="album"
+        type="image"
+        :isElectronEnvironment="true"
+        @click="showAlbumDetail"
+        @contextmenu="showAlbumContextMenu"
+        @action="openAlbum"
+      />
     </div>
 
     <!-- 空状态 -->
@@ -432,6 +401,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
 import FormField from '../components/FormField.vue'
+import MediaCard from '../components/MediaCard.vue'
 
 export default {
   name: 'ImageView',
@@ -440,7 +410,8 @@ export default {
     EmptyState,
     ContextMenu,
     FilterSidebar,
-    FormField
+    FormField,
+    MediaCard
   },
   data() {
     return {
