@@ -441,6 +441,11 @@
           </div>
         </div>
         
+        <!-- 图片文件名显示 -->
+        <div class="image-filename" v-if="currentPageImage && pages[currentPageIndex]">
+          {{ getImageFileName(pages[currentPageIndex]) }}
+        </div>
+        
         <!-- 阅读器底部导航 -->
         <div class="comic-viewer-footer">
           <div class="navigation-controls">
@@ -977,6 +982,13 @@ export default {
     
     handleImageError(event) {
       event.target.src = '/default-novel.svg'
+    },
+    
+    getImageFileName(imagePath) {
+      if (!imagePath) return ''
+      // 从完整路径中提取文件名
+      const fileName = imagePath.split(/[\\/]/).pop()
+      return fileName || imagePath
     },
     formatDate(dateString) {
       if (!dateString) return '未知'
@@ -2003,7 +2015,9 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 20px;
   overflow: hidden;
   position: relative;
 }
@@ -2028,6 +2042,23 @@ export default {
 
 .comic-image:active {
   cursor: grabbing;
+}
+
+.image-filename {
+  text-align: center;
+  padding: 8px 16px;
+
+  color: var(--text-secondary);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+  white-space: nowrap;
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); */
 }
 
 .loading-placeholder {
