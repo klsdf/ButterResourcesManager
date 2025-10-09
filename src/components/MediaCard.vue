@@ -419,7 +419,8 @@ export default {
       if (this.type === 'novel') return '/default-novel.svg'
       if (this.type === 'video') return '/default-video.svg' // 视频使用视频默认图标
       if (this.type === 'audio') return '/default-audio.svg' // 音频使用音频默认图标
-      return '/default-novel.svg' // image 类型也使用小说默认图
+      if (this.type === 'image') return '/default-image.svg' // 图片使用图片默认图标
+      return '/default-novel.svg' // 默认使用小说图标
     },
     handleImageError(event) {
       const defaultImage = this.getDefaultImage()

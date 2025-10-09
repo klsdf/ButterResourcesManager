@@ -325,15 +325,16 @@
       </div>
     </div>
 
+    </div>
+  </div>
+  
       <!-- 右键菜单 -->
-     <ContextMenu
+      <ContextMenu
       :visible="showContextMenu"
       :position="contextMenuPos"
       :menu-items="videoContextMenuItems"
       @item-click="handleContextMenuClick"
     />
-    </div>
-  </div>
 </template>
 
 <script>

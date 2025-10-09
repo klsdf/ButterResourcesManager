@@ -14,7 +14,14 @@
       />
 
     <!-- 主内容区域 -->
-    <div class="image-content">
+    <div 
+      class="image-content"
+      @drop="handleDrop"
+      @dragover="handleDragOver"
+      @dragenter="handleDragEnter"
+      @dragleave="handleDragLeave"
+      :class="{ 'drag-over': isDragOver }"
+    >
       <!-- 工具栏 -->
       <GameToolbar 
         v-model:searchQuery="searchQuery"
@@ -44,7 +51,7 @@
       v-else-if="albums.length === 0"
       icon="🖼️"
       title="还没有添加漫画"
-      description="点击&quot;添加漫画&quot;按钮选择一个文件夹"
+      description="点击&quot;添加漫画&quot;按钮选择文件夹，或直接拖拽文件夹到此处"
       :show-button="true"
       button-text="添加第一个漫画"
       @action="showAddAlbumDialog"
@@ -100,6 +107,32 @@
             placeholder="选择漫画文件夹"
             @browse="browseForFolder"
           />
+          <!-- 封面图片选择区域 -->
+          <div class="form-group">
+            <label class="form-label">封面图片 (可选)</label>
+            <div class="cover-selection-container">
+              <div class="cover-preview" v-if="newAlbum.cover">
+                <img :src="resolveImage(newAlbum.cover)" :alt="'封面预览'" @error="handleImageError">
+                <div class="cover-preview-info">
+                  <span class="cover-filename">{{ getImageFileName(newAlbum.cover) }}</span>
+                </div>
+              </div>
+              <div class="cover-actions">
+                <button type="button" class="btn-cover-action" @click="useFirstImageAsCoverNew" :disabled="!newAlbum.folderPath">
+                  <span class="btn-icon">🖼️</span>
+                  使用第一张图片
+                </button>
+                <button type="button" class="btn-cover-action" @click="browseForImageNew">
+                  <span class="btn-icon">📁</span>
+                  选择自定义封面
+                </button>
+                <button type="button" class="btn-cover-action btn-clear" @click="clearCoverNew" v-if="newAlbum.cover">
+                  <span class="btn-icon">🗑️</span>
+                  清除封面
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeAddAlbumDialog">取消</button>
@@ -278,13 +311,32 @@
             placeholder="选择漫画文件夹"
             @browse="browseForFolderEdit"
           />
-          <FormField
-            label="封面图片"
-            type="file"
-            v-model="editAlbumForm.cover"
-            placeholder="选择封面图片（可选）"
-            @browse="browseForImageEdit"
-          />
+          <!-- 封面图片选择区域 -->
+          <div class="form-group">
+            <label class="form-label">封面图片</label>
+            <div class="cover-selection-container">
+              <div class="cover-preview" v-if="editAlbumForm.cover">
+                <img :src="resolveImage(editAlbumForm.cover)" :alt="'封面预览'" @error="handleImageError">
+                <div class="cover-preview-info">
+                  <span class="cover-filename">{{ getImageFileName(editAlbumForm.cover) }}</span>
+                </div>
+              </div>
+              <div class="cover-actions">
+                <button type="button" class="btn-cover-action" @click="useFirstImageAsCover">
+                  <span class="btn-icon">🖼️</span>
+                  使用第一张图片
+                </button>
+                <button type="button" class="btn-cover-action" @click="browseForImageEdit">
+                  <span class="btn-icon">📁</span>
+                  选择自定义封面
+                </button>
+                <button type="button" class="btn-cover-action btn-clear" @click="clearCover" v-if="editAlbumForm.cover">
+                  <span class="btn-icon">🗑️</span>
+                  清除封面
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeEditAlbumDialog">取消</button>
@@ -423,6 +475,7 @@ export default {
       searchQuery: '',
       sortBy: 'name',
       showAddDialog: false,
+      isDragOver: false,
       newAlbum: {
         name: '',
         author: '',
@@ -543,6 +596,282 @@ export default {
       this.albums = await saveManager.loadImages()
       this.extractAllTags()
     },
+    
+    // 拖拽处理方法
+    handleDragOver(event) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+    },
+    
+    handleDragEnter(event) {
+      event.preventDefault()
+      this.isDragOver = true
+    },
+    
+    handleDragLeave(event) {
+      event.preventDefault()
+      // 只有当离开整个拖拽区域时才取消高亮
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        this.isDragOver = false
+      }
+    },
+    
+    async handleDrop(event) {
+      event.preventDefault()
+      this.isDragOver = false
+      
+      try {
+        const files = Array.from(event.dataTransfer.files)
+        
+        console.log('=== 拖拽调试信息 ===')
+        console.log('拖拽文件数量:', files.length)
+        console.log('拖拽文件详细信息:', files.map(f => ({
+          name: f.name,
+          path: f.path,
+          webkitRelativePath: f.webkitRelativePath,
+          type: f.type,
+          size: f.size,
+          lastModified: f.lastModified,
+          // 检查是否有其他可能的属性
+          webkitGetAsEntry: f.webkitGetAsEntry ? 'exists' : 'not exists'
+        })))
+        
+        // 检查是否是文件夹拖拽的另一种方式
+        const hasWebkitRelativePath = files.some(f => f.webkitRelativePath && f.webkitRelativePath.includes('/'))
+        const hasPathProperty = files.some(f => f.path)
+        console.log('检测结果:', {
+          hasWebkitRelativePath,
+          hasPathProperty,
+          filesWithWebkitPath: files.filter(f => f.webkitRelativePath).length,
+          filesWithPath: files.filter(f => f.path).length
+        })
+        
+        if (files.length === 0) {
+          this.showNotification('拖拽失败', '请拖拽文件夹到此处')
+          return
+        }
+        
+        // 检查是否拖拽的是文件夹
+        // 方法1: 通过 webkitRelativePath 判断（标准方法）
+        const folderFiles = files.filter(file => file.webkitRelativePath && file.webkitRelativePath.includes('/'))
+        
+        console.log('文件夹文件数量:', folderFiles.length)
+        console.log('文件夹文件详情:', folderFiles.map(f => ({
+          name: f.name,
+          webkitRelativePath: f.webkitRelativePath,
+          path: f.path
+        })))
+        
+        let targetFolderPath = null
+        let folderName = '未命名漫画'
+        
+        if (folderFiles.length > 0) {
+          // 方法1成功：通过 webkitRelativePath 检测到文件夹
+          const firstFile = folderFiles[0]
+          const relativeFolderPath = firstFile.webkitRelativePath.split('/')[0]
+          
+          // 在 Electron 环境中，尝试获取完整的文件夹路径
+          if (firstFile.path) {
+            const fileDir = firstFile.path.substring(0, firstFile.path.lastIndexOf('/'))
+            const relativePath = firstFile.webkitRelativePath.substring(0, firstFile.webkitRelativePath.indexOf('/'))
+            targetFolderPath = fileDir + '/' + relativePath
+          } else {
+            targetFolderPath = relativeFolderPath
+          }
+          
+          folderName = relativeFolderPath || '未命名漫画'
+          
+          console.log('通过 webkitRelativePath 检测到文件夹:', {
+            relativeFolderPath,
+            targetFolderPath,
+            folderName
+          })
+        } else {
+          // 方法2: 检查是否所有文件都在同一个目录下
+          const filePaths = files.filter(f => f.path).map(f => f.path)
+          console.log('文件路径列表:', filePaths)
+          
+          if (filePaths.length > 0) {
+            // 获取所有文件的公共父目录
+            const commonDir = this.getCommonDirectory(filePaths)
+            console.log('检测到公共目录:', commonDir)
+            
+            if (commonDir) {
+              targetFolderPath = commonDir
+              folderName = commonDir.split(/[/\\]/).pop() || '未命名漫画'
+              
+              console.log('通过公共目录检测到文件夹:', {
+                commonDir,
+                targetFolderPath,
+                folderName
+              })
+            }
+          }
+          
+          // 方法3: 如果文件数量较多，可能是文件夹拖拽（宽松检测）
+          if (!targetFolderPath && files.length > 3) {
+            console.log('文件数量较多，可能是文件夹拖拽，尝试使用第一个文件的目录')
+            const firstFile = files[0]
+            if (firstFile.path) {
+              const fileDir = firstFile.path.substring(0, firstFile.path.lastIndexOf('/'))
+              if (fileDir) {
+                targetFolderPath = fileDir
+                folderName = fileDir.split(/[/\\]/).pop() || '未命名漫画'
+                
+                console.log('通过文件数量检测到可能的文件夹:', {
+                  fileDir,
+                  targetFolderPath,
+                  folderName,
+                  fileCount: files.length
+                })
+              }
+            }
+          }
+          
+          // 方法4: 处理 Electron 中拖拽文件夹的特殊情况
+          if (!targetFolderPath && files.length === 1) {
+            const singleFile = files[0]
+            console.log('检测到单个文件，可能是文件夹拖拽的特殊情况')
+            console.log('文件路径分析:', {
+              fullPath: singleFile.path,
+              fileName: singleFile.name,
+              pathParts: singleFile.path ? singleFile.path.split(/[/\\]/) : []
+            })
+            
+            if (singleFile.path) {
+              // 检查路径是否看起来像文件夹（没有扩展名或扩展名不是图片格式）
+              const fileName = singleFile.name || ''
+              const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(fileName)
+              
+              if (!hasImageExtension) {
+                // 没有图片扩展名，可能是文件夹
+                targetFolderPath = singleFile.path
+                folderName = fileName || singleFile.path.split(/[/\\]/).pop() || '未命名漫画'
+                
+                console.log('通过文件扩展名检测到可能的文件夹:', {
+                  fileName,
+                  hasImageExtension,
+                  targetFolderPath,
+                  folderName
+                })
+              } else {
+                // 有图片扩展名，但只有一个文件，尝试使用父目录
+                const parentDir = singleFile.path.substring(0, singleFile.path.lastIndexOf('/'))
+                if (parentDir) {
+                  targetFolderPath = parentDir
+                  folderName = parentDir.split(/[/\\]/).pop() || '未命名漫画'
+                  
+                  console.log('通过父目录检测到可能的文件夹:', {
+                    parentDir,
+                    targetFolderPath,
+                    folderName
+                  })
+                }
+              }
+            }
+          }
+        }
+        
+        // 如果仍然没有检测到文件夹路径，则失败
+        if (!targetFolderPath) {
+          console.log('无法检测到文件夹路径，拖拽失败')
+          
+          // 检查是否是单个文件拖拽
+          if (files.length === 1) {
+            const singleFile = files[0]
+            const fileName = singleFile.name || '未知文件'
+            console.log('检测到单个文件拖拽:', fileName)
+            this.showNotification('拖拽失败', `检测到单个文件 "${fileName}"，请拖拽包含多个图片文件的文件夹`)
+          } else {
+            this.showNotification('拖拽失败', '请拖拽文件夹而不是单个文件')
+          }
+          return
+        }
+        
+        // 检查是否已经存在相同的文件夹
+        const existingAlbum = this.albums.find(album => album.folderPath === targetFolderPath)
+        if (existingAlbum) {
+          this.showNotification('添加失败', `文件夹 "${existingAlbum.name}" 已经存在`)
+          return
+        }
+        
+        // 创建新的漫画专辑
+        const album = {
+          id: Date.now().toString(),
+          name: folderName,
+          author: '',
+          description: '',
+          tags: [],
+          folderPath: targetFolderPath,
+          cover: '',
+          pagesCount: 0,
+          lastViewed: null,
+          viewCount: 0,
+          addedDate: new Date().toISOString()
+        }
+        
+        console.log('创建专辑对象:', album)
+        
+        // 加载文件夹中的图片文件
+        this.currentAlbum = album
+        await this.loadAlbumPages()
+        
+        // 添加到列表
+        this.albums.push(album)
+        await this.saveAlbums()
+        
+        this.showNotification('添加成功', `已添加漫画: ${folderName}`)
+        
+      } catch (error) {
+        console.error('拖拽添加漫画失败:', error)
+        this.showNotification('添加失败', `添加漫画失败: ${error.message}`)
+      }
+    },
+    
+    // 获取文件路径的公共目录
+    getCommonDirectory(filePaths) {
+      if (filePaths.length === 0) return null
+      
+      // 获取第一个文件的目录
+      let commonDir = filePaths[0].substring(0, filePaths[0].lastIndexOf('/'))
+      
+      // 检查其他文件是否都在这个目录或其子目录中
+      for (let i = 1; i < filePaths.length; i++) {
+        const currentDir = filePaths[i].substring(0, filePaths[i].lastIndexOf('/'))
+        
+        // 如果当前文件的目录不是公共目录的子目录，则缩小公共目录
+        while (!currentDir.startsWith(commonDir) && commonDir !== '') {
+          const lastSlash = commonDir.lastIndexOf('/')
+          if (lastSlash === -1) {
+            commonDir = ''
+            break
+          }
+          commonDir = commonDir.substring(0, lastSlash)
+        }
+        
+        if (commonDir === '') break
+      }
+      
+      return commonDir || null
+    },
+    
+    showNotification(title, message) {
+      // 简单的通知实现
+      if (window.electronAPI && window.electronAPI.showNotification) {
+        window.electronAPI.showNotification(title, message)
+      } else {
+        // 降级处理：使用浏览器通知
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body: message })
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification(title, { body: message })
+            }
+          })
+        }
+      }
+    },
     async saveAlbums() {
       await saveManager.saveImages(this.albums)
     },
@@ -554,6 +883,7 @@ export default {
         description: '',
         tags: [],
         folderPath: '',
+        cover: '',
         viewCount: 0
       }
       this.tagInput = ''
@@ -566,6 +896,7 @@ export default {
         description: '',
         tags: [],
         folderPath: '',
+        cover: '',
         viewCount: 0
       }
       this.tagInput = ''
@@ -804,6 +1135,86 @@ export default {
         alert('选择封面失败: ' + e.message)
       }
     },
+    
+    async useFirstImageAsCover() {
+      try {
+        if (!this.editAlbumForm.folderPath) {
+          alert('请先选择漫画文件夹')
+          return
+        }
+        
+        // 获取文件夹中的图片文件
+        let files = []
+        if (window.electronAPI && window.electronAPI.listImageFiles) {
+          const resp = await window.electronAPI.listImageFiles(this.editAlbumForm.folderPath)
+          if (resp.success) {
+            files = resp.files || []
+          }
+        }
+        
+        if (files.length > 0) {
+          // 使用第一张图片作为封面
+          this.editAlbumForm.cover = files[0]
+          this.showNotification('设置成功', '已使用第一张图片作为封面')
+        } else {
+          alert('文件夹中没有找到图片文件')
+        }
+      } catch (e) {
+        console.error('设置第一张图片为封面失败:', e)
+        alert('设置封面失败: ' + e.message)
+      }
+    },
+    
+    clearCover() {
+      this.editAlbumForm.cover = ''
+    },
+    
+    async useFirstImageAsCoverNew() {
+      try {
+        if (!this.newAlbum.folderPath) {
+          alert('请先选择漫画文件夹')
+          return
+        }
+        
+        // 获取文件夹中的图片文件
+        let files = []
+        if (window.electronAPI && window.electronAPI.listImageFiles) {
+          const resp = await window.electronAPI.listImageFiles(this.newAlbum.folderPath)
+          if (resp.success) {
+            files = resp.files || []
+          }
+        }
+        
+        if (files.length > 0) {
+          // 使用第一张图片作为封面
+          this.newAlbum.cover = files[0]
+          this.showNotification('设置成功', '已使用第一张图片作为封面')
+        } else {
+          alert('文件夹中没有找到图片文件')
+        }
+      } catch (e) {
+        console.error('设置第一张图片为封面失败:', e)
+        alert('设置封面失败: ' + e.message)
+      }
+    },
+    
+    async browseForImageNew() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectImageFile) {
+          const filePath = await window.electronAPI.selectImageFile()
+          if (filePath) {
+            this.newAlbum.cover = filePath
+          }
+        }
+      } catch (e) {
+        console.error('选择封面失败:', e)
+        alert('选择封面失败: ' + e.message)
+      }
+    },
+    
+    clearCoverNew() {
+      this.newAlbum.cover = ''
+    },
     async saveEditedAlbum() {
       try {
         const index = this.albums.findIndex(a => a.id === this.editAlbumForm.id)
@@ -865,7 +1276,7 @@ export default {
     },
     resolveImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return '/default-novel.svg'
+        return '/default-image.svg'
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -879,22 +1290,22 @@ export default {
           if (dataUrl) {
             this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
           } else {
-            this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
+            this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
           }
         }).catch(() => {
-          this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
+          this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
         })
       } else {
         const normalizedPath = String(imagePath).replace(/\\/g, '/')
         const fileUrl = `file:///${normalizedPath}`
         this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
       }
-      return this.imageCache[imagePath] || '/default-novel.svg'
+      return this.imageCache[imagePath] || '/default-image.svg'
     },
     
     async resolveImageAsync(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return '/default-novel.svg'
+        return '/default-image.svg'
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -911,13 +1322,13 @@ export default {
             this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
             return dataUrl
           } else {
-            this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
-            return '/default-novel.svg'
+            this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
+            return '/default-image.svg'
           }
         } catch (error) {
           console.error('读取图片文件失败:', error)
-          this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
-          return '/default-novel.svg'
+          this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
+          return '/default-image.svg'
         }
       } else {
         const normalizedPath = String(imagePath).replace(/\\/g, '/')
@@ -928,7 +1339,7 @@ export default {
     },
     
     handleImageError(event) {
-      event.target.src = '/default-novel.svg'
+      event.target.src = '/default-image.svg'
     },
     
     getImageFileName(imagePath) {
@@ -1066,7 +1477,7 @@ export default {
     
     onImageError() {
       console.error('图片加载失败:', this.pages[this.currentPageIndex])
-      this.currentPageImage = '/default-novel.svg'
+      this.currentPageImage = '/default-image.svg'
     },
     
     onImageWheel(event) {
@@ -1466,12 +1877,98 @@ export default {
   margin-bottom: 20px;
 }
 
-.form-group label {
+.form-group label,
+.form-label {
   display: block;
   color: var(--text-primary);
   font-weight: 600;
   margin-bottom: 8px;
   transition: color 0.3s ease;
+}
+
+/* 封面选择区域样式 */
+.cover-selection-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.cover-preview {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.cover-preview img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.cover-preview-info {
+  flex: 1;
+}
+
+.cover-filename {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.cover-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-cover-action {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.btn-cover-action:hover {
+  background: var(--accent-hover);
+}
+
+.btn-cover-action.btn-clear {
+  background: #ef4444;
+}
+
+.btn-cover-action.btn-clear:hover {
+  background: #dc2626;
+}
+
+.btn-cover-action .btn-icon {
+  font-size: 1rem;
+}
+
+.btn-cover-action:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-cover-action:disabled:hover {
+  background: var(--bg-secondary);
 }
 
 .required {
@@ -2300,6 +2797,35 @@ export default {
 .comic-viewer-content:fullscreen .comic-viewer-header,
 .comic-viewer-content:fullscreen .comic-viewer-footer {
   border-radius: 0;
+}
+
+/* 拖拽样式 */
+.image-content {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.image-content.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed var(--accent-color);
+  border-radius: 12px;
+}
+
+.image-content.drag-over::before {
+  content: '拖拽文件夹到这里添加漫画';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-color);
+  color: white;
+  padding: 20px 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
 }
 
 /* 响应式 */
