@@ -25,27 +25,27 @@
       </div>
     </div>
 
-    <!-- 开发商筛选 -->
-    <div class="developer-section">
-      <div class="developer-header">
-        <h3>开发商筛选</h3>
-        <button class="btn-clear-filter" @click="clearDeveloperFilter" v-if="selectedDeveloper">
+    <!-- 动态筛选器 -->
+    <div class="filter-section">
+      <div class="filter-header">
+        <h3>{{ filterTitle }}</h3>
+        <button class="btn-clear-filter" @click="clearFilter" v-if="selectedFilter">
           ✕ 清除筛选
         </button>
       </div>
-      <div class="developer-list">
+      <div class="filter-list">
         <div 
-          v-for="developer in allDevelopers" 
-          :key="developer.name"
-          class="developer-item"
-          :class="{ active: selectedDeveloper === developer.name }"
-          @click="filterByDeveloper(developer.name)"
+          v-for="item in allFilters" 
+          :key="item.name"
+          class="filter-item"
+          :class="{ active: selectedFilter === item.name }"
+          @click="filterByItem(item.name)"
         >
-          <span class="developer-name">{{ developer.name }}</span>
-          <span class="developer-count">({{ developer.count }})</span>
+          <span class="filter-name">{{ item.name }}</span>
+          <span class="filter-count">({{ item.count }})</span>
         </div>
-        <div v-if="allDevelopers.length === 0" class="no-developers">
-          暂无开发商
+        <div v-if="allFilters.length === 0" class="no-filters">
+          暂无{{ filterTitle.replace('筛选', '') }}
         </div>
       </div>
     </div>
@@ -60,7 +60,7 @@ export default {
       type: Array,
       default: () => []
     },
-    allDevelopers: {
+    allFilters: {
       type: Array,
       default: () => []
     },
@@ -68,12 +68,16 @@ export default {
       type: String,
       default: null
     },
-    selectedDeveloper: {
+    selectedFilter: {
       type: String,
       default: null
+    },
+    filterTitle: {
+      type: String,
+      default: '筛选'
     }
   },
-  emits: ['tag-filter', 'developer-filter', 'clear-tag-filter', 'clear-developer-filter'],
+  emits: ['tag-filter', 'filter', 'clear-tag-filter', 'clear-filter'],
   methods: {
     filterByTag(tagName) {
       this.$emit('tag-filter', tagName)
@@ -81,11 +85,11 @@ export default {
     clearTagFilter() {
       this.$emit('clear-tag-filter')
     },
-    filterByDeveloper(developerName) {
-      this.$emit('developer-filter', developerName)
+    filterByItem(itemName) {
+      this.$emit('filter', itemName)
     },
-    clearDeveloperFilter() {
-      this.$emit('clear-developer-filter')
+    clearFilter() {
+      this.$emit('clear-filter')
     }
   }
 }
@@ -184,21 +188,21 @@ export default {
   font-style: italic;
 }
 
-/* 开发商筛选样式 */
-.developer-section {
+/* 动态筛选器样式 */
+.filter-section {
   border-top: 1px solid var(--border-color);
   margin-top: 10px;
   padding: 20px 0 0 0;
 }
 
-.developer-header {
+.filter-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px 10px 20px;
 }
 
-.developer-header h3 {
+.filter-header h3 {
   margin: 0;
   color: var(--text-primary);
   font-size: 1.1rem;
@@ -206,11 +210,11 @@ export default {
   transition: color 0.3s ease;
 }
 
-.developer-list {
+.filter-list {
   padding: 0;
 }
 
-.developer-item {
+.filter-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -221,32 +225,32 @@ export default {
   border-left: 3px solid transparent;
 }
 
-.developer-item:hover {
+.filter-item:hover {
   background: var(--bg-tertiary);
 }
 
-.developer-item.active {
+.filter-item.active {
   background: var(--accent-color);
   color: white;
   border-left-color: var(--accent-hover);
 }
 
-.developer-item.active .developer-count {
+.filter-item.active .filter-count {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.developer-name {
+.filter-name {
   font-weight: 500;
   transition: color 0.3s ease;
 }
 
-.developer-count {
+.filter-count {
   font-size: 0.8rem;
   color: var(--text-tertiary);
   transition: color 0.3s ease;
 }
 
-.no-developers {
+.no-filters {
   padding: 20px;
   text-align: center;
   color: var(--text-tertiary);

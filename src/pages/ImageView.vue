@@ -1,14 +1,29 @@
 <template>
   <div class="image-view">
-    <!-- 工具栏 -->
-    <GameToolbar 
-      v-model:searchQuery="searchQuery"
-      v-model:sortBy="sortBy"
-      add-button-text="添加漫画"
-      search-placeholder="搜索漫画..."
-      :sort-options="imageSortOptions"
-      @add-item="showAddAlbumDialog"
-    />
+    <!-- 左侧筛选导航栏 -->
+      <FilterSidebar
+        :all-tags="allTags"
+        :all-filters="allAuthors"
+        :selected-tag="selectedTag"
+        :selected-filter="selectedAuthor"
+        :filter-title="'作者筛选'"
+        @tag-filter="filterByTag"
+        @filter="filterByAuthor"
+        @clear-tag-filter="clearTagFilter"
+        @clear-filter="clearAuthorFilter"
+      />
+
+    <!-- 主内容区域 -->
+    <div class="image-content">
+      <!-- 工具栏 -->
+      <GameToolbar 
+        v-model:searchQuery="searchQuery"
+        v-model:sortBy="sortBy"
+        add-button-text="添加漫画"
+        search-placeholder="搜索漫画..."
+        :sort-options="imageSortOptions"
+        @add-item="showAddAlbumDialog"
+      />
 
     <!-- 专辑网格 -->
     <div class="albums-grid" v-if="filteredAlbums.length > 0">
@@ -34,7 +49,6 @@
         <div class="album-info">
           <h3 class="album-title">{{ album.name }}</h3>
           <p class="album-author" v-if="album.author">{{ album.author }}</p>
-          <p class="album-publisher" v-if="album.publisher && album.publisher !== '未知发行商'">{{ album.publisher }}</p>
           <p class="album-description" v-if="album.description">{{ album.description }}</p>
           <div class="album-tags" v-if="album.tags && album.tags.length > 0">
             <span 
@@ -94,15 +108,6 @@
               type="text" 
               v-model="newAlbum.author" 
               placeholder="输入作者名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>发行商 (可选)</label>
-            <input 
-              type="text" 
-              v-model="newAlbum.publisher" 
-              placeholder="输入发行商名称"
               class="form-input"
             >
           </div>
@@ -181,7 +186,6 @@
           <div class="detail-info">
             <h2 class="detail-title">{{ currentAlbum.name }}</h2>
             <p class="detail-author" v-if="currentAlbum.author">{{ currentAlbum.author }}</p>
-            <p class="detail-publisher" v-if="currentAlbum.publisher && currentAlbum.publisher !== '未知发行商'">{{ currentAlbum.publisher }}</p>
             <p class="detail-folder" :title="currentAlbum.folderPath">{{ currentAlbum.folderPath }}</p>
             
             <div class="detail-description" v-if="currentAlbum.description">
@@ -312,15 +316,6 @@
               type="text" 
               v-model="editAlbumForm.author" 
               placeholder="输入作者名称"
-              class="form-input"
-            >
-          </div>
-          <div class="form-group">
-            <label>发行商</label>
-            <input 
-              type="text" 
-              v-model="editAlbumForm.publisher" 
-              placeholder="输入发行商名称"
               class="form-input"
             >
           </div>
@@ -494,6 +489,7 @@
       :menu-items="albumContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+    </div>
   </div>
   
 </template>
@@ -503,13 +499,15 @@ import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FilterSidebar from '../components/FilterSidebar.vue'
 
 export default {
   name: 'ImageView',
   components: {
     GameToolbar,
     EmptyState,
-    ContextMenu
+    ContextMenu,
+    FilterSidebar
   },
   data() {
     return {
@@ -520,7 +518,6 @@ export default {
       newAlbum: {
         name: '',
         author: '',
-        publisher: '',
         description: '',
         tags: [],
         folderPath: ''
@@ -539,7 +536,6 @@ export default {
         id: '',
         name: '',
         author: '',
-        publisher: '',
         description: '',
         tags: [],
         folderPath: '',
@@ -573,16 +569,34 @@ export default {
       currentPage: 1,
       pageSize: 50,
       totalPages: 0,
-      jumpToPageGroup: 1
+      jumpToPageGroup: 1,
+      // 标签筛选相关
+      allTags: [],
+      selectedTag: null,
+      // 作者筛选相关
+      allAuthors: [],
+      selectedAuthor: null
     }
   },
   computed: {
     filteredAlbums() {
-      let list = this.albums.filter(a =>
-        (a.name || '').toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        (a.folderPath || '').toLowerCase().includes(this.searchQuery.toLowerCase())
-      )
-      list.sort((a, b) => {
+      let filtered = this.albums.filter(album => {
+        // 搜索筛选
+        const matchesSearch = (album.name || '').toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                            (album.author || '').toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+                            (album.folderPath || '').toLowerCase().includes(this.searchQuery.toLowerCase())
+        
+        // 标签筛选
+        const matchesTag = !this.selectedTag || (album.tags && album.tags.includes(this.selectedTag))
+        
+        // 作者筛选
+        const matchesAuthor = !this.selectedAuthor || album.author === this.selectedAuthor
+        
+        return matchesSearch && matchesTag && matchesAuthor
+      })
+      
+      // 排序
+      filtered.sort((a, b) => {
         switch (this.sortBy) {
           case 'name':
             return (a.name || '').localeCompare(b.name || '')
@@ -596,7 +610,8 @@ export default {
             return 0
         }
       })
-      return list
+      
+      return filtered
     },
     canAddAlbum() {
       return this.newAlbum.folderPath && this.newAlbum.folderPath.trim()
@@ -616,6 +631,7 @@ export default {
   methods: {
     async loadAlbums() {
       this.albums = await saveManager.loadImages()
+      this.extractAllTags()
     },
     async saveAlbums() {
       await saveManager.saveImages(this.albums)
@@ -625,7 +641,6 @@ export default {
       this.newAlbum = {
         name: '',
         author: '',
-        publisher: '',
         description: '',
         tags: [],
         folderPath: ''
@@ -637,7 +652,6 @@ export default {
       this.newAlbum = {
         name: '',
         author: '',
-        publisher: '',
         description: '',
         tags: [],
         folderPath: ''
@@ -692,7 +706,6 @@ export default {
           id: Date.now().toString(),
           name: (this.newAlbum.name || '').trim() || this.extractFolderName(this.newAlbum.folderPath),
           author: (this.newAlbum.author || '').trim() || '',
-          publisher: (this.newAlbum.publisher || '').trim() || '',
           description: (this.newAlbum.description || '').trim() || '',
           tags: [...this.newAlbum.tags],
           folderPath: this.newAlbum.folderPath.trim(),
@@ -831,7 +844,6 @@ export default {
         id: album.id,
         name: album.name || '',
         author: album.author || '',
-        publisher: album.publisher || '',
         description: album.description || '',
         tags: Array.isArray(album.tags) ? [...album.tags] : [],
         folderPath: album.folderPath || '',
@@ -879,7 +891,6 @@ export default {
         const target = this.albums[index]
         target.name = (this.editAlbumForm.name || '').trim() || target.name
         target.author = (this.editAlbumForm.author || '').trim() || ''
-        target.publisher = (this.editAlbumForm.publisher || '').trim() || ''
         target.description = (this.editAlbumForm.description || '').trim() || ''
         target.tags = [...this.editAlbumForm.tags]
         target.folderPath = (this.editAlbumForm.folderPath || '').trim() || target.folderPath
@@ -1182,6 +1193,53 @@ export default {
           this.toggleFullscreen()
           break
       }
+    },
+    
+    // 提取标签和作者信息
+    extractAllTags() {
+      // 从所有漫画中提取标签并统计数量
+      const tagCount = {}
+      const authorCount = {}
+      
+      this.albums.forEach(album => {
+        // 提取标签
+        if (album.tags && Array.isArray(album.tags)) {
+          album.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1
+          })
+        }
+        
+        // 提取作者
+        if (album.author) {
+          authorCount[album.author] = (authorCount[album.author] || 0) + 1
+        }
+      })
+      
+      // 转换为数组并按名称排序
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allAuthors = Object.entries(authorCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    
+    // 筛选方法
+    filterByTag(tagName) {
+      this.selectedTag = this.selectedTag === tagName ? null : tagName
+    },
+    
+    clearTagFilter() {
+      this.selectedTag = null
+    },
+    
+    filterByAuthor(authorName) {
+      this.selectedAuthor = this.selectedAuthor === authorName ? null : authorName
+    },
+    
+    clearAuthorFilter() {
+      this.selectedAuthor = null
     }
   },
   async mounted() {
@@ -1205,7 +1263,18 @@ export default {
 
 <style scoped>
 .image-view {
-  padding: 20px;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 漫画主内容区域 */
+.image-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
 }
@@ -1216,7 +1285,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 20px;
-  padding: 10px 0;
+  padding: 20px;
 }
 
 .album-card {
@@ -1314,16 +1383,6 @@ export default {
   transition: color 0.3s ease;
 }
 
-.album-publisher {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-  font-style: italic;
-}
 
 .album-description {
   color: var(--text-tertiary);
@@ -1476,6 +1535,107 @@ export default {
   outline: none;
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+/* 标签输入样式 */
+.tags-input-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  padding: 8px;
+  transition: all 0.3s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(102, 192, 244, 0.1);
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  gap: 4px;
+  transition: background 0.3s ease;
+}
+
+.tag-item:hover {
+  background: var(--accent-hover);
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 4px 0;
+  outline: none;
+}
+
+.tag-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tag-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  line-height: 1.4;
 }
 
 .file-input-group {
@@ -1632,13 +1792,6 @@ export default {
   transition: color 0.3s ease;
 }
 
-.detail-publisher {
-  color: var(--text-tertiary);
-  font-size: 1rem;
-  margin: 0 0 15px 0;
-  font-style: italic;
-  transition: color 0.3s ease;
-}
 
 .detail-folder {
   color: var(--text-tertiary);

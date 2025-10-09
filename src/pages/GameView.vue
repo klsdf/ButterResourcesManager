@@ -1,16 +1,17 @@
 <template>
   <div class="game-view">
     <!-- 左侧筛选导航栏 -->
-    <FilterSidebar
-      :all-tags="allTags"
-      :all-developers="allDevelopers"
-      :selected-tag="selectedTag"
-      :selected-developer="selectedDeveloper"
-      @tag-filter="filterByTag"
-      @developer-filter="filterByDeveloper"
-      @clear-tag-filter="clearTagFilter"
-      @clear-developer-filter="clearDeveloperFilter"
-    />
+      <FilterSidebar
+        :all-tags="allTags"
+        :all-filters="allDevelopers"
+        :selected-tag="selectedTag"
+        :selected-filter="selectedDeveloper"
+        :filter-title="'开发商筛选'"
+        @tag-filter="filterByTag"
+        @filter="filterByDeveloper"
+        @clear-tag-filter="clearTagFilter"
+        @clear-filter="clearDeveloperFilter"
+      />
 
     <!-- 主内容区域 -->
     <div class="game-content">
@@ -26,50 +27,16 @@
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="filteredGames.length > 0">
-      <div 
+      <GameCard 
         v-for="game in filteredGames" 
         :key="game.id"
-        class="game-card"
-        @click="showGameDetail(game)"
-        @contextmenu="showGameContextMenu($event, game)"
-      >
-        <div class="game-image">
-          <img 
-            :src="resolveImage(game.image)" 
-            :alt="game.name"
-            @error="handleImageError"
-          >
-          <div class="game-overlay">
-            <div class="play-button" @click.stop="launchGame(game)">
-              <span class="play-icon">▶️</span>
-            </div>
-          </div>
-        </div>
-        <div class="game-info">
-          <h3 class="game-title">{{ game.name }}</h3>
-          <p class="game-developer">{{ game.developer }}</p>
-          <p class="game-publisher" v-if="game.publisher && game.publisher !== '未知发行商'">{{ game.publisher }}</p>
-          <p class="game-description" v-if="game.description">{{ game.description }}</p>
-          <div class="game-tags" v-if="game.tags && game.tags.length > 0">
-            <span 
-              v-for="tag in game.tags.slice(0, 3)" 
-              :key="tag" 
-              class="game-tag"
-            >{{ tag }}</span>
-            <span v-if="game.tags.length > 3" class="game-tag-more">+{{ game.tags.length - 3 }}</span>
-          </div>
-          <div class="game-stats">
-            <span class="play-time">{{ formatPlayTime(game.playTime) }}</span>
-            <span class="last-played" :class="{ 'running-status': isGameRunning(game) }">
-              <span v-if="isGameRunning(game)" class="running-indicator">
-                <span class="running-icon">▶️</span>
-                <span class="running-text">运行中</span>
-              </span>
-              <span v-else>{{ formatLastPlayed(game.lastPlayed) }}</span>
-            </span>
-          </div>
-        </div>
-      </div>
+        :game="game"
+        :is-running="isGameRunning(game)"
+        :is-electron-environment="isElectronEnvironment"
+        @click="showGameDetail"
+        @contextmenu="showGameContextMenu"
+        @play="launchGame"
+      />
     </div>
 
     <!-- 空状态 -->
@@ -399,6 +366,8 @@ import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FilterSidebar from '../components/FilterSidebar.vue'
+import GameCard from '../components/GameCard.vue'
+import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
 export default {
   name: 'GameView',
@@ -406,7 +375,8 @@ export default {
     GameToolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar
+    FilterSidebar,
+    GameCard
   },
   data() {
     return {
@@ -446,8 +416,6 @@ export default {
         imagePath: ''
       },
       editTagInput: '',
-      // 图片缓存（原始路径 -> 可显示的URL，如 data:URL 或 file://）
-      imageCache: {},
       // 排序选项
       gameSortOptions: [
         { value: 'name', label: '按名称排序' },
@@ -869,62 +837,11 @@ export default {
       }
       this.showContextMenu = false
     },
-    formatPlayTime(seconds) {
-      if (!seconds) return '未游玩'
-      const hours = Math.floor(seconds / 3600)
-      const minutes = Math.floor((seconds % 3600) / 60)
-      const remainingSeconds = seconds % 60
-      
-      if (hours > 0) {
-        return `${hours}小时 ${minutes}分钟 ${remainingSeconds}秒`
-      } else if (minutes > 0) {
-        return `${minutes}分钟 ${remainingSeconds}秒`
-      } else {
-        return `${remainingSeconds}秒`
-      }
-    },
-    formatLastPlayed(dateString) {
-      if (!dateString) return '从未游玩'
-      const date = new Date(dateString)
-      const now = new Date()
-      const diffTime = Math.abs(now - date)
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-      const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
-      const diffMinutes = Math.floor(diffTime / (1000 * 60))
-      
-      // 如果是今天（同一天）
-      if (diffDays === 0) {
-        if (diffMinutes < 1) return '刚刚'
-        if (diffMinutes < 60) return `${diffMinutes}分钟前`
-        if (diffHours < 24) return `${diffHours}小时前`
-      }
-      
-      // 如果是昨天
-      if (diffDays === 1) return '昨天'
-      if (diffDays < 7) return `${diffDays}天前`
-      if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
-      return this.formatDateTime(date)
-    },
-    formatDate(dateString) {
-      if (!dateString) return '未知'
-      const date = new Date(dateString)
-      return this.formatDateTime(date)
-    },
-    formatFirstPlayed(dateString) {
-      if (!dateString) return '从未游玩'
-      const date = new Date(dateString)
-      return this.formatDateTime(date)
-    },
-    formatDateTime(date) {
-      // 格式化为：YYYY-MM-DD HH:mm:ss
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      const hours = String(date.getHours()).padStart(2, '0')
-      const minutes = String(date.getMinutes()).padStart(2, '0')
-      const seconds = String(date.getSeconds()).padStart(2, '0')
-      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-    },
+    formatDate,
+    formatFirstPlayed,
+    formatDateTime,
+    formatPlayTime,
+    formatLastPlayed,
     resolveImage(imagePath) {
       // 空值返回默认
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
@@ -938,29 +855,10 @@ export default {
       if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
         return imagePath
       }
-      // 命中缓存
-      if (this.imageCache[imagePath]) return this.imageCache[imagePath]
-      
-      // 异步解析为 data:URL（避免 http 上直接加载 file:// 被阻止）
-      if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-        window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
-          if (dataUrl) {
-            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
-          } else {
-            this.$set ? this.$set(this.imageCache, imagePath, '/default-game.png') : (this.imageCache[imagePath] = '/default-game.png')
-          }
-        }).catch(() => {
-          this.$set ? this.$set(this.imageCache, imagePath, '/default-game.png') : (this.imageCache[imagePath] = '/default-game.png')
-        })
-      } else {
-        // 回退：尝试 file://
-        const normalizedPath = String(imagePath).replace(/\\/g, '/')
-        const fileUrl = `file:///${normalizedPath}`
-        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
-      }
-      
-      // 初次返回默认图，待异步完成后会自动刷新
-      return this.imageCache[imagePath] || '/default-game.png'
+      // 回退：尝试 file://
+      const normalizedPath = String(imagePath).replace(/\\/g, '/')
+      const fileUrl = `file:///${normalizedPath}`
+      return fileUrl
     },
     handleImageError(event) {
       event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
@@ -1409,214 +1307,6 @@ export default {
   padding: 20px;
 }
 
-.game-card {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid var(--border-color);
-  position: relative;
-}
-
-.game-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px var(--shadow-medium);
-  border-color: var(--accent-color);
-}
-
-.game-image {
-  position: relative;
-  width: 100%;
-  height: 280px;
-  overflow: hidden;
-}
-
-.game-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.game-card:hover .game-image img {
-  transform: scale(1.05);
-}
-
-.game-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.game-card:hover .game-overlay {
-  opacity: 1;
-}
-
-.play-button {
-  background: var(--accent-color);
-  color: white;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  transition: all 0.3s ease;
-}
-
-.play-button:hover {
-  background: var(--accent-hover);
-  transform: scale(1.1);
-}
-
-.game-info {
-  padding: 15px;
-}
-
-.game-title {
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-}
-
-.game-developer {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-}
-
-.game-publisher {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-  font-style: italic;
-}
-
-.game-description {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  margin-bottom: 8px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.3s ease;
-}
-
-.game-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-
-.game-tag {
-  background: var(--accent-color);
-  color: white;
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.game-tag-more {
-  background: var(--bg-tertiary);
-  color: var(--text-tertiary);
-  padding: 2px 6px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 500;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-}
-
-.game-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.play-time, .last-played {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-  transition: color 0.3s ease;
-}
-
-/* 游戏运行状态指示器 */
-.running-status {
-  color: #059669 !important;
-  font-weight: 600;
-}
-
-[data-theme="dark"] .running-status {
-  color: #10b981 !important;
-}
-
-.running-indicator {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  animation: pulse 2s infinite;
-}
-
-.running-icon {
-  font-size: 0.8rem;
-  animation: bounce 1s infinite;
-}
-
-.running-text {
-  letter-spacing: 0.5px;
-}
-
-/* 脉冲动画 */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
-/* 弹跳动画 */
-@keyframes bounce {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-1px);
-  }
-  60% {
-    transform: translateY(-0.5px);
-  }
-}
 
 
 /* 模态框样式 */
@@ -2147,11 +1837,6 @@ export default {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 15px;
   }
-  
-  .game-image {
-    height: 200px;
-  }
-  
   
   .modal-content {
     width: 95vw;

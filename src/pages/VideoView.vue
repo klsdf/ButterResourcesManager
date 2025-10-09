@@ -1,37 +1,79 @@
 <template>
   <div class="video-view">
-    <!-- 工具栏 -->
-    <GameToolbar 
-      v-model:searchQuery="searchQuery"
-      v-model:sortBy="sortBy"
-      add-button-text="添加视频"
-      search-placeholder="搜索视频..."
-      :sort-options="videoSortOptions"
-      @add-item="showAddVideoDialog"
-    />
-    
-    <!-- 测试按钮组 -->
-    <div class="test-buttons" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
-      <button class="btn-test-settings" @click="testSettings" style="padding: 8px 16px; background: #007acc; color: white; border: none; border-radius: 6px; cursor: pointer;">
-        测试设置
-      </button>
-      <button class="btn-test-internal" @click="testInternalPlayer" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
-        测试内部播放器
-      </button>
-      <button class="btn-test-thumbnail" @click="testThumbnailSave" style="padding: 8px 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer;">
-        测试缩略图保存
-      </button>
+    <!-- 左侧筛选导航栏 -->
+    <div class="filter-sidebar-container">
+      <FilterSidebar
+        :all-tags="allTags"
+        :all-filters="allActors"
+        :selected-tag="selectedTag"
+        :selected-filter="selectedActor"
+        :filter-title="'演员筛选'"
+        @tag-filter="filterByTag"
+        @filter="filterByActor"
+        @clear-tag-filter="clearTagFilter"
+        @clear-filter="clearActorFilter"
+      />
+      
+      <!-- 系列筛选 -->
+      <div class="filter-section">
+        <div class="filter-header">
+          <h3>系列筛选</h3>
+          <button class="btn-clear-filter" @click="clearSeriesFilter" v-if="selectedSeries">
+            ✕ 清除筛选
+          </button>
+        </div>
+        <div class="filter-list">
+          <div 
+            v-for="series in allSeries" 
+            :key="series.name"
+            class="filter-item"
+            :class="{ active: selectedSeries === series.name }"
+            @click="filterBySeries(series.name)"
+          >
+            <span class="filter-name">{{ series.name }}</span>
+            <span class="filter-count">({{ series.count }})</span>
+          </div>
+          <div v-if="allSeries.length === 0" class="no-filters">
+            暂无系列
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- 视频网格 -->
-    <div class="videos-grid" v-if="filteredVideos.length > 0">
-      <div 
-        v-for="video in filteredVideos" 
-        :key="video.id"
-        class="video-card"
-        @click="showVideoDetail(video)"
-        @contextmenu="showVideoContextMenu($event, video)"
-      >
+    <!-- 主内容区域 -->
+    <div class="video-content">
+      <!-- 工具栏 -->
+      <GameToolbar 
+        v-model:searchQuery="searchQuery"
+        v-model:sortBy="sortBy"
+        add-button-text="添加视频"
+        search-placeholder="搜索视频..."
+        :sort-options="videoSortOptions"
+        @add-item="showAddVideoDialog"
+      />
+      
+      <!-- 测试按钮组 -->
+      <div class="test-buttons" style="margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+        <button class="btn-test-settings" @click="testSettings" style="padding: 8px 16px; background: #007acc; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试设置
+        </button>
+        <button class="btn-test-internal" @click="testInternalPlayer" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试内部播放器
+        </button>
+        <button class="btn-test-thumbnail" @click="testThumbnailSave" style="padding: 8px 16px; background: #ff6b35; color: white; border: none; border-radius: 6px; cursor: pointer;">
+          测试缩略图保存
+        </button>
+      </div>
+
+      <!-- 视频网格 -->
+      <div class="videos-grid" v-if="filteredVideos.length > 0">
+        <div 
+          v-for="video in filteredVideos" 
+          :key="video.id"
+          class="video-card"
+          @click="showVideoDetail(video)"
+          @contextmenu="showVideoContextMenu($event, video)"
+        >
         <div class="video-thumbnail">
           <img 
             :src="getThumbnailUrl(video.thumbnail)" 
@@ -58,8 +100,6 @@
         <div class="video-info">
           <h3 class="video-title">{{ video.name }}</h3>
           <p class="video-series" v-if="video.series">{{ video.series }}</p>
-          <p class="video-director" v-if="video.director">导演: {{ video.director }}</p>
-          <p class="video-year" v-if="video.year">{{ video.year }}</p>
           <p class="video-description" v-if="video.description">{{ video.description }}</p>
           <div class="video-tags" v-if="video.tags && video.tags.length > 0">
             <span 
@@ -81,9 +121,6 @@
             </div>
             <div class="stats-row" v-if="video.addedDate">
               <span class="added-date">{{ formatAddedDate(video.addedDate) }}</span>
-            </div>
-            <div class="video-rating" v-if="video.rating > 0">
-              <span class="rating-stars">{{ '⭐'.repeat(Math.floor(video.rating)) }}</span>
             </div>
           </div>
         </div>
@@ -127,44 +164,13 @@
               >
             </div>
             
-            <div class="form-row">
-              <div class="form-group">
-                <label>系列名</label>
-                <input 
-                  type="text" 
-                  v-model="newVideo.series" 
-                  placeholder="如：复仇者联盟"
-                >
-              </div>
-              <div class="form-group">
-                <label>类型</label>
-                <input 
-                  type="text" 
-                  v-model="newVideo.genre" 
-                  placeholder="如：动作、喜剧、科幻"
-                >
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label>导演</label>
-                <input 
-                  type="text" 
-                  v-model="newVideo.director" 
-                  placeholder="导演姓名"
-                >
-              </div>
-              <div class="form-group">
-                <label>年份</label>
-                <input 
-                  type="number" 
-                  v-model="newVideo.year" 
-                  placeholder="2024"
-                  min="1900"
-                  max="2030"
-                >
-              </div>
+            <div class="form-group">
+              <label>系列名</label>
+              <input 
+                type="text" 
+                v-model="newVideo.series" 
+                placeholder="如：复仇者联盟"
+              >
             </div>
 
             <div class="form-group">
@@ -179,12 +185,31 @@
 
             <div class="form-group">
               <label>标签</label>
-              <input 
-                type="text" 
-                v-model="tagsInput" 
-                placeholder="用逗号分隔多个标签"
-                @blur="parseTags"
-              >
+              <div class="tags-input-container">
+                <div class="tags-display">
+                  <span 
+                    v-for="(tag, index) in newVideo.tags" 
+                    :key="index" 
+                    class="tag-item"
+                  >
+                    {{ tag }}
+                    <button 
+                      type="button" 
+                      class="tag-remove" 
+                      @click="removeTag(index)"
+                    >×</button>
+                  </span>
+                </div>
+                <input 
+                  type="text" 
+                  v-model="tagsInput" 
+                  @keydown.enter.prevent="addTag"
+                  @keydown.comma.prevent="addTag"
+                  placeholder="输入标签后按回车或逗号添加"
+                  class="tag-input"
+                >
+              </div>
+              <div class="tag-hint">提示：输入标签后按回车键或逗号键添加，点击标签上的×号删除</div>
             </div>
 
             <div class="form-group">
@@ -226,27 +251,14 @@
               </div>
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label>时长 (分钟)</label>
-                <input 
-                  type="number" 
-                  v-model="newVideo.duration" 
-                  placeholder="120"
-                  min="0"
-                >
-              </div>
-              <div class="form-group">
-                <label>评分 (1-5)</label>
-                <input 
-                  type="number" 
-                  v-model="newVideo.rating" 
-                  placeholder="5"
-                  min="0"
-                  max="5"
-                  step="0.1"
-                >
-              </div>
+            <div class="form-group">
+              <label>时长 (分钟)</label>
+              <input 
+                type="number" 
+                v-model="newVideo.duration" 
+                placeholder="120"
+                min="0"
+              >
             </div>
           </form>
         </div>
@@ -278,9 +290,6 @@
                 <h4>基本信息</h4>
                 <p><strong>名称:</strong> {{ selectedVideo.name }}</p>
                 <p v-if="selectedVideo.series"><strong>系列:</strong> {{ selectedVideo.series }}</p>
-                <p v-if="selectedVideo.director"><strong>导演:</strong> {{ selectedVideo.director }}</p>
-                <p v-if="selectedVideo.year"><strong>年份:</strong> {{ selectedVideo.year }}</p>
-                <p v-if="selectedVideo.genre"><strong>类型:</strong> {{ selectedVideo.genre }}</p>
                 <p v-if="selectedVideo.duration"><strong>时长:</strong> {{ formatDuration(selectedVideo.duration) }}</p>
               </div>
               
@@ -309,7 +318,6 @@
                 <p v-if="selectedVideo.addedDate"><strong>添加时间:</strong> {{ formatAddedDate(selectedVideo.addedDate) }}</p>
                 <p v-if="selectedVideo.firstWatched"><strong>首次观看:</strong> {{ formatFirstWatched(selectedVideo.firstWatched) }}</p>
                 <p v-if="selectedVideo.lastWatched"><strong>最后观看:</strong> {{ formatLastWatched(selectedVideo.lastWatched) }}</p>
-                <p v-if="selectedVideo.rating > 0"><strong>评分:</strong> {{ '⭐'.repeat(Math.floor(selectedVideo.rating)) }} ({{ selectedVideo.rating }})</p>
               </div>
             </div>
           </div>
@@ -347,25 +355,9 @@
           <label>名称</label>
           <input type="text" v-model="editVideoForm.name">
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>系列</label>
-            <input type="text" v-model="editVideoForm.series">
-          </div>
-          <div class="form-group">
-            <label>类型</label>
-            <input type="text" v-model="editVideoForm.genre">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>导演</label>
-            <input type="text" v-model="editVideoForm.director">
-          </div>
-          <div class="form-group">
-            <label>年份</label>
-            <input type="number" v-model="editVideoForm.year" min="1900" max="2030">
-          </div>
+        <div class="form-group">
+          <label>系列</label>
+          <input type="text" v-model="editVideoForm.series">
         </div>
         <div class="form-group">
           <label>演员</label>
@@ -373,7 +365,30 @@
         </div>
         <div class="form-group">
           <label>标签</label>
-          <input type="text" v-model="editTagsInput" placeholder="用逗号分隔多个标签" @blur="parseEditTags">
+          <div class="tags-input-container">
+            <div class="tags-display">
+              <span 
+                v-for="(tag, index) in editVideoForm.tags" 
+                :key="index" 
+                class="tag-item"
+              >
+                {{ tag }}
+                <button 
+                  type="button" 
+                  class="tag-remove" 
+                  @click="removeEditTag(index)"
+                >×</button>
+              </span>
+            </div>
+            <input 
+              type="text" 
+              v-model="editTagsInput" 
+              @keydown.enter.prevent="addEditTag"
+              @keydown.comma.prevent="addEditTag"
+              placeholder="输入标签后按回车或逗号添加"
+              class="tag-input"
+            >
+          </div>
         </div>
         <div class="form-group">
           <label>描述</label>
@@ -404,15 +419,9 @@
             <div v-else class="thumb-placeholder">无缩略图</div>
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>时长 (分钟)</label>
-            <input type="number" v-model.number="editVideoForm.duration" min="0">
-          </div>
-          <div class="form-group">
-            <label>评分 (1-5)</label>
-            <input type="number" v-model.number="editVideoForm.rating" min="0" max="5" step="0.1">
-          </div>
+        <div class="form-group">
+          <label>时长 (分钟)</label>
+          <input type="number" v-model.number="editVideoForm.duration" min="0">
         </div>
       </div>
       <div class="modal-footer">
@@ -421,15 +430,15 @@
       </div>
     </div>
 
- 
-  </div>
-     <!-- 右键菜单 -->
+      <!-- 右键菜单 -->
      <ContextMenu
       :visible="showContextMenu"
       :position="contextMenuPos"
       :menu-items="videoContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+    </div>
+  </div>
 </template>
 
 <script>
@@ -437,6 +446,7 @@ import VideoManager from '../utils/VideoManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FilterSidebar from '../components/FilterSidebar.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -444,7 +454,8 @@ export default {
   components: {
     GameToolbar,
     EmptyState,
-    ContextMenu
+    ContextMenu,
+    FilterSidebar
   },
   data() {
     return {
@@ -463,13 +474,9 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        director: '',
-        genre: '',
-        year: '',
         duration: 0,
         filePath: '',
-        thumbnail: '',
-        rating: 0
+        thumbnail: ''
       },
       actorsInput: '',
       tagsInput: '',
@@ -482,13 +489,9 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        director: '',
-        genre: '',
-        year: '',
         duration: 0,
         filePath: '',
-        thumbnail: '',
-        rating: 0
+        thumbnail: ''
       },
       editActorsInput: '',
       editTagsInput: '',
@@ -499,8 +502,7 @@ export default {
         { value: 'name', label: '按名称排序' },
         { value: 'lastWatched', label: '按最后观看时间' },
         { value: 'watchCount', label: '按观看次数' },
-        { value: 'added', label: '按添加时间' },
-        { value: 'rating', label: '按评分排序' }
+        { value: 'added', label: '按添加时间' }
       ],
       // 右键菜单配置
       videoContextMenuItems: [
@@ -509,25 +511,41 @@ export default {
         { key: 'folder', icon: '📁', label: '打开文件夹' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'remove', icon: '🗑️', label: '删除视频' }
-      ]
+      ],
+      // 标签筛选相关
+      allTags: [],
+      selectedTag: null,
+      // 演员筛选相关
+      allActors: [],
+      selectedActor: null,
+      // 系列筛选相关
+      allSeries: [],
+      selectedSeries: null
     }
   },
   computed: {
     filteredVideos() {
-      let filtered = this.videos
-
-      // 搜索过滤
-      if (this.searchQuery) {
-        const query = this.searchQuery.toLowerCase()
-        filtered = filtered.filter(video => 
-          video.name.toLowerCase().includes(query) ||
-          video.description.toLowerCase().includes(query) ||
-          video.series.toLowerCase().includes(query) ||
-          video.director.toLowerCase().includes(query) ||
-          video.actors.some(actor => actor.toLowerCase().includes(query)) ||
-          video.tags.some(tag => tag.toLowerCase().includes(query))
+      let filtered = this.videos.filter(video => {
+        // 搜索筛选
+        const matchesSearch = !this.searchQuery || (
+          video.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          video.description.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          video.series.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+          video.actors.some(actor => actor.toLowerCase().includes(this.searchQuery.toLowerCase())) ||
+          video.tags.some(tag => tag.toLowerCase().includes(this.searchQuery.toLowerCase()))
         )
-      }
+        
+        // 标签筛选
+        const matchesTag = !this.selectedTag || (video.tags && video.tags.includes(this.selectedTag))
+        
+        // 演员筛选
+        const matchesActor = !this.selectedActor || (video.actors && video.actors.includes(this.selectedActor))
+        
+        // 系列筛选
+        const matchesSeries = !this.selectedSeries || video.series === this.selectedSeries
+        
+        return matchesSearch && matchesTag && matchesActor && matchesSeries
+      })
 
       // 排序
       filtered.sort((a, b) => {
@@ -540,8 +558,6 @@ export default {
             return b.watchCount - a.watchCount
           case 'added':
             return new Date(b.addedDate) - new Date(a.addedDate)
-          case 'rating':
-            return b.rating - a.rating
           default:
             return 0
         }
@@ -564,6 +580,7 @@ export default {
       if (this.videoManager) {
         await this.videoManager.loadVideos()
         this.videos = this.videoManager.getVideos()
+        this.extractAllFilters()
       }
     },
 
@@ -584,13 +601,9 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        director: '',
-        genre: '',
-        year: '',
         duration: 0,
         filePath: '',
-        thumbnail: '',
-        rating: 0
+        thumbnail: ''
       }
       this.actorsInput = ''
       this.tagsInput = ''
@@ -602,10 +615,15 @@ export default {
       }
     },
 
-    parseTags() {
-      if (this.tagsInput.trim()) {
-        this.newVideo.tags = this.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag)
+    addTag() {
+      const tag = this.tagsInput.trim()
+      if (tag && !this.newVideo.tags.includes(tag)) {
+        this.newVideo.tags.push(tag)
+        this.tagsInput = ''
       }
+    },
+    removeTag(index) {
+      this.newVideo.tags.splice(index, 1)
     },
 
     async selectVideoFile() {
@@ -672,7 +690,6 @@ export default {
       }
 
       this.parseActors()
-      this.parseTags()
 
       try {
         // 若未设置缩略图且存在视频文件，尝试生成一张
@@ -742,16 +759,12 @@ export default {
         tags: Array.isArray(video.tags) ? [...video.tags] : [],
         actors: Array.isArray(video.actors) ? [...video.actors] : [],
         series: video.series || '',
-        director: video.director || '',
-        genre: video.genre || '',
-        year: video.year || '',
         duration: Number(video.duration) || 0,
         filePath: video.filePath || '',
-        thumbnail: video.thumbnail || '',
-        rating: Number(video.rating) || 0
+        thumbnail: video.thumbnail || ''
       }
       this.editActorsInput = (this.editVideoForm.actors || []).join(', ')
-      this.editTagsInput = (this.editVideoForm.tags || []).join(', ')
+      this.editTagsInput = ''
       this.showEditDialog = true
     },
     closeEditDialog() {
@@ -764,12 +777,15 @@ export default {
         this.editVideoForm.actors = []
       }
     },
-    parseEditTags() {
-      if (this.editTagsInput && this.editTagsInput.trim()) {
-        this.editVideoForm.tags = this.editTagsInput.split(',').map(s => s.trim()).filter(Boolean)
-      } else {
-        this.editVideoForm.tags = []
+    addEditTag() {
+      const tag = this.editTagsInput.trim()
+      if (tag && !this.editVideoForm.tags.includes(tag)) {
+        this.editVideoForm.tags.push(tag)
+        this.editTagsInput = ''
       }
+    },
+    removeEditTag(index) {
+      this.editVideoForm.tags.splice(index, 1)
     },
     async browseEditVideoFile() {
       try {
@@ -833,20 +849,15 @@ export default {
     async saveEditedVideo() {
       try {
         this.parseEditActors()
-        this.parseEditTags()
         const payload = {
           name: (this.editVideoForm.name || '').trim(),
           description: (this.editVideoForm.description || '').trim(),
           tags: this.editVideoForm.tags,
           actors: this.editVideoForm.actors,
           series: (this.editVideoForm.series || '').trim(),
-          director: (this.editVideoForm.director || '').trim(),
-          genre: (this.editVideoForm.genre || '').trim(),
-          year: this.editVideoForm.year,
           duration: Number(this.editVideoForm.duration) || 0,
           filePath: (this.editVideoForm.filePath || '').trim(),
-          thumbnail: (this.editVideoForm.thumbnail || '').trim(),
-          rating: Number(this.editVideoForm.rating) || 0
+          thumbnail: (this.editVideoForm.thumbnail || '').trim()
         }
         await this.videoManager.updateVideo(this.editVideoForm.id, payload)
         await this.loadVideos()
@@ -1754,6 +1765,72 @@ export default {
         console.error('测试缩略图保存失败:', error)
         alert('❌ 测试缩略图保存失败: ' + error.message)
       }
+    },
+
+    // 提取标签、演员、系列信息
+    extractAllFilters() {
+      const tagCount = {}
+      const actorCount = {}
+      const seriesCount = {}
+      
+      this.videos.forEach(video => {
+        // 提取标签
+        if (video.tags && Array.isArray(video.tags)) {
+          video.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1
+          })
+        }
+        
+        // 提取演员
+        if (video.actors && Array.isArray(video.actors)) {
+          video.actors.forEach(actor => {
+            actorCount[actor] = (actorCount[actor] || 0) + 1
+          })
+        }
+        
+        // 提取系列
+        if (video.series) {
+          seriesCount[video.series] = (seriesCount[video.series] || 0) + 1
+        }
+      })
+      
+      // 转换为数组并按名称排序
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allActors = Object.entries(actorCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allSeries = Object.entries(seriesCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    
+    // 筛选方法
+    filterByTag(tagName) {
+      this.selectedTag = this.selectedTag === tagName ? null : tagName
+    },
+    
+    clearTagFilter() {
+      this.selectedTag = null
+    },
+    
+    filterByActor(actorName) {
+      this.selectedActor = this.selectedActor === actorName ? null : actorName
+    },
+    
+    clearActorFilter() {
+      this.selectedActor = null
+    },
+    
+    filterBySeries(seriesName) {
+      this.selectedSeries = this.selectedSeries === seriesName ? null : seriesName
+    },
+    
+    clearSeriesFilter() {
+      this.selectedSeries = null
     }
   }
 }
@@ -1761,7 +1838,114 @@ export default {
 
 <style scoped>
 .video-view {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 筛选栏容器 */
+.filter-sidebar-container {
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+}
+
+/* 系列筛选样式 - 与FilterSidebar保持一致 */
+.filter-section {
+  border-top: 1px solid var(--border-color);
+  margin-top: 10px;
+  padding: 20px 0 0 0;
+}
+
+.filter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 20px 10px 20px;
+}
+
+.filter-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.btn-clear-filter {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-clear-filter:hover {
+  background: var(--accent-hover);
+}
+
+.filter-list {
+  padding: 0;
+}
+
+.filter-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+}
+
+.filter-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.filter-item.active {
+  background: var(--accent-color);
+  color: white;
+  border-left-color: var(--accent-hover);
+}
+
+.filter-item.active .filter-count {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-name {
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.filter-count {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  transition: color 0.3s ease;
+}
+
+.no-filters {
   padding: 20px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* 视频主内容区域 */
+.video-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* 工具栏样式 */
@@ -1818,6 +2002,7 @@ export default {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
   margin-bottom: 30px;
+  padding: 20px;
 }
 
 .video-card {
@@ -1944,12 +2129,6 @@ export default {
   font-weight: 500;
 }
 
-.video-director,
-.video-year {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0 0 5px 0;
-}
 
 .video-description {
   font-size: 13px;
@@ -2024,16 +2203,6 @@ export default {
   color: var(--text-tertiary);
 }
 
-.video-rating {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 4px;
-}
-
-.rating-stars {
-  font-size: 14px;
-}
 
 /* 空状态样式 */
 .empty-state {
@@ -2397,6 +2566,88 @@ export default {
   border-radius: 6px;
   font-size: 12px;
   border: 1px solid var(--border-color);
+}
+
+/* 标签输入样式 */
+.tags-input-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  padding: 8px;
+  transition: all 0.3s ease;
+}
+
+.tags-input-container:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--accent-color-20);
+}
+
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  min-height: 20px;
+}
+
+.tag-item {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-color);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  gap: 4px;
+  transition: background 0.3s ease;
+}
+
+.tag-item:hover {
+  background: var(--accent-hover);
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.tag-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 4px 0;
+  outline: none;
+}
+
+.tag-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.tag-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  line-height: 1.4;
 }
 
 /* 响应式设计 */
