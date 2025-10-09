@@ -1,0 +1,7 @@
+<svg width="200" height="280" viewBox="0 0 200 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="280" fill="#F3F4F6"/>
+  <circle cx="100" cy="140" r="40" fill="#9CA3AF"/>
+  <path d="M85 125 L85 155 L100 150 L115 155 L115 125 L100 130 Z" fill="white"/>
+  <path d="M120 120 Q130 130 120 140 Q130 150 120 160" stroke="white" stroke-width="3" fill="none"/>
+  <text x="100" y="200" text-anchor="middle" fill="#6B7280" font-family="Arial, sans-serif" font-size="14" font-weight="500">音频</text>
+</svg>

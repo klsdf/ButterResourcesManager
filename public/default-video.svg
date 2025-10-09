@@ -1,0 +1,6 @@
+<svg width="200" height="280" viewBox="0 0 200 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="280" fill="#F3F4F6"/>
+  <rect x="50" y="100" width="100" height="80" rx="8" fill="#9CA3AF"/>
+  <polygon points="70,120 70,160 130,140" fill="white"/>
+  <text x="100" y="200" text-anchor="middle" fill="#6B7280" font-family="Arial, sans-serif" font-size="14" font-weight="500">视频</text>
+</svg>
