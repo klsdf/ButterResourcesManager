@@ -903,13 +903,13 @@ export default {
         alert('保存编辑失败: ' + e.message)
       }
     },
-    viewPage(index) {
+    async viewPage(index) {
       // 打开漫画阅读器，index是当前分页中的相对索引
       const actualIndex = this.currentPageStartIndex + index
       this.currentPageIndex = actualIndex
       this.jumpToPage = actualIndex + 1
       this.showComicViewer = true
-      this.loadCurrentPage()
+      await this.loadCurrentPage()
     },
     resolveImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
@@ -939,6 +939,42 @@ export default {
       }
       return this.imageCache[imagePath] || '/default-novel.svg'
     },
+    
+    async resolveImageAsync(imagePath) {
+      if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
+        return '/default-novel.svg'
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+        return imagePath
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
+        return imagePath
+      }
+      if (this.imageCache[imagePath]) return this.imageCache[imagePath]
+      
+      if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
+        try {
+          const dataUrl = await window.electronAPI.readFileAsDataUrl(imagePath)
+          if (dataUrl) {
+            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
+            return dataUrl
+          } else {
+            this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
+            return '/default-novel.svg'
+          }
+        } catch (error) {
+          console.error('读取图片文件失败:', error)
+          this.$set ? this.$set(this.imageCache, imagePath, '/default-novel.svg') : (this.imageCache[imagePath] = '/default-novel.svg')
+          return '/default-novel.svg'
+        }
+      } else {
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+        return fileUrl
+      }
+    },
+    
     handleImageError(event) {
       event.target.src = '/default-novel.svg'
     },
@@ -955,14 +991,14 @@ export default {
     },
     
      // 漫画阅读器方法
-     loadCurrentPage() {
+     async loadCurrentPage() {
        if (this.pages && this.pages.length > 0 && this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
          const imagePath = this.pages[this.currentPageIndex]
-         this.currentPageImage = this.resolveImage(imagePath)
+         this.currentPageImage = await this.resolveImageAsync(imagePath)
          this.jumpToPage = this.currentPageIndex + 1
        } else if (this.currentAlbum && this.currentAlbum.folderPath) {
          // 如果pages还没有加载，先加载图片文件
-         this.loadAlbumPages()
+         await this.loadAlbumPages()
        }
      },
      async loadAlbumPages() {
@@ -984,7 +1020,7 @@ export default {
          if (files.length > 0) {
            const targetIndex = Math.max(0, Math.min(this.currentPageIndex, files.length - 1))
            this.currentPageIndex = targetIndex
-           this.currentPageImage = this.resolveImage(files[targetIndex])
+           this.currentPageImage = await this.resolveImageAsync(files[targetIndex])
            this.jumpToPage = targetIndex + 1
          }
        } catch (e) {
@@ -992,25 +1028,25 @@ export default {
        }
      },
     
-    nextPage() {
+    async nextPage() {
       if (this.currentPageIndex < this.pages.length - 1) {
         this.currentPageIndex++
-        this.loadCurrentPage()
+        await this.loadCurrentPage()
       }
     },
     
-    previousPage() {
+    async previousPage() {
       if (this.currentPageIndex > 0) {
         this.currentPageIndex--
-        this.loadCurrentPage()
+        await this.loadCurrentPage()
       }
     },
     
-    jumpToPageNumber() {
+    async jumpToPageNumber() {
       const pageNum = parseInt(this.jumpToPage)
       if (pageNum >= 1 && pageNum <= this.pages.length) {
         this.currentPageIndex = pageNum - 1
-        this.loadCurrentPage()
+        await this.loadCurrentPage()
       }
     },
     
