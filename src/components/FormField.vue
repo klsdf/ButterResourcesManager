@@ -1,3 +1,4 @@
+<!-- 表单输入框 -->
 <template>
   <div class="form-group">
     <label v-if="label">{{ label }}</label>
@@ -149,10 +150,13 @@ export default {
 
 .form-input,
 .form-textarea,
-select {
+select ,
+.tags-input-container {
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid #d1d5db;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
   border-radius: 0.375rem;
   font-size: 0.875rem;
   line-height: 1.25rem;
@@ -161,7 +165,8 @@ select {
 
 .form-input:focus,
 .form-textarea:focus,
-select:focus {
+select:focus,
+.tags-input-container:focus-within {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
@@ -171,7 +176,7 @@ select:focus {
 .form-textarea:disabled,
 select:disabled {
   background-color: #f9fafb;
-  color: #6b7280;
+  color: #333436;
   cursor: not-allowed;
 }
 
@@ -190,26 +195,27 @@ select:disabled {
 }
 
 .btn-browse {
-  padding: 0.5rem 1rem;
-  background-color: #3b82f6;
+  padding: 10px 16px;
+  background-color: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 0.875rem;
-  transition: background-color 0.15s ease-in-out;
+  min-width: 80px;
+  transition: background-color 0.3s ease-in-out;
 }
 
 .btn-browse:hover {
-  background-color: #2563eb;
+  background-color: var(--accent-hover);
 }
 
-.tags-input-container {
-  border: 1px solid #d1d5db;
+/* { */
+  /* border: px solid #d1d5db;
   border-radius: 0.375rem;
   padding: 0.5rem;
   background-color: white;
-}
+} */
 
 .tags-display {
   display: flex;
@@ -221,18 +227,19 @@ select:disabled {
 .tag-item {
   display: inline-flex;
   align-items: center;
-  background-color: #e5e7eb;
-  color: #374151;
+  background-color: var(--accent-color);
+  color: #ffffff;
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.75rem;
   gap: 0.25rem;
+  transition: background-color 0.3s ease;
 }
 
 .tag-remove {
   background: none;
   border: none;
-  color: #6b7280;
+  color: #ffffff;
   cursor: pointer;
   font-size: 0.875rem;
   line-height: 1;
@@ -258,6 +265,6 @@ select:disabled {
 }
 
 .tag-input::placeholder {
-  color: #9ca3af;
+  color: var(--text-primary);
 }
 </style>
