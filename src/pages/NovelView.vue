@@ -34,7 +34,7 @@
             :item="novel"
             type="novel"
             :isElectronEnvironment="true"
-            @click="handleNovelClick"
+            @click="showNovelDetail"
             @contextmenu="showNovelContextMenu"
             @action="handleNovelClick"
           />
