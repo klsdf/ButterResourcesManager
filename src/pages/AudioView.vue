@@ -306,6 +306,8 @@ export default {
       // 筛选器相关数据
       selectedTag: null,
       selectedArtist: null,
+      excludedTag: null,
+      excludedArtist: null,
       allTags: [],
       allArtists: [],
       showAddDialog: false,
@@ -366,11 +368,21 @@ export default {
           audio.tags && audio.tags.includes(this.selectedTag)
         )
       }
+      if (this.excludedTag) {
+        filtered = filtered.filter(audio => 
+          !(audio.tags && audio.tags.includes(this.excludedTag))
+        )
+      }
       
       // 艺术家筛选
       if (this.selectedArtist) {
         filtered = filtered.filter(audio => 
           audio.artist === this.selectedArtist
+        )
+      }
+      if (this.excludedArtist) {
+        filtered = filtered.filter(audio => 
+          audio.artist !== this.excludedArtist
         )
       }
       
@@ -445,7 +457,17 @@ export default {
     
     // 筛选方法
     filterByTag(tagName) {
-      this.selectedTag = this.selectedTag === tagName ? null : tagName
+      if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedTag = null
+      } else if (this.excludedTag === tagName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedTag = null
+        this.selectedTag = tagName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedTag = tagName
+      }
       this.updateFilterData()
     },
     
@@ -455,12 +477,53 @@ export default {
     },
     
     filterByArtist(artistName) {
-      this.selectedArtist = this.selectedArtist === artistName ? null : artistName
+      if (this.selectedArtist === artistName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedArtist = null
+      } else if (this.excludedArtist === artistName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedArtist = null
+        this.selectedArtist = artistName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedArtist = artistName
+      }
       this.updateFilterData()
     },
     
     clearArtistFilter() {
       this.selectedArtist = null
+      this.updateFilterData()
+    },
+    
+    // 排除方法
+    excludeByTag(tagName) {
+      if (this.excludedTag === tagName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedTag = null
+      } else if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedTag = null
+        this.excludedTag = tagName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedTag = tagName
+      }
+      this.updateFilterData()
+    },
+    
+    excludeByArtist(artistName) {
+      if (this.excludedArtist === artistName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedArtist = null
+      } else if (this.selectedArtist === artistName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedArtist = null
+        this.excludedArtist = artistName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedArtist = artistName
+      }
       this.updateFilterData()
     },
     
@@ -474,11 +537,20 @@ export default {
             this.filterByArtist(data.itemName)
           }
           break
+        case 'filter-exclude':
+          if (data.filterKey === 'tags') {
+            this.excludeByTag(data.itemName)
+          } else if (data.filterKey === 'artists') {
+            this.excludeByArtist(data.itemName)
+          }
+          break
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
+            this.excludedTag = null
           } else if (data === 'artists') {
             this.clearArtistFilter()
+            this.excludedArtist = null
           }
           break
       }
@@ -492,13 +564,15 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag
+            selected: this.selectedTag,
+            excluded: this.excludedTag
           },
           {
             key: 'artists',
             title: '艺术家筛选',
             items: this.allArtists,
-            selected: this.selectedArtist
+            selected: this.selectedArtist,
+            excluded: this.excludedArtist
           }
         ]
       })

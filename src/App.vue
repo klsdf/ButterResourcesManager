@@ -23,8 +23,7 @@
           <span class="nav-icon">📢</span>
           <span class="nav-text">信息中心</span>
         </div>
-        <div :class="{ active: currentView === 'help' }" @click="switchView('help')"
-          class="nav-item help-item">
+        <div :class="{ active: currentView === 'help' }" @click="switchView('help')" class="nav-item help-item">
           <span class="nav-icon">❓</span>
           <span class="nav-text">帮助</span>
         </div>
@@ -38,6 +37,8 @@
 
     <!-- 主内容区域 -->
     <main class="main-content">
+
+      <!-- 标题和简介 -->
       <header class="content-header">
         <h2>{{ getCurrentViewTitle() }}</h2>
         <p>{{ getCurrentViewDescription() }}</p>
@@ -46,56 +47,29 @@
       <div class="content-body" :class="{ 'with-filter': showFilterSidebar }">
         <!-- 筛选器侧边栏 - 只在需要筛选的页面显示 -->
         <div v-if="showFilterSidebar" class="filter-sidebar-container">
-          <FilterSidebar
-            :filters="currentFilterData.filters"
-            @filter-select="onFilterSelect"
-            @filter-clear="onFilterClear"
-          />
+          <FilterSidebar :filters="currentFilterData.filters" @filter-select="onFilterSelect"
+            @filter-exclude="onFilterExclude" @filter-clear="onFilterClear" />
         </div>
-        
+
         <!-- 页面内容区域 -->
         <div class="page-content">
           <!-- 游戏页面 -->
-          <GameView 
-            v-if="currentView === 'games'" 
-            ref="gameView"
-            @filter-data-updated="updateFilterData"
-          />
+          <GameView v-if="currentView === 'games'" ref="gameView" @filter-data-updated="updateFilterData" />
 
           <!-- 图片页面 -->
-          <ImageView 
-            v-if="currentView === 'images'" 
-            ref="imageView"
-            @filter-data-updated="updateFilterData"
-          />
+          <ImageView v-if="currentView === 'images'" ref="imageView" @filter-data-updated="updateFilterData" />
 
           <!-- 视频页面 -->
-          <VideoView 
-            v-if="currentView === 'videos'" 
-            ref="videoView"
-            @filter-data-updated="updateFilterData"
-          />
+          <VideoView v-if="currentView === 'videos'" ref="videoView" @filter-data-updated="updateFilterData" />
 
           <!-- 小说页面 -->
-          <NovelView 
-            v-if="currentView === 'novels'" 
-            ref="novelView"
-            @filter-data-updated="updateFilterData"
-          />
+          <NovelView v-if="currentView === 'novels'" ref="novelView" @filter-data-updated="updateFilterData" />
 
           <!-- 网站页面 -->
-          <WebsiteView 
-            v-if="currentView === 'websites'" 
-            ref="websiteView"
-            @filter-data-updated="updateFilterData"
-          />
+          <WebsiteView v-if="currentView === 'websites'" ref="websiteView" @filter-data-updated="updateFilterData" />
 
-        <!-- 声音页面 -->
-        <AudioView 
-          v-if="currentView === 'audio'" 
-          ref="audioView"
-          @filter-data-updated="updateFilterData"
-        />
+          <!-- 声音页面 -->
+          <AudioView v-if="currentView === 'audio'" ref="audioView" @filter-data-updated="updateFilterData" />
 
           <!-- 信息中心页面 -->
           <MessageCenterView v-if="currentView === 'messages'" />
@@ -216,15 +190,48 @@ export default {
       // 更新筛选器的选中状态
       const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
       if (filter) {
-        filter.selected = filter.selected === itemName ? null : itemName
+        // 如果点击的是已选中的项目，则取消选择
+        if (filter.selected === itemName) {
+          filter.selected = null
+        } else {
+          // 如果点击的是已排除的项目，则切换为选中状态
+          if (filter.excluded === itemName) {
+            filter.excluded = null
+            filter.selected = itemName
+          } else {
+            // 否则直接设置为选中状态
+            filter.selected = itemName
+          }
+        }
       }
       this.notifyCurrentView('filter-select', { filterKey, itemName })
     },
+    onFilterExclude({ filterKey, itemName }) {
+      // 更新筛选器的排除状态
+      const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
+      if (filter) {
+        // 如果右键点击的是已排除的项目，则取消排除
+        if (filter.excluded === itemName) {
+          filter.excluded = null
+        } else {
+          // 如果右键点击的是已选中的项目，则切换为排除状态
+          if (filter.selected === itemName) {
+            filter.selected = null
+            filter.excluded = itemName
+          } else {
+            // 否则直接设置为排除状态
+            filter.excluded = itemName
+          }
+        }
+      }
+      this.notifyCurrentView('filter-exclude', { filterKey, itemName })
+    },
     onFilterClear(filterKey) {
-      // 清除筛选器的选中状态
+      // 清除筛选器的选中和排除状态
       const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
       if (filter) {
         filter.selected = null
+        filter.excluded = null
       }
       this.notifyCurrentView('filter-clear', filterKey)
     },
@@ -304,7 +311,7 @@ export default {
   async mounted() {
     // 初始化筛选器状态
     this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(this.currentView)
-    
+
     // 初始化通知服务
     try {
       const notificationService = (await import('./utils/NotificationService.js')).default
@@ -385,5 +392,4 @@ export default {
   transition: background-color 0.3s ease;
   flex-shrink: 0;
 }
-
 </style>

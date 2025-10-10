@@ -530,9 +530,11 @@ export default {
       // 标签筛选相关
       allTags: [],
       selectedTag: null,
+      excludedTag: null,
       // 作者筛选相关
       allAuthors: [],
-      selectedAuthor: null
+      selectedAuthor: null,
+      excludedAuthor: null
     }
   },
   computed: {
@@ -545,11 +547,13 @@ export default {
         
         // 标签筛选
         const matchesTag = !this.selectedTag || (album.tags && album.tags.includes(this.selectedTag))
+        const notExcludedTag = !this.excludedTag || !(album.tags && album.tags.includes(this.excludedTag))
         
         // 作者筛选
         const matchesAuthor = !this.selectedAuthor || album.author === this.selectedAuthor
+        const notExcludedAuthor = !this.excludedAuthor || album.author !== this.excludedAuthor
         
-        return matchesSearch && matchesTag && matchesAuthor
+        return matchesSearch && matchesTag && notExcludedTag && matchesAuthor && notExcludedAuthor
       })
       
       // 排序
@@ -1952,7 +1956,17 @@ export default {
     
     // 筛选方法
     filterByTag(tagName) {
-      this.selectedTag = this.selectedTag === tagName ? null : tagName
+      if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedTag = null
+      } else if (this.excludedTag === tagName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedTag = null
+        this.selectedTag = tagName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedTag = tagName
+      }
       this.updateFilterData()
     },
     
@@ -1962,12 +1976,53 @@ export default {
     },
     
     filterByAuthor(authorName) {
-      this.selectedAuthor = this.selectedAuthor === authorName ? null : authorName
+      if (this.selectedAuthor === authorName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedAuthor = null
+      } else if (this.excludedAuthor === authorName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedAuthor = null
+        this.selectedAuthor = authorName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedAuthor = authorName
+      }
       this.updateFilterData()
     },
     
     clearAuthorFilter() {
       this.selectedAuthor = null
+      this.updateFilterData()
+    },
+    
+    // 排除方法
+    excludeByTag(tagName) {
+      if (this.excludedTag === tagName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedTag = null
+      } else if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedTag = null
+        this.excludedTag = tagName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedTag = tagName
+      }
+      this.updateFilterData()
+    },
+    
+    excludeByAuthor(authorName) {
+      if (this.excludedAuthor === authorName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedAuthor = null
+      } else if (this.selectedAuthor === authorName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedAuthor = null
+        this.excludedAuthor = authorName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedAuthor = authorName
+      }
       this.updateFilterData()
     },
     
@@ -1981,11 +2036,20 @@ export default {
             this.filterByAuthor(data.itemName)
           }
           break
+        case 'filter-exclude':
+          if (data.filterKey === 'tags') {
+            this.excludeByTag(data.itemName)
+          } else if (data.filterKey === 'authors') {
+            this.excludeByAuthor(data.itemName)
+          }
+          break
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
+            this.excludedTag = null
           } else if (data === 'authors') {
             this.clearAuthorFilter()
+            this.excludedAuthor = null
           }
           break
       }
@@ -1999,13 +2063,15 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag
+            selected: this.selectedTag,
+            excluded: this.excludedTag
           },
           {
             key: 'authors',
             title: '作者筛选',
             items: this.allAuthors,
-            selected: this.selectedAuthor
+            selected: this.selectedAuthor,
+            excluded: this.excludedAuthor
           }
         ]
       })

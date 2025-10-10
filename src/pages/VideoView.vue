@@ -394,12 +394,15 @@ export default {
       // 标签筛选相关
       allTags: [],
       selectedTag: null,
+      excludedTag: null,
       // 演员筛选相关
       allActors: [],
       selectedActor: null,
+      excludedActor: null,
       // 系列筛选相关
       allSeries: [],
-      selectedSeries: null
+      selectedSeries: null,
+      excludedSeries: null
     }
   },
   computed: {
@@ -416,14 +419,17 @@ export default {
         
         // 标签筛选
         const matchesTag = !this.selectedTag || (video.tags && video.tags.includes(this.selectedTag))
+        const notExcludedTag = !this.excludedTag || !(video.tags && video.tags.includes(this.excludedTag))
         
         // 演员筛选
         const matchesActor = !this.selectedActor || (video.actors && video.actors.includes(this.selectedActor))
+        const notExcludedActor = !this.excludedActor || !(video.actors && video.actors.includes(this.excludedActor))
         
         // 系列筛选
         const matchesSeries = !this.selectedSeries || video.series === this.selectedSeries
+        const notExcludedSeries = !this.excludedSeries || video.series !== this.excludedSeries
         
-        return matchesSearch && matchesTag && matchesActor && matchesSeries
+        return matchesSearch && matchesTag && notExcludedTag && matchesActor && notExcludedActor && matchesSeries && notExcludedSeries
       })
 
       // 排序
@@ -1980,7 +1986,17 @@ export default {
     
     // 筛选方法
     filterByTag(tagName) {
-      this.selectedTag = this.selectedTag === tagName ? null : tagName
+      if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedTag = null
+      } else if (this.excludedTag === tagName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedTag = null
+        this.selectedTag = tagName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedTag = tagName
+      }
       this.updateFilterData()
     },
     
@@ -1990,7 +2006,17 @@ export default {
     },
     
     filterByActor(actorName) {
-      this.selectedActor = this.selectedActor === actorName ? null : actorName
+      if (this.selectedActor === actorName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedActor = null
+      } else if (this.excludedActor === actorName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedActor = null
+        this.selectedActor = actorName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedActor = actorName
+      }
       this.updateFilterData()
     },
     
@@ -2000,12 +2026,68 @@ export default {
     },
     
     filterBySeries(seriesName) {
-      this.selectedSeries = this.selectedSeries === seriesName ? null : seriesName
+      if (this.selectedSeries === seriesName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedSeries = null
+      } else if (this.excludedSeries === seriesName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedSeries = null
+        this.selectedSeries = seriesName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedSeries = seriesName
+      }
       this.updateFilterData()
     },
     
     clearSeriesFilter() {
       this.selectedSeries = null
+      this.updateFilterData()
+    },
+    
+    // 排除方法
+    excludeByTag(tagName) {
+      if (this.excludedTag === tagName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedTag = null
+      } else if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedTag = null
+        this.excludedTag = tagName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedTag = tagName
+      }
+      this.updateFilterData()
+    },
+    
+    excludeByActor(actorName) {
+      if (this.excludedActor === actorName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedActor = null
+      } else if (this.selectedActor === actorName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedActor = null
+        this.excludedActor = actorName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedActor = actorName
+      }
+      this.updateFilterData()
+    },
+    
+    excludeBySeries(seriesName) {
+      if (this.excludedSeries === seriesName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedSeries = null
+      } else if (this.selectedSeries === seriesName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedSeries = null
+        this.excludedSeries = seriesName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedSeries = seriesName
+      }
       this.updateFilterData()
     },
     
@@ -2021,13 +2103,25 @@ export default {
             this.filterBySeries(data.itemName)
           }
           break
+        case 'filter-exclude':
+          if (data.filterKey === 'tags') {
+            this.excludeByTag(data.itemName)
+          } else if (data.filterKey === 'actors') {
+            this.excludeByActor(data.itemName)
+          } else if (data.filterKey === 'series') {
+            this.excludeBySeries(data.itemName)
+          }
+          break
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
+            this.excludedTag = null
           } else if (data === 'actors') {
             this.clearActorFilter()
+            this.excludedActor = null
           } else if (data === 'series') {
             this.clearSeriesFilter()
+            this.excludedSeries = null
           }
           break
       }
@@ -2041,19 +2135,22 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag
+            selected: this.selectedTag,
+            excluded: this.excludedTag
           },
           {
             key: 'actors',
             title: '演员筛选',
             items: this.allActors,
-            selected: this.selectedActor
+            selected: this.selectedActor,
+            excluded: this.excludedActor
           },
           {
             key: 'series',
             title: '系列筛选',
             items: this.allSeries,
-            selected: this.selectedSeries
+            selected: this.selectedSeries,
+            excluded: this.excludedSeries
           }
         ]
       })

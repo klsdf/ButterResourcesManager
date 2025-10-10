@@ -391,9 +391,11 @@ export default {
       // 标签筛选相关
       allTags: [],
       selectedTag: null,
+      excludedTag: null,
       // 开发商筛选相关
       allDevelopers: [],
       selectedDeveloper: null,
+      excludedDeveloper: null,
       // 更新文件夹大小相关
       isUpdatingFolderSize: false
     }
@@ -407,11 +409,13 @@ export default {
         
         // 标签筛选
         const matchesTag = !this.selectedTag || (game.tags && game.tags.includes(this.selectedTag))
+        const notExcludedTag = !this.excludedTag || !(game.tags && game.tags.includes(this.excludedTag))
         
         // 开发商筛选
         const matchesDeveloper = !this.selectedDeveloper || game.developer === this.selectedDeveloper
+        const notExcludedDeveloper = !this.excludedDeveloper || game.developer !== this.excludedDeveloper
         
-        return matchesSearch && matchesTag && matchesDeveloper
+        return matchesSearch && matchesTag && notExcludedTag && matchesDeveloper && notExcludedDeveloper
       })
       
       // 排序
@@ -1227,7 +1231,17 @@ export default {
         .sort((a, b) => a.name.localeCompare(b.name))
     },
     filterByTag(tagName) {
-      this.selectedTag = this.selectedTag === tagName ? null : tagName
+      if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedTag = null
+      } else if (this.excludedTag === tagName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedTag = null
+        this.selectedTag = tagName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedTag = tagName
+      }
       this.updateFilterData()
     },
     clearTagFilter() {
@@ -1235,11 +1249,52 @@ export default {
       this.updateFilterData()
     },
     filterByDeveloper(developerName) {
-      this.selectedDeveloper = this.selectedDeveloper === developerName ? null : developerName
+      if (this.selectedDeveloper === developerName) {
+        // 如果当前是选中状态，则取消选择
+        this.selectedDeveloper = null
+      } else if (this.excludedDeveloper === developerName) {
+        // 如果当前是排除状态，则切换为选中状态
+        this.excludedDeveloper = null
+        this.selectedDeveloper = developerName
+      } else {
+        // 否则直接设置为选中状态
+        this.selectedDeveloper = developerName
+      }
       this.updateFilterData()
     },
     clearDeveloperFilter() {
       this.selectedDeveloper = null
+      this.updateFilterData()
+    },
+    
+    // 排除方法
+    excludeByTag(tagName) {
+      if (this.excludedTag === tagName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedTag = null
+      } else if (this.selectedTag === tagName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedTag = null
+        this.excludedTag = tagName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedTag = tagName
+      }
+      this.updateFilterData()
+    },
+    
+    excludeByDeveloper(developerName) {
+      if (this.excludedDeveloper === developerName) {
+        // 如果已经是排除状态，则取消排除
+        this.excludedDeveloper = null
+      } else if (this.selectedDeveloper === developerName) {
+        // 如果当前是选中状态，则切换为排除状态
+        this.selectedDeveloper = null
+        this.excludedDeveloper = developerName
+      } else {
+        // 否则直接设置为排除状态
+        this.excludedDeveloper = developerName
+      }
       this.updateFilterData()
     },
     // 处理来自 App.vue 的筛选器事件
@@ -1252,11 +1307,20 @@ export default {
             this.filterByDeveloper(data.itemName)
           }
           break
+        case 'filter-exclude':
+          if (data.filterKey === 'tags') {
+            this.excludeByTag(data.itemName)
+          } else if (data.filterKey === 'developers') {
+            this.excludeByDeveloper(data.itemName)
+          }
+          break
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
+            this.excludedTag = null
           } else if (data === 'developers') {
             this.clearDeveloperFilter()
+            this.excludedDeveloper = null
           }
           break
       }
@@ -1269,13 +1333,15 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag
+            selected: this.selectedTag,
+            excluded: this.excludedTag
           },
           {
             key: 'developers',
             title: '开发商筛选',
             items: this.allDevelopers,
-            selected: this.selectedDeveloper
+            selected: this.selectedDeveloper,
+            excluded: this.excludedDeveloper
           }
         ]
       })

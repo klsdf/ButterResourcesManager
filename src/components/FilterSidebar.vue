@@ -22,9 +22,15 @@
           v-for="item in filter.items" 
           :key="item.name"
           class="filter-item"
-          :class="{ active: filter.selected === item.name }"
+          :class="{ 
+            active: filter.selected === item.name,
+            excluded: filter.excluded === item.name
+          }"
           @click="selectFilter(filter.key, item.name)"
+          @contextmenu.prevent="excludeFilter(filter.key, item.name)"
         >
+          <span v-if="filter.selected === item.name" class="include-indicator">✓</span>
+          <span v-if="filter.excluded === item.name" class="exclude-indicator">∅</span>
           <span class="filter-name">{{ item.name }}</span>
           <span class="filter-count">({{ item.count }})</span>
         </div>
@@ -49,15 +55,19 @@ export default {
           filter.key && 
           filter.title && 
           Array.isArray(filter.items) &&
-          typeof filter.selected === 'string' || filter.selected === null
+          (typeof filter.selected === 'string' || filter.selected === null) &&
+          (typeof filter.excluded === 'string' || filter.excluded === null)
         )
       }
     }
   },
-  emits: ['filter-select', 'filter-clear'],
+  emits: ['filter-select', 'filter-exclude', 'filter-clear'],
   methods: {
     selectFilter(filterKey, itemName) {
       this.$emit('filter-select', { filterKey, itemName })
+    },
+    excludeFilter(filterKey, itemName) {
+      this.$emit('filter-exclude', { filterKey, itemName })
     },
     clearFilter(filterKey) {
       this.$emit('filter-clear', filterKey)
@@ -140,13 +150,44 @@ export default {
 }
 
 .filter-item.active {
-  background: var(--accent-color);
+  background: #4caf50;
   color: white;
-  border-left-color: var(--accent-hover);
+  border-left-color: #45a049;
 }
 
 .filter-item.active .filter-count {
   color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-item.excluded {
+  background: #ff6b6b;
+  color: white;
+  border-left-color: #ff5252;
+}
+
+.filter-item.excluded .filter-count {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 确保文字不居中 */
+.filter-item {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.include-indicator {
+  margin-right: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
+}
+
+.exclude-indicator {
+  margin-right: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: white;
 }
 
 .filter-name {
