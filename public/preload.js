@@ -26,7 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
-  selectImageFile: () => ipcRenderer.invoke('select-image-file'),
+  selectImageFile: (defaultPath) => ipcRenderer.invoke('select-image-file', defaultPath),
+  selectScreenshotImage: (screenshotDir) => ipcRenderer.invoke('select-screenshot-image', screenshotDir),
   selectVideoFile: () => ipcRenderer.invoke('select-video-file'),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   listImageFiles: (folderPath) => ipcRenderer.invoke('list-image-files', folderPath),

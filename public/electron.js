@@ -337,7 +337,42 @@ ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
     
     // 如果提供了默认路径，设置为默认目录
     if (defaultPath) {
-      dialogOptions.defaultPath = defaultPath
+      // 确保路径格式正确
+      const normalizedPath = defaultPath.replace(/\\/g, '/')
+      
+      // 检查路径是否存在
+      try {
+        const fs = require('fs')
+        const path = require('path')
+        
+        // 将相对路径转换为绝对路径
+        let absolutePath = normalizedPath
+        if (!path.isAbsolute(normalizedPath)) {
+          // 如果是相对路径，基于应用目录
+          absolutePath = path.join(process.cwd(), normalizedPath)
+        }
+        
+        console.log('检查路径是否存在:', absolutePath)
+        
+        // 检查目录是否存在
+        if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isDirectory()) {
+          // 使用绝对路径作为 defaultPath
+          dialogOptions.defaultPath = absolutePath
+          console.log('设置默认路径为:', absolutePath)
+        } else {
+          console.log('路径不存在，使用默认行为')
+          // 如果路径不存在，尝试使用父目录
+          const parentDir = path.dirname(absolutePath)
+          if (fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory()) {
+            dialogOptions.defaultPath = parentDir
+            console.log('使用父目录作为默认路径:', parentDir)
+          }
+        }
+      } catch (pathError) {
+        console.error('处理默认路径时出错:', pathError)
+        // 如果处理路径时出错，使用原始路径
+        dialogOptions.defaultPath = normalizedPath
+      }
     }
     
     const result = await dialog.showOpenDialog(mainWindow, dialogOptions)
@@ -348,6 +383,57 @@ ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
     return null
   } catch (error) {
     console.error('选择图片文件失败:', error)
+    throw error
+  }
+})
+
+// 新增：专门用于选择截图文件夹中图片的 IPC 处理程序
+ipcMain.handle('select-screenshot-image', async (event, screenshotDir) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    // 将相对路径转换为绝对路径
+    let absolutePath = screenshotDir
+    if (!path.isAbsolute(screenshotDir)) {
+      absolutePath = path.join(process.cwd(), screenshotDir)
+    }
+    
+    console.log('选择截图图片，目标目录:', absolutePath)
+    
+    // 确保目录存在
+    if (!fs.existsSync(absolutePath)) {
+      console.log('截图目录不存在，创建目录:', absolutePath)
+      fs.mkdirSync(absolutePath, { recursive: true })
+    }
+    
+    // 检查目录中是否有图片文件
+    const files = fs.readdirSync(absolutePath)
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase()
+      return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+    })
+    
+    console.log('目录中的图片文件:', imageFiles)
+    
+    const dialogOptions = {
+      title: '选择截图作为封面',
+      defaultPath: absolutePath,
+      filters: [
+        { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
+        { name: '所有文件', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    }
+    
+    const result = await dialog.showOpenDialog(mainWindow, dialogOptions)
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      return result.filePaths[0]
+    }
+    return null
+  } catch (error) {
+    console.error('选择截图图片失败:', error)
     throw error
   }
 })

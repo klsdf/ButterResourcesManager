@@ -848,16 +848,41 @@ export default {
         }
         
         // 构建完整的游戏截图文件夹路径
-        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`
+        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`.replace(/\\/g, '/')
         
         console.log('尝试从截图文件夹选择封面:', gameScreenshotPath)
+        console.log('基础截图路径:', baseScreenshotsPath)
+        console.log('游戏文件夹名:', gameFolderName)
         
-        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
-          // 使用文件选择器，设置默认路径为截图文件夹
-          const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
-          if (filePath) {
-            this.editGameForm.imagePath = filePath
-            this.showNotification('设置成功', '已选择截图作为封面')
+        // 确保截图文件夹存在
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.ensureDirectory) {
+          try {
+            const ensureResult = await window.electronAPI.ensureDirectory(gameScreenshotPath)
+            if (ensureResult.success) {
+              console.log('截图文件夹已确保存在:', gameScreenshotPath)
+            } else {
+              console.warn('创建截图文件夹失败:', ensureResult.error)
+            }
+          } catch (error) {
+            console.warn('确保截图文件夹存在时出错:', error)
+          }
+        }
+        
+        if (this.isElectronEnvironment && window.electronAPI) {
+          // 使用专门的截图图片选择器
+          if (window.electronAPI.selectScreenshotImage) {
+            const filePath = await window.electronAPI.selectScreenshotImage(gameScreenshotPath)
+            if (filePath) {
+              this.editGameForm.imagePath = filePath
+              this.showNotification('设置成功', '已选择截图作为封面')
+            }
+          } else if (window.electronAPI.selectImageFile) {
+            // 降级到普通图片选择器
+            const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
+            if (filePath) {
+              this.editGameForm.imagePath = filePath
+              this.showNotification('设置成功', '已选择截图作为封面')
+            }
           }
         } else {
           alert('当前环境不支持选择图片功能')
@@ -929,16 +954,41 @@ export default {
         }
         
         // 构建完整的游戏截图文件夹路径
-        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`
+        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`.replace(/\\/g, '/')
         
         console.log('尝试从截图文件夹选择封面:', gameScreenshotPath)
+        console.log('基础截图路径:', baseScreenshotsPath)
+        console.log('游戏文件夹名:', gameFolderName)
         
-        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
-          // 使用文件选择器，设置默认路径为截图文件夹
-          const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
-          if (filePath) {
-            this.newGame.imagePath = filePath
-            this.showNotification('设置成功', '已选择截图作为封面')
+        // 确保截图文件夹存在
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.ensureDirectory) {
+          try {
+            const ensureResult = await window.electronAPI.ensureDirectory(gameScreenshotPath)
+            if (ensureResult.success) {
+              console.log('截图文件夹已确保存在:', gameScreenshotPath)
+            } else {
+              console.warn('创建截图文件夹失败:', ensureResult.error)
+            }
+          } catch (error) {
+            console.warn('确保截图文件夹存在时出错:', error)
+          }
+        }
+        
+        if (this.isElectronEnvironment && window.electronAPI) {
+          // 使用专门的截图图片选择器
+          if (window.electronAPI.selectScreenshotImage) {
+            const filePath = await window.electronAPI.selectScreenshotImage(gameScreenshotPath)
+            if (filePath) {
+              this.newGame.imagePath = filePath
+              this.showNotification('设置成功', '已选择截图作为封面')
+            }
+          } else if (window.electronAPI.selectImageFile) {
+            // 降级到普通图片选择器
+            const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
+            if (filePath) {
+              this.newGame.imagePath = filePath
+              this.showNotification('设置成功', '已选择截图作为封面')
+            }
           }
         } else {
           alert('当前环境不支持选择图片功能')
