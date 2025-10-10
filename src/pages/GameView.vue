@@ -1727,7 +1727,7 @@ export default {
 /* 游戏网格样式 */
 .games-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 20px;
   padding: 20px;
 }
