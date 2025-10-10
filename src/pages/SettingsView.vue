@@ -88,6 +88,19 @@
                   </label>
                 </div>
               </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">打开存档文件夹</span>
+                  <span class="setting-desc">在文件管理器中打开应用存档文件夹</span>
+                </label>
+                <div class="setting-control">
+                  <button class="btn-open-save-data-folder" @click="openSaveDataFolder">
+                    <span class="btn-icon">📁</span>
+                    打开文件夹
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -577,10 +590,6 @@
           <button class="btn-danger" @click="exportSettings">
             <span class="btn-icon">📤</span>
             导出设置
-          </button>
-          <button class="btn-info" @click="openSaveDataFolder">
-            <span class="btn-icon">📁</span>
-            打开存档文件夹
           </button>
         </div>
       </div>
@@ -1562,6 +1571,26 @@ export default {
 
 .btn-open-screenshot-folder:hover {
   background: #7c3aed;
+  transform: translateY(-1px);
+}
+
+.btn-open-save-data-folder {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-open-save-data-folder:hover {
+  background: #059669;
   transform: translateY(-1px);
 }
 
