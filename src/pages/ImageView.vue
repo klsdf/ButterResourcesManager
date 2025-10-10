@@ -122,6 +122,10 @@
                   <span class="btn-icon">🖼️</span>
                   使用第一张图片
                 </button>
+                <button type="button" class="btn-cover-action" @click="selectImageFromFolderNew" :disabled="!newAlbum.folderPath">
+                  <span class="btn-icon">📂</span>
+                  从文件夹选择
+                </button>
                 <button type="button" class="btn-cover-action" @click="browseForImageNew">
                   <span class="btn-icon">📁</span>
                   选择自定义封面
@@ -322,9 +326,13 @@
                 </div>
               </div>
               <div class="cover-actions">
-                <button type="button" class="btn-cover-action" @click="useFirstImageAsCover">
+                <button type="button" class="btn-cover-action" @click="useFirstImageAsCover" :disabled="!editAlbumForm.folderPath">
                   <span class="btn-icon">🖼️</span>
                   使用第一张图片
+                </button>
+                <button type="button" class="btn-cover-action" @click="selectImageFromFolder" :disabled="!editAlbumForm.folderPath">
+                  <span class="btn-icon">📂</span>
+                  从文件夹选择
                 </button>
                 <button type="button" class="btn-cover-action" @click="browseForImageEdit">
                   <span class="btn-icon">📁</span>
@@ -1401,6 +1409,38 @@ export default {
       }
     },
     
+    async selectImageFromFolder() {
+      try {
+        if (!this.editAlbumForm.folderPath) {
+          alert('请先选择漫画文件夹')
+          return
+        }
+        
+        console.log('从文件夹选择封面，目标目录:', this.editAlbumForm.folderPath)
+        
+        if (window.electronAPI && window.electronAPI.selectScreenshotImage) {
+          // 使用专门的截图图片选择器（可以用于任何文件夹）
+          const filePath = await window.electronAPI.selectScreenshotImage(this.editAlbumForm.folderPath)
+          if (filePath) {
+            this.editAlbumForm.cover = filePath
+            this.showNotification('设置成功', '已从文件夹选择封面')
+          }
+        } else if (window.electronAPI && window.electronAPI.selectImageFile) {
+          // 降级到普通图片选择器
+          const filePath = await window.electronAPI.selectImageFile(this.editAlbumForm.folderPath)
+          if (filePath) {
+            this.editAlbumForm.cover = filePath
+            this.showNotification('设置成功', '已从文件夹选择封面')
+          }
+        } else {
+          alert('当前环境不支持从文件夹选择图片功能')
+        }
+      } catch (error) {
+        console.error('从文件夹选择封面失败:', error)
+        alert(`从文件夹选择封面失败: ${error.message}`)
+      }
+    },
+    
     clearCover() {
       this.editAlbumForm.cover = ''
     },
@@ -1431,6 +1471,38 @@ export default {
       } catch (e) {
         console.error('设置第一张图片为封面失败:', e)
         alert('设置封面失败: ' + e.message)
+      }
+    },
+    
+    async selectImageFromFolderNew() {
+      try {
+        if (!this.newAlbum.folderPath) {
+          alert('请先选择漫画文件夹')
+          return
+        }
+        
+        console.log('从文件夹选择封面，目标目录:', this.newAlbum.folderPath)
+        
+        if (window.electronAPI && window.electronAPI.selectScreenshotImage) {
+          // 使用专门的截图图片选择器（可以用于任何文件夹）
+          const filePath = await window.electronAPI.selectScreenshotImage(this.newAlbum.folderPath)
+          if (filePath) {
+            this.newAlbum.cover = filePath
+            this.showNotification('设置成功', '已从文件夹选择封面')
+          }
+        } else if (window.electronAPI && window.electronAPI.selectImageFile) {
+          // 降级到普通图片选择器
+          const filePath = await window.electronAPI.selectImageFile(this.newAlbum.folderPath)
+          if (filePath) {
+            this.newAlbum.cover = filePath
+            this.showNotification('设置成功', '已从文件夹选择封面')
+          }
+        } else {
+          alert('当前环境不支持从文件夹选择图片功能')
+        }
+      } catch (error) {
+        console.error('从文件夹选择封面失败:', error)
+        alert(`从文件夹选择封面失败: ${error.message}`)
       }
     },
     
