@@ -375,10 +375,14 @@
               :src="currentPageImage" 
               :alt="`第 ${currentPageIndex + 1} 页`"
               class="comic-image"
-              :style="{ transform: `scale(${zoomLevel})` }"
+              :style="{ transform: `scale(${zoomLevel}) translate(${imageOffsetX}px, ${imageOffsetY}px)` }"
               @load="onImageLoad"
               @error="onImageError"
               @wheel="onImageWheel"
+              @mousedown="onImageMouseDown"
+              @mousemove="onImageMouseMove"
+              @mouseup="onImageMouseUp"
+              @mouseleave="onImageMouseUp"
             >
             <div v-else class="loading-placeholder">
               <div class="loading-spinner"></div>
@@ -390,6 +394,7 @@
         <!-- 图片文件名显示 -->
         <div class="image-filename" v-if="currentPageImage && pages[currentPageIndex]">
           {{ getImageFileName(pages[currentPageIndex]) }}
+          <span class="file-size">({{ currentFileSize > 0 ? formatFileSize(currentFileSize) : '获取中...' }})</span>
         </div>
         
         <!-- 阅读器底部导航 -->
@@ -518,10 +523,17 @@ export default {
       showComicViewer: false,
       currentPageIndex: 0,
       currentPageImage: null,
+      currentFileSize: 0,
       zoomLevel: 1,
       showPageNumbers: true,
       jumpToPage: 1,
       isFullscreen: false,
+      // 图片拖动相关
+      isDragging: false,
+      dragStartX: 0,
+      dragStartY: 0,
+      imageOffsetX: 0,
+      imageOffsetY: 0,
       // 分页相关
       currentPage: 1,
       pageSize: 50,
@@ -1646,6 +1658,48 @@ export default {
       const fileName = imagePath.split(/[\\/]/).pop()
       return fileName || imagePath
     },
+    
+    // 格式化文件大小
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B'
+      
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+    },
+    
+    // 获取文件大小（异步）
+    async getFileSize(filePath) {
+      try {
+        console.log('尝试获取文件大小:', filePath)
+        if (window.electronAPI && window.electronAPI.getFileStats) {
+          const result = await window.electronAPI.getFileStats(filePath)
+          console.log('文件统计信息:', result)
+          if (result && result.success) {
+            return result.size || 0
+          } else {
+            console.error('获取文件统计信息失败:', result?.error || '未知错误')
+            return 0
+          }
+        } else {
+          console.log('Electron API 不可用，尝试使用 fetch 获取文件大小')
+          // 降级方案：尝试通过 fetch 获取文件大小
+          try {
+            const response = await fetch(filePath, { method: 'HEAD' })
+            const contentLength = response.headers.get('content-length')
+            return contentLength ? parseInt(contentLength) : 0
+          } catch (fetchError) {
+            console.log('fetch 方法也失败:', fetchError)
+            return 0
+          }
+        }
+      } catch (error) {
+        console.error('获取文件大小失败:', error)
+        return 0
+      }
+    },
     formatDate(dateString) {
       if (!dateString) return '未知'
       const d = new Date(dateString)
@@ -1662,8 +1716,14 @@ export default {
      async loadCurrentPage() {
        if (this.pages && this.pages.length > 0 && this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
          const imagePath = this.pages[this.currentPageIndex]
+         console.log('加载当前页，图片路径:', imagePath)
          this.currentPageImage = await this.resolveImageAsync(imagePath)
          this.jumpToPage = this.currentPageIndex + 1
+         
+         // 获取当前文件大小
+         console.log('开始获取文件大小...')
+         this.currentFileSize = await this.getFileSize(imagePath)
+         console.log('获取到的文件大小:', this.currentFileSize)
        } else if (this.currentAlbum && this.currentAlbum.folderPath) {
          // 如果pages还没有加载，先加载图片文件
          await this.loadAlbumPages()
@@ -1766,6 +1826,9 @@ export default {
            this.currentPageImage = await this.resolveImageAsync(files[targetIndex])
            this.jumpToPage = targetIndex + 1
            
+           // 获取当前文件大小
+           this.currentFileSize = await this.getFileSize(files[targetIndex])
+           
            console.log('当前页图片加载完成')
          } else {
            console.log('没有图片文件，跳过当前页加载')
@@ -1783,6 +1846,9 @@ export default {
     async nextPage() {
       if (this.currentPageIndex < this.pages.length - 1) {
         this.currentPageIndex++
+        // 切换页面时重置拖动偏移
+        this.imageOffsetX = 0
+        this.imageOffsetY = 0
         await this.loadCurrentPage()
       }
     },
@@ -1790,6 +1856,9 @@ export default {
     async previousPage() {
       if (this.currentPageIndex > 0) {
         this.currentPageIndex--
+        // 切换页面时重置拖动偏移
+        this.imageOffsetX = 0
+        this.imageOffsetY = 0
         await this.loadCurrentPage()
       }
     },
@@ -1798,6 +1867,9 @@ export default {
       const pageNum = parseInt(this.jumpToPage)
       if (pageNum >= 1 && pageNum <= this.pages.length) {
         this.currentPageIndex = pageNum - 1
+        // 跳转页面时重置拖动偏移
+        this.imageOffsetX = 0
+        this.imageOffsetY = 0
         await this.loadCurrentPage()
       }
     },
@@ -1805,20 +1877,34 @@ export default {
     zoomIn() {
       if (this.zoomLevel < 3) {
         this.zoomLevel = Math.min(3, this.zoomLevel + 0.25)
+        // 如果缩放到1倍以下，重置拖动偏移
+        if (this.zoomLevel <= 1) {
+          this.imageOffsetX = 0
+          this.imageOffsetY = 0
+        }
       }
     },
     
     zoomOut() {
       if (this.zoomLevel > 0.5) {
         this.zoomLevel = Math.max(0.5, this.zoomLevel - 0.25)
+        // 如果缩放到1倍以下，重置拖动偏移
+        if (this.zoomLevel <= 1) {
+          this.imageOffsetX = 0
+          this.imageOffsetY = 0
+        }
       }
     },
     
     
     toggleFullscreen() {
       if (!document.fullscreenElement) {
-        this.$refs.comicViewerContent?.requestFullscreen()
-        this.isFullscreen = true
+        // 让整个漫画阅读器全屏，而不是只有图片部分
+        const comicViewerContent = document.querySelector('.comic-viewer-content')
+        if (comicViewerContent) {
+          comicViewerContent.requestFullscreen()
+          this.isFullscreen = true
+        }
       } else {
         document.exitFullscreen()
         this.isFullscreen = false
@@ -1829,8 +1915,14 @@ export default {
        this.showComicViewer = false
        this.currentPageIndex = 0
        this.currentPageImage = null
+       this.currentFileSize = 0
        this.zoomLevel = 1
        this.jumpToPage = 1
+       
+       // 重置拖动状态
+       this.endDragging()
+       this.imageOffsetX = 0
+       this.imageOffsetY = 0
        
        // 只清空阅读器相关的状态，保留currentAlbum用于详情页显示
        // 如果是从详情页打开的，保持详情页状态
@@ -1863,6 +1955,59 @@ export default {
         this.zoomIn()
       } else {
         this.zoomOut()
+      }
+    },
+    
+    // 图片拖动相关方法
+    onImageMouseDown(event) {
+      // 只有在放大状态下才允许拖动
+      if (this.zoomLevel > 1) {
+        event.preventDefault()
+        this.isDragging = true
+        this.dragStartX = event.clientX - this.imageOffsetX
+        this.dragStartY = event.clientY - this.imageOffsetY
+        
+        // 添加全局鼠标事件监听
+        document.addEventListener('mousemove', this.onDocumentMouseMove)
+        document.addEventListener('mouseup', this.onDocumentMouseUp)
+      }
+    },
+    
+    onImageMouseMove(event) {
+      // 这个方法主要用于防止默认行为，实际拖动在 onDocumentMouseMove 中处理
+      if (this.isDragging) {
+        event.preventDefault()
+      }
+    },
+    
+    onImageMouseUp(event) {
+      this.endDragging()
+    },
+    
+    onDocumentMouseMove(event) {
+      if (this.isDragging) {
+        event.preventDefault()
+        this.imageOffsetX = event.clientX - this.dragStartX
+        this.imageOffsetY = event.clientY - this.dragStartY
+        
+        // 限制拖动范围，防止图片拖出视野太远
+        const maxOffset = 200
+        this.imageOffsetX = Math.max(-maxOffset, Math.min(maxOffset, this.imageOffsetX))
+        this.imageOffsetY = Math.max(-maxOffset, Math.min(maxOffset, this.imageOffsetY))
+      }
+    },
+    
+    onDocumentMouseUp(event) {
+      this.endDragging()
+    },
+    
+    endDragging() {
+      if (this.isDragging) {
+        this.isDragging = false
+        
+        // 移除全局鼠标事件监听
+        document.removeEventListener('mousemove', this.onDocumentMouseMove)
+        document.removeEventListener('mouseup', this.onDocumentMouseUp)
       }
     },
     
@@ -3137,10 +3282,21 @@ export default {
   cursor: grabbing;
 }
 
+/* 当图片放大时显示拖动光标 */
+.comic-image[style*="scale(1.25)"],
+.comic-image[style*="scale(1.5)"],
+.comic-image[style*="scale(1.75)"],
+.comic-image[style*="scale(2)"],
+.comic-image[style*="scale(2.25)"],
+.comic-image[style*="scale(2.5)"],
+.comic-image[style*="scale(2.75)"],
+.comic-image[style*="scale(3)"] {
+  cursor: grab;
+}
+
 .image-filename {
   text-align: center;
   padding: 8px 16px;
-
   color: var(--text-secondary);
   border-radius: 6px;
   font-size: 0.9rem;
@@ -3152,6 +3308,13 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); */
+}
+
+.file-size {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  margin-left: 8px;
+  opacity: 0.8;
 }
 
 .loading-placeholder {
@@ -3277,11 +3440,28 @@ export default {
   border-radius: 0;
   max-width: none;
   max-height: none;
+  background: var(--bg-primary);
 }
 
 .comic-viewer-content:fullscreen .comic-viewer-header,
 .comic-viewer-content:fullscreen .comic-viewer-footer {
   border-radius: 0;
+  background: var(--bg-secondary);
+  backdrop-filter: blur(10px);
+  border: none;
+}
+
+.comic-viewer-content:fullscreen .comic-viewer-header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.comic-viewer-content:fullscreen .comic-viewer-footer {
+  border-top: 1px solid var(--border-color);
+}
+
+/* 全屏时隐藏文件名显示，避免遮挡图片 */
+.comic-viewer-content:fullscreen .image-filename {
+  display: none;
 }
 
 /* 拖拽样式 */

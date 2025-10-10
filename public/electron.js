@@ -1878,6 +1878,46 @@ ipcMain.handle('open-file-folder', async (event, filePath) => {
   }
 })
 
+// 获取文件统计信息
+ipcMain.handle('get-file-stats', async (event, filePath) => {
+  try {
+    if (!filePath) {
+      return { success: false, error: '文件路径不能为空' }
+    }
+    
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+    
+    // 获取文件统计信息
+    const stats = fs.statSync(filePath)
+    
+    console.log('文件统计信息:', {
+      filePath: filePath,
+      size: stats.size,
+      isFile: stats.isFile(),
+      isDirectory: stats.isDirectory(),
+      mtime: stats.mtime,
+      ctime: stats.ctime
+    })
+    
+    return {
+      success: true,
+      size: stats.size,
+      isFile: stats.isFile(),
+      isDirectory: stats.isDirectory(),
+      mtime: stats.mtime,
+      ctime: stats.ctime,
+      atime: stats.atime,
+      birthtime: stats.birthtime
+    }
+  } catch (error) {
+    console.error('获取文件统计信息失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // 列出指定文件夹下的图片文件
 ipcMain.handle('list-image-files', async (event, folderPath) => {
   try {

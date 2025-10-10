@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 文件操作
   writeFile: (filePath, buffer) => ipcRenderer.invoke('write-file', filePath, buffer),
   saveThumbnail: (filePath, dataUrl) => ipcRenderer.invoke('save-thumbnail', filePath, dataUrl),
+  getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
   
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
