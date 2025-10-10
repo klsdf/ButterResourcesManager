@@ -1109,6 +1109,7 @@ export default {
     
     clearTagFilter() {
       this.selectedTag = null
+      this.excludedTag = null
       this.updateFilterData()
     },
     
@@ -1129,6 +1130,7 @@ export default {
     
     clearAuthorFilter() {
       this.selectedAuthor = null
+      this.excludedAuthor = null
       this.updateFilterData()
     },
     

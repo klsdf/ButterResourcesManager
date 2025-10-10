@@ -12,7 +12,7 @@
         <button 
           class="btn-clear-filter" 
           @click="clearFilter(filter.key)" 
-          v-if="filter.selected"
+          v-if="filter.selected || filter.excluded"
         >
           ✕ 清除筛选
         </button>

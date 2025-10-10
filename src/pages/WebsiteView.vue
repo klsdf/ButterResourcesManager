@@ -594,6 +594,7 @@ export default {
     
     clearTagFilter() {
       this.selectedTag = null
+      this.excludedTag = null
       this.updateFilterData()
     },
     
@@ -614,6 +615,7 @@ export default {
     
     clearCategoryFilter() {
       this.selectedCategory = null
+      this.excludedCategory = null
       this.updateFilterData()
     },
     

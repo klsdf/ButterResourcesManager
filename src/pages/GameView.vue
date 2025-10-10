@@ -1246,6 +1246,7 @@ export default {
     },
     clearTagFilter() {
       this.selectedTag = null
+      this.excludedTag = null
       this.updateFilterData()
     },
     filterByDeveloper(developerName) {
@@ -1264,6 +1265,7 @@ export default {
     },
     clearDeveloperFilter() {
       this.selectedDeveloper = null
+      this.excludedDeveloper = null
       this.updateFilterData()
     },
     

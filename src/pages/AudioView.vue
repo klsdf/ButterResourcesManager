@@ -473,6 +473,7 @@ export default {
     
     clearTagFilter() {
       this.selectedTag = null
+      this.excludedTag = null
       this.updateFilterData()
     },
     
@@ -493,6 +494,7 @@ export default {
     
     clearArtistFilter() {
       this.selectedArtist = null
+      this.excludedArtist = null
       this.updateFilterData()
     },
     

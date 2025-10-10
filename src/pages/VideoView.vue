@@ -2002,6 +2002,7 @@ export default {
     
     clearTagFilter() {
       this.selectedTag = null
+      this.excludedTag = null
       this.updateFilterData()
     },
     
@@ -2022,6 +2023,7 @@ export default {
     
     clearActorFilter() {
       this.selectedActor = null
+      this.excludedActor = null
       this.updateFilterData()
     },
     
@@ -2042,6 +2044,7 @@ export default {
     
     clearSeriesFilter() {
       this.selectedSeries = null
+      this.excludedSeries = null
       this.updateFilterData()
     },
     
