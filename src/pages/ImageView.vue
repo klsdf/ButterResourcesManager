@@ -51,7 +51,7 @@
       v-else-if="albums.length === 0"
       icon="🖼️"
       title="还没有添加漫画"
-      description="点击&quot;添加漫画&quot;按钮选择文件夹，或直接拖拽文件夹到此处"
+      description="点击&quot;添加漫画&quot;按钮选择文件夹，或直接拖拽文件夹到此处（支持多选）"
       :show-button="true"
       button-text="添加第一个漫画"
       @action="showAddAlbumDialog"
@@ -617,6 +617,7 @@ export default {
     },
     
     async handleDrop(event) {
+      console.log('=== 拖拽事件开始 ===')
       event.preventDefault()
       this.isDragOver = false
       
@@ -636,196 +637,353 @@ export default {
           webkitGetAsEntry: f.webkitGetAsEntry ? 'exists' : 'not exists'
         })))
         
-        // 检查是否是文件夹拖拽的另一种方式
-        const hasWebkitRelativePath = files.some(f => f.webkitRelativePath && f.webkitRelativePath.includes('/'))
-        const hasPathProperty = files.some(f => f.path)
-        console.log('检测结果:', {
-          hasWebkitRelativePath,
-          hasPathProperty,
-          filesWithWebkitPath: files.filter(f => f.webkitRelativePath).length,
-          filesWithPath: files.filter(f => f.path).length
-        })
-        
         if (files.length === 0) {
+          console.log('没有拖拽文件，显示错误通知')
           this.showNotification('拖拽失败', '请拖拽文件夹到此处')
           return
         }
         
-        // 检查是否拖拽的是文件夹
-        // 方法1: 通过 webkitRelativePath 判断（标准方法）
-        const folderFiles = files.filter(file => file.webkitRelativePath && file.webkitRelativePath.includes('/'))
+        // 检测多个文件夹
+        console.log('开始检测多个文件夹...')
+        const detectedFolders = this.detectMultipleFolders(files)
+        console.log('检测到的文件夹:', detectedFolders)
         
-        console.log('文件夹文件数量:', folderFiles.length)
-        console.log('文件夹文件详情:', folderFiles.map(f => ({
-          name: f.name,
-          webkitRelativePath: f.webkitRelativePath,
-          path: f.path
-        })))
+        if (detectedFolders.length === 0) {
+          console.log('未检测到有效文件夹，显示错误通知')
+          this.showNotification('拖拽失败', '未检测到有效的文件夹，请拖拽包含图片的文件夹')
+          return
+        }
         
-        let targetFolderPath = null
-        let folderName = '未命名漫画'
+        console.log('开始批量处理文件夹...')
+        // 批量处理文件夹
+        const results = await this.processMultipleFolders(detectedFolders)
+        console.log('批量处理完成，结果:', results)
         
-        if (folderFiles.length > 0) {
-          // 方法1成功：通过 webkitRelativePath 检测到文件夹
-          const firstFile = folderFiles[0]
-          const relativeFolderPath = firstFile.webkitRelativePath.split('/')[0]
-          
-          // 在 Electron 环境中，尝试获取完整的文件夹路径
-          if (firstFile.path) {
-            const fileDir = firstFile.path.substring(0, firstFile.path.lastIndexOf('/'))
-            const relativePath = firstFile.webkitRelativePath.substring(0, firstFile.webkitRelativePath.indexOf('/'))
-            targetFolderPath = fileDir + '/' + relativePath
-          } else {
-            targetFolderPath = relativeFolderPath
-          }
-          
-          folderName = relativeFolderPath || '未命名漫画'
-          
-          console.log('通过 webkitRelativePath 检测到文件夹:', {
-            relativeFolderPath,
-            targetFolderPath,
-            folderName
-          })
+        // 显示结果通知
+        const successCount = results.filter(r => r.success).length
+        const failCount = results.filter(r => !r.success).length
+        
+        console.log('处理结果统计:', {
+          成功: successCount,
+          失败: failCount,
+          总数: results.length
+        })
+        
+        if (successCount > 0) {
+          const message = `成功添加 ${successCount} 个漫画${failCount > 0 ? `，${failCount} 个失败` : ''}`
+          console.log('显示成功通知:', message)
+          this.showNotification('批量添加完成', message)
         } else {
-          // 方法2: 检查是否所有文件都在同一个目录下
-          const filePaths = files.filter(f => f.path).map(f => f.path)
-          console.log('文件路径列表:', filePaths)
-          
-          if (filePaths.length > 0) {
-            // 获取所有文件的公共父目录
-            const commonDir = this.getCommonDirectory(filePaths)
-            console.log('检测到公共目录:', commonDir)
-            
-            if (commonDir) {
-              targetFolderPath = commonDir
-              folderName = commonDir.split(/[/\\]/).pop() || '未命名漫画'
-              
-              console.log('通过公共目录检测到文件夹:', {
-                commonDir,
-                targetFolderPath,
-                folderName
-              })
-            }
-          }
-          
-          // 方法3: 如果文件数量较多，可能是文件夹拖拽（宽松检测）
-          if (!targetFolderPath && files.length > 3) {
-            console.log('文件数量较多，可能是文件夹拖拽，尝试使用第一个文件的目录')
-            const firstFile = files[0]
-            if (firstFile.path) {
-              const fileDir = firstFile.path.substring(0, firstFile.path.lastIndexOf('/'))
-              if (fileDir) {
-                targetFolderPath = fileDir
-                folderName = fileDir.split(/[/\\]/).pop() || '未命名漫画'
-                
-                console.log('通过文件数量检测到可能的文件夹:', {
-                  fileDir,
-                  targetFolderPath,
-                  folderName,
-                  fileCount: files.length
-                })
-              }
-            }
-          }
-          
-          // 方法4: 处理 Electron 中拖拽文件夹的特殊情况
-          if (!targetFolderPath && files.length === 1) {
-            const singleFile = files[0]
-            console.log('检测到单个文件，可能是文件夹拖拽的特殊情况')
-            console.log('文件路径分析:', {
-              fullPath: singleFile.path,
-              fileName: singleFile.name,
-              pathParts: singleFile.path ? singleFile.path.split(/[/\\]/) : []
-            })
-            
-            if (singleFile.path) {
-              // 检查路径是否看起来像文件夹（没有扩展名或扩展名不是图片格式）
-              const fileName = singleFile.name || ''
-              const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(fileName)
-              
-              if (!hasImageExtension) {
-                // 没有图片扩展名，可能是文件夹
-                targetFolderPath = singleFile.path
-                folderName = fileName || singleFile.path.split(/[/\\]/).pop() || '未命名漫画'
-                
-                console.log('通过文件扩展名检测到可能的文件夹:', {
-                  fileName,
-                  hasImageExtension,
-                  targetFolderPath,
-                  folderName
-                })
-              } else {
-                // 有图片扩展名，但只有一个文件，尝试使用父目录
-                const parentDir = singleFile.path.substring(0, singleFile.path.lastIndexOf('/'))
-                if (parentDir) {
-                  targetFolderPath = parentDir
-                  folderName = parentDir.split(/[/\\]/).pop() || '未命名漫画'
-                  
-                  console.log('通过父目录检测到可能的文件夹:', {
-                    parentDir,
-                    targetFolderPath,
-                    folderName
-                  })
-                }
-              }
-            }
-          }
+          console.log('所有文件夹添加失败，显示失败通知')
+          this.showNotification('添加失败', '所有文件夹添加失败')
         }
         
-        // 如果仍然没有检测到文件夹路径，则失败
-        if (!targetFolderPath) {
-          console.log('无法检测到文件夹路径，拖拽失败')
-          
-          // 检查是否是单个文件拖拽
-          if (files.length === 1) {
-            const singleFile = files[0]
-            const fileName = singleFile.name || '未知文件'
-            console.log('检测到单个文件拖拽:', fileName)
-            this.showNotification('拖拽失败', `检测到单个文件 "${fileName}"，请拖拽包含多个图片文件的文件夹`)
-          } else {
-            this.showNotification('拖拽失败', '请拖拽文件夹而不是单个文件')
-          }
-          return
-        }
-        
-        // 检查是否已经存在相同的文件夹
-        const existingAlbum = this.albums.find(album => album.folderPath === targetFolderPath)
-        if (existingAlbum) {
-          this.showNotification('添加失败', `文件夹 "${existingAlbum.name}" 已经存在`)
-          return
-        }
-        
-        // 创建新的漫画专辑
-        const album = {
-          id: Date.now().toString(),
-          name: folderName,
-          author: '',
-          description: '',
-          tags: [],
-          folderPath: targetFolderPath,
-          cover: '',
-          pagesCount: 0,
-          lastViewed: null,
-          viewCount: 0,
-          addedDate: new Date().toISOString()
-        }
-        
-        console.log('创建专辑对象:', album)
-        
-        // 加载文件夹中的图片文件
-        this.currentAlbum = album
-        await this.loadAlbumPages()
-        
-        // 添加到列表
-        this.albums.push(album)
-        await this.saveAlbums()
-        
-        this.showNotification('添加成功', `已添加漫画: ${folderName}`)
+        console.log('=== 拖拽事件完成 ===')
         
       } catch (error) {
         console.error('拖拽添加漫画失败:', error)
+        console.error('错误堆栈:', error.stack)
         this.showNotification('添加失败', `添加漫画失败: ${error.message}`)
       }
+    },
+    
+    // 检测多个文件夹
+    detectMultipleFolders(files) {
+      console.log('=== 开始检测多个文件夹 ===')
+      console.log('输入文件数量:', files.length)
+      
+      const folders = new Map() // 使用 Map 来避免重复文件夹
+      
+      // 方法1: 通过 webkitRelativePath 检测多个文件夹
+      const folderFiles = files.filter(file => file.webkitRelativePath && file.webkitRelativePath.includes('/'))
+      console.log('方法1 - webkitRelativePath 文件数量:', folderFiles.length)
+      
+      if (folderFiles.length > 0) {
+        console.log('使用方法1检测文件夹')
+        folderFiles.forEach((file, index) => {
+          console.log(`处理文件 ${index + 1}:`, {
+            name: file.name,
+            path: file.path,
+            webkitRelativePath: file.webkitRelativePath
+          })
+          
+          const relativeFolderPath = file.webkitRelativePath.split('/')[0]
+          console.log('提取的文件夹名:', relativeFolderPath)
+          
+          if (file.path) {
+            const fileDir = file.path.substring(0, file.path.lastIndexOf('/'))
+            const relativePath = file.webkitRelativePath.substring(0, file.webkitRelativePath.indexOf('/'))
+            const fullPath = fileDir + '/' + relativePath
+            
+            console.log('路径分析:', {
+              fileDir,
+              relativePath,
+              fullPath
+            })
+            
+            if (!folders.has(fullPath)) {
+              folders.set(fullPath, {
+                path: fullPath,
+                name: relativeFolderPath,
+                files: []
+              })
+              console.log('新增文件夹:', fullPath)
+            }
+            folders.get(fullPath).files.push(file)
+            console.log('文件夹文件数量:', folders.get(fullPath).files.length)
+          } else {
+            console.log('文件没有path属性，跳过')
+          }
+        })
+      } else {
+        console.log('方法1失败，尝试方法2')
+        // 方法2: 通过文件路径分析检测多个文件夹
+        const filePaths = files.filter(f => f.path).map(f => f.path)
+        console.log('方法2 - 有path的文件数量:', filePaths.length)
+        console.log('文件路径列表:', filePaths)
+        
+        if (filePaths.length > 0) {
+          // 按目录分组文件
+          const dirGroups = new Map()
+          
+          filePaths.forEach(filePath => {
+            console.log('处理文件路径:', filePath)
+            
+            // 检查路径是否看起来像文件夹（没有文件扩展名）
+            const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(filePath)
+            console.log('路径扩展名检查:', { filePath, hasImageExtension })
+            
+            if (!hasImageExtension) {
+              // 没有图片扩展名，可能是文件夹路径
+              console.log('检测为文件夹路径:', filePath)
+              const folderName = filePath.split(/[/\\]/).pop() || '未命名漫画'
+              
+              folders.set(filePath, {
+                path: filePath,
+                name: folderName,
+                files: files.filter(f => f.path === filePath)
+              })
+            } else {
+              // 有图片扩展名，按目录分组
+              const dir = filePath.substring(0, filePath.lastIndexOf('/'))
+              console.log('提取目录:', { filePath, dir })
+              
+              if (dir && dir !== filePath) {
+                if (!dirGroups.has(dir)) {
+                  dirGroups.set(dir, [])
+                }
+                dirGroups.get(dir).push(filePath)
+              }
+            }
+          })
+          
+          console.log('目录分组结果:', Array.from(dirGroups.entries()).map(([dir, files]) => ({
+            dir,
+            fileCount: files.length
+          })))
+          
+          // 检查每个目录是否包含足够的文件（可能是文件夹）
+          dirGroups.forEach((fileList, dir) => {
+            console.log(`检查目录: ${dir}, 文件数量: ${fileList.length}`)
+            if (fileList.length >= 1) { // 至少1个文件就认为是文件夹
+              const folderName = dir.split(/[/\\]/).pop() || '未命名漫画'
+              const folderFiles = files.filter(f => f.path && f.path.startsWith(dir))
+              
+              console.log('检测到文件夹:', {
+                path: dir,
+                name: folderName,
+                fileCount: folderFiles.length
+              })
+              
+              folders.set(dir, {
+                path: dir,
+                name: folderName,
+                files: folderFiles
+              })
+            } else {
+              console.log('文件数量不足，跳过目录:', dir)
+            }
+          })
+        }
+        
+        // 方法3: 处理单个文件拖拽的特殊情况
+        if (folders.size === 0 && files.length === 1) {
+          console.log('方法2失败，尝试方法3 - 单文件特殊情况')
+          const singleFile = files[0]
+          console.log('单文件信息:', {
+            name: singleFile.name,
+            path: singleFile.path,
+            type: singleFile.type
+          })
+          
+          if (singleFile.path) {
+            const fileName = singleFile.name || ''
+            const hasImageExtension = /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(fileName)
+            
+            console.log('文件扩展名检查:', {
+              fileName,
+              hasImageExtension
+            })
+            
+            if (!hasImageExtension) {
+              // 没有图片扩展名，可能是文件夹
+              const folderPath = singleFile.path
+              const folderName = fileName || singleFile.path.split(/[/\\]/).pop() || '未命名漫画'
+              
+              console.log('检测为文件夹（无图片扩展名）:', {
+                path: folderPath,
+                name: folderName
+              })
+              
+              folders.set(folderPath, {
+                path: folderPath,
+                name: folderName,
+                files: [singleFile]
+              })
+            } else {
+              // 有图片扩展名，尝试使用父目录
+              const parentDir = singleFile.path.substring(0, singleFile.path.lastIndexOf('/'))
+              if (parentDir) {
+                const folderName = parentDir.split(/[/\\]/).pop() || '未命名漫画'
+                
+                console.log('检测为文件夹（使用父目录）:', {
+                  path: parentDir,
+                  name: folderName
+                })
+                
+                folders.set(parentDir, {
+                  path: parentDir,
+                  name: folderName,
+                  files: [singleFile]
+                })
+              } else {
+                console.log('无法获取父目录')
+              }
+            }
+          } else {
+            console.log('单文件没有path属性')
+          }
+        }
+      }
+      
+      const result = Array.from(folders.values())
+      console.log('=== 文件夹检测完成 ===')
+      console.log('检测到的文件夹数量:', result.length)
+      console.log('检测结果:', result.map(f => ({
+        name: f.name,
+        path: f.path,
+        fileCount: f.files.length
+      })))
+      
+      return result
+    },
+    
+    // 批量处理多个文件夹
+    async processMultipleFolders(folders) {
+      console.log('=== 开始批量处理文件夹 ===')
+      console.log('待处理文件夹数量:', folders.length)
+      
+      const results = []
+      
+      for (let i = 0; i < folders.length; i++) {
+        const folder = folders[i]
+        console.log(`\n--- 处理文件夹 ${i + 1}/${folders.length} ---`)
+        console.log('文件夹信息:', {
+          name: folder.name,
+          path: folder.path,
+          fileCount: folder.files.length
+        })
+        
+        try {
+          // 检查是否已经存在相同的文件夹
+          const existingAlbum = this.albums.find(album => album.folderPath === folder.path)
+          if (existingAlbum) {
+            console.log('文件夹已存在，跳过:', folder.name)
+            results.push({
+              success: false,
+              folderName: folder.name,
+              error: `文件夹 "${folder.name}" 已经存在`
+            })
+            continue
+          }
+          
+          // 创建新的漫画专辑
+          const albumId = Date.now().toString() + Math.random().toString(36).substr(2, 9)
+          const album = {
+            id: albumId,
+            name: folder.name,
+            author: '',
+            description: '',
+            tags: [],
+            folderPath: folder.path,
+            cover: '',
+            pagesCount: 0,
+            lastViewed: null,
+            viewCount: 0,
+            addedDate: new Date().toISOString()
+          }
+          
+          console.log('创建专辑对象:', {
+            id: album.id,
+            name: album.name,
+            folderPath: album.folderPath
+          })
+          
+          // 加载文件夹中的图片文件
+          console.log('开始加载文件夹中的图片文件...')
+          this.currentAlbum = album
+          
+          const beforeLoadTime = Date.now()
+          await this.loadAlbumPages()
+          const afterLoadTime = Date.now()
+          
+          console.log('图片文件加载完成，耗时:', afterLoadTime - beforeLoadTime, 'ms')
+          console.log('加载的图片数量:', this.pages.length)
+          console.log('专辑页数更新为:', album.pagesCount)
+          
+          // 添加到列表
+          this.albums.push(album)
+          console.log('专辑已添加到列表，当前专辑总数:', this.albums.length)
+          
+          results.push({
+            success: true,
+            folderName: folder.name,
+            album: album
+          })
+          
+          console.log('文件夹处理成功:', folder.name)
+          
+        } catch (error) {
+          console.error(`处理文件夹 "${folder.name}" 失败:`, error)
+          console.error('错误堆栈:', error.stack)
+          results.push({
+            success: false,
+            folderName: folder.name,
+            error: error.message
+          })
+        }
+      }
+      
+      console.log('\n=== 批量处理完成 ===')
+      console.log('处理结果统计:', {
+        总数: results.length,
+        成功: results.filter(r => r.success).length,
+        失败: results.filter(r => !r.success).length
+      })
+      
+      // 批量保存
+      const successCount = results.filter(r => r.success).length
+      if (successCount > 0) {
+        console.log('开始批量保存，成功数量:', successCount)
+        const beforeSaveTime = Date.now()
+        await this.saveAlbums()
+        const afterSaveTime = Date.now()
+        console.log('批量保存完成，耗时:', afterSaveTime - beforeSaveTime, 'ms')
+      } else {
+        console.log('没有成功的文件夹，跳过保存')
+      }
+      
+      return results
     },
     
     // 获取文件路径的公共目录
@@ -1372,14 +1530,54 @@ export default {
        }
      },
      async loadAlbumPages() {
+       console.log('=== 开始加载专辑页面 ===')
+       console.log('当前专辑信息:', {
+         id: this.currentAlbum?.id,
+         name: this.currentAlbum?.name,
+         folderPath: this.currentAlbum?.folderPath
+       })
+       
        try {
          let files = []
+         
          if (window.electronAPI && window.electronAPI.listImageFiles) {
+           console.log('调用 Electron API 扫描图片文件...')
+           console.log('扫描路径:', this.currentAlbum.folderPath)
+           
+           const beforeScanTime = Date.now()
            const resp = await window.electronAPI.listImageFiles(this.currentAlbum.folderPath)
-           if (resp.success) files = resp.files || []
+           const afterScanTime = Date.now()
+           
+           console.log('扫描完成，耗时:', afterScanTime - beforeScanTime, 'ms')
+           console.log('扫描响应:', {
+             success: resp.success,
+             filesCount: resp.files ? resp.files.length : 0,
+             error: resp.error
+           })
+           
+           if (resp.success) {
+             files = resp.files || []
+             console.log('扫描到的图片文件数量:', files.length)
+             if (files.length > 0) {
+               console.log('前5个文件示例:', files.slice(0, 5))
+             }
+           } else {
+             console.error('扫描图片文件失败:', resp.error)
+             throw new Error(`扫描图片文件失败: ${resp.error}`)
+           }
+         } else {
+           console.error('Electron API 不可用')
+           throw new Error('Electron API 不可用')
          }
+         
          this.pages = files
          this.totalPages = Math.ceil(files.length / this.pageSize)
+         
+         console.log('页面信息更新:', {
+           pagesCount: this.pages.length,
+           totalPages: this.totalPages,
+           pageSize: this.pageSize
+         })
          
          // 更新专辑的页数信息
          this.currentAlbum.pagesCount = files.length
@@ -1390,17 +1588,40 @@ export default {
            this.currentAlbum.viewCount = 1
          }
          
-         await this.saveAlbums()
+         console.log('专辑信息更新:', {
+           pagesCount: this.currentAlbum.pagesCount,
+           lastViewed: this.currentAlbum.lastViewed,
+           viewCount: this.currentAlbum.viewCount
+         })
+         
+         // 注意：这里不保存，由调用方决定是否保存
+         console.log('跳过自动保存，由调用方处理')
          
          // 加载当前页（确保索引在有效范围内）
          if (files.length > 0) {
            const targetIndex = Math.max(0, Math.min(this.currentPageIndex, files.length - 1))
            this.currentPageIndex = targetIndex
+           
+           console.log('加载当前页:', {
+             targetIndex,
+             currentPageIndex: this.currentPageIndex,
+             totalPages: files.length
+           })
+           
            this.currentPageImage = await this.resolveImageAsync(files[targetIndex])
            this.jumpToPage = targetIndex + 1
+           
+           console.log('当前页图片加载完成')
+         } else {
+           console.log('没有图片文件，跳过当前页加载')
          }
+         
+         console.log('=== 专辑页面加载完成 ===')
+         
        } catch (e) {
          console.error('加载漫画页面失败:', e)
+         console.error('错误堆栈:', e.stack)
+         throw e // 重新抛出错误，让调用方处理
        }
      },
     
@@ -2812,7 +3033,7 @@ export default {
 }
 
 .image-content.drag-over::before {
-  content: '拖拽文件夹到这里添加漫画';
+  content: '拖拽文件夹到这里添加漫画（支持多选）';
   position: absolute;
   top: 50%;
   left: 50%;
