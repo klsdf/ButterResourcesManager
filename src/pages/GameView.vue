@@ -1,18 +1,5 @@
 <template>
   <div class="game-view">
-    <!-- 左侧筛选导航栏 -->
-      <FilterSidebar
-        :all-tags="allTags"
-        :all-filters="allDevelopers"
-        :selected-tag="selectedTag"
-        :selected-filter="selectedDeveloper"
-        :filter-title="'开发商筛选'"
-        @tag-filter="filterByTag"
-        @filter="filterByDeveloper"
-        @clear-tag-filter="clearTagFilter"
-        @clear-filter="clearDeveloperFilter"
-      />
-
     <!-- 主内容区域 -->
     <div class="game-content">
       <!-- 工具栏 -->
@@ -333,7 +320,6 @@ import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import FilterSidebar from '../components/FilterSidebar.vue'
 import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
@@ -344,10 +330,10 @@ export default {
     GameToolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar,
     MediaCard,
     FormField
   },
+  emits: ['filter-data-updated'],
   data() {
     return {
       games: [],
@@ -1242,15 +1228,57 @@ export default {
     },
     filterByTag(tagName) {
       this.selectedTag = this.selectedTag === tagName ? null : tagName
+      this.updateFilterData()
     },
     clearTagFilter() {
       this.selectedTag = null
+      this.updateFilterData()
     },
     filterByDeveloper(developerName) {
       this.selectedDeveloper = this.selectedDeveloper === developerName ? null : developerName
+      this.updateFilterData()
     },
     clearDeveloperFilter() {
       this.selectedDeveloper = null
+      this.updateFilterData()
+    },
+    // 处理来自 App.vue 的筛选器事件
+    handleFilterEvent(event, data) {
+      switch (event) {
+        case 'filter-select':
+          if (data.filterKey === 'tags') {
+            this.filterByTag(data.itemName)
+          } else if (data.filterKey === 'developers') {
+            this.filterByDeveloper(data.itemName)
+          }
+          break
+        case 'filter-clear':
+          if (data === 'tags') {
+            this.clearTagFilter()
+          } else if (data === 'developers') {
+            this.clearDeveloperFilter()
+          }
+          break
+      }
+    },
+    // 更新筛选器数据到 App.vue
+    updateFilterData() {
+      this.$emit('filter-data-updated', {
+        filters: [
+          {
+            key: 'tags',
+            title: '标签筛选',
+            items: this.allTags,
+            selected: this.selectedTag
+          },
+          {
+            key: 'developers',
+            title: '开发商筛选',
+            items: this.allDevelopers,
+            selected: this.selectedDeveloper
+          }
+        ]
+      })
     },
     updateGamePlayTime(data) {
       // 根据可执行文件路径找到对应的游戏
@@ -1684,6 +1712,9 @@ export default {
   async mounted() {
     this.checkElectronEnvironment()
     await this.loadGames()
+    
+    // 初始化筛选器数据
+    this.updateFilterData()
     
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {

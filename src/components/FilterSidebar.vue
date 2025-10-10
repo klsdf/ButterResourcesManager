@@ -1,52 +1,35 @@
-<!-- 页面左侧的筛选栏，比如筛选标签、作者等信息 -->
+<!-- 页面左侧的筛选栏，支持任意数量的筛选器 -->
 <template>
   <div class="filter-sidebar">
-    <!-- 标签筛选 -->
-    <div class="tag-section">
-      <div class="tag-header">
-        <h3>标签筛选</h3>
-        <button class="btn-clear-filter" @click="clearTagFilter" v-if="selectedTag">
-          ✕ 清除筛选
-        </button>
-      </div>
-      <div class="tag-list">
-        <div 
-          v-for="tag in allTags" 
-          :key="tag.name"
-          class="tag-item"
-          :class="{ active: selectedTag === tag.name }"
-          @click="filterByTag(tag.name)"
-        >
-          <span class="tag-name">{{ tag.name }}</span>
-          <span class="tag-count">({{ tag.count }})</span>
-        </div>
-        <div v-if="allTags.length === 0" class="no-tags">
-          暂无标签
-        </div>
-      </div>
-    </div>
-
-    <!-- 动态筛选器 -->
-    <div class="filter-section">
+    <!-- 动态筛选器列表 -->
+    <div 
+      v-for="filter in filters" 
+      :key="filter.key"
+      class="filter-section"
+    >
       <div class="filter-header">
-        <h3>{{ filterTitle }}</h3>
-        <button class="btn-clear-filter" @click="clearFilter" v-if="selectedFilter">
+        <h3>{{ filter.title }}</h3>
+        <button 
+          class="btn-clear-filter" 
+          @click="clearFilter(filter.key)" 
+          v-if="filter.selected"
+        >
           ✕ 清除筛选
         </button>
       </div>
       <div class="filter-list">
         <div 
-          v-for="item in allFilters" 
+          v-for="item in filter.items" 
           :key="item.name"
           class="filter-item"
-          :class="{ active: selectedFilter === item.name }"
-          @click="filterByItem(item.name)"
+          :class="{ active: filter.selected === item.name }"
+          @click="selectFilter(filter.key, item.name)"
         >
           <span class="filter-name">{{ item.name }}</span>
           <span class="filter-count">({{ item.count }})</span>
         </div>
-        <div v-if="allFilters.length === 0" class="no-filters">
-          暂无{{ filterTitle.replace('筛选', '') }}
+        <div v-if="filter.items.length === 0" class="no-filters">
+          暂无{{ filter.title.replace('筛选', '') }}
         </div>
       </div>
     </div>
@@ -57,40 +40,27 @@
 export default {
   name: 'FilterSidebar',
   props: {
-    allTags: {
+    filters: {
       type: Array,
-      default: () => []
-    },
-    allFilters: {
-      type: Array,
-      default: () => []
-    },
-    selectedTag: {
-      type: String,
-      default: null
-    },
-    selectedFilter: {
-      type: String,
-      default: null
-    },
-    filterTitle: {
-      type: String,
-      default: '筛选'
+      default: () => [],
+      validator: (filters) => {
+        // 验证筛选器数组的格式
+        return filters.every(filter => 
+          filter.key && 
+          filter.title && 
+          Array.isArray(filter.items) &&
+          typeof filter.selected === 'string' || filter.selected === null
+        )
+      }
     }
   },
-  emits: ['tag-filter', 'filter', 'clear-tag-filter', 'clear-filter'],
+  emits: ['filter-select', 'filter-clear'],
   methods: {
-    filterByTag(tagName) {
-      this.$emit('tag-filter', tagName)
+    selectFilter(filterKey, itemName) {
+      this.$emit('filter-select', { filterKey, itemName })
     },
-    clearTagFilter() {
-      this.$emit('clear-tag-filter')
-    },
-    filterByItem(itemName) {
-      this.$emit('filter', itemName)
-    },
-    clearFilter() {
-      this.$emit('clear-filter')
+    clearFilter(filterKey) {
+      this.$emit('filter-clear', filterKey)
     }
   }
 }
@@ -107,19 +77,27 @@ export default {
   transition: background-color 0.3s ease;
 }
 
-/* 标签筛选样式 */
-.tag-section {
+/* 筛选器样式 */
+.filter-section {
+  border-top: 1px solid var(--border-color);
+  margin-top: 10px;
   padding: 20px 0 0 0;
 }
 
-.tag-header {
+.filter-section:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 20px;
+}
+
+.filter-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 20px 10px 20px;
 }
 
-.tag-header h3 {
+.filter-header h3 {
   margin: 0;
   color: var(--text-primary);
   font-size: 1.1rem;
@@ -140,75 +118,6 @@ export default {
 
 .btn-clear-filter:hover {
   background: var(--accent-hover);
-}
-
-.tag-list {
-  padding: 0;
-}
-
-.tag-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 20px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-left: 3px solid transparent;
-}
-
-.tag-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.tag-item.active {
-  background: var(--accent-color);
-  color: white;
-  border-left-color: var(--accent-hover);
-}
-
-.tag-item.active .tag-count {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.tag-name {
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.tag-count {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  transition: color 0.3s ease;
-}
-
-.no-tags {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
-/* 动态筛选器样式 */
-.filter-section {
-  border-top: 1px solid var(--border-color);
-  margin-top: 10px;
-  padding: 20px 0 0 0;
-}
-
-.filter-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 20px 10px 20px;
-}
-
-.filter-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-  transition: color 0.3s ease;
 }
 
 .filter-list {

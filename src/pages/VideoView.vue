@@ -1,45 +1,5 @@
 <template>
   <div class="video-view">
-    <!-- 左侧筛选导航栏 -->
-    <div class="filter-sidebar-container">
-      <FilterSidebar
-        :all-tags="allTags"
-        :all-filters="allActors"
-        :selected-tag="selectedTag"
-        :selected-filter="selectedActor"
-        :filter-title="'演员筛选'"
-        @tag-filter="filterByTag"
-        @filter="filterByActor"
-        @clear-tag-filter="clearTagFilter"
-        @clear-filter="clearActorFilter"
-      />
-      
-      <!-- 系列筛选 -->
-      <div class="filter-section">
-        <div class="filter-header">
-          <h3>系列筛选</h3>
-          <button class="btn-clear-filter" @click="clearSeriesFilter" v-if="selectedSeries">
-            ✕ 清除筛选
-          </button>
-        </div>
-        <div class="filter-list">
-          <div 
-            v-for="series in allSeries" 
-            :key="series.name"
-            class="filter-item"
-            :class="{ active: selectedSeries === series.name }"
-            @click="filterBySeries(series.name)"
-          >
-            <span class="filter-name">{{ series.name }}</span>
-            <span class="filter-count">({{ series.count }})</span>
-          </div>
-          <div v-if="allSeries.length === 0" class="no-filters">
-            暂无系列
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 主内容区域 -->
     <div 
       class="video-content"
@@ -361,7 +321,6 @@ import VideoManager from '../utils/VideoManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import FilterSidebar from '../components/FilterSidebar.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
@@ -372,10 +331,10 @@ export default {
     GameToolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar,
     FormField,
     MediaCard
   },
+  emits: ['filter-data-updated'],
   data() {
     return {
       videoManager: null,
@@ -489,6 +448,9 @@ export default {
   async mounted() {
     this.videoManager = new VideoManager()
     await this.loadVideos()
+    
+    // 初始化筛选器数据
+    this.updateFilterData()
     
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {
@@ -2019,26 +1981,82 @@ export default {
     // 筛选方法
     filterByTag(tagName) {
       this.selectedTag = this.selectedTag === tagName ? null : tagName
+      this.updateFilterData()
     },
     
     clearTagFilter() {
       this.selectedTag = null
+      this.updateFilterData()
     },
     
     filterByActor(actorName) {
       this.selectedActor = this.selectedActor === actorName ? null : actorName
+      this.updateFilterData()
     },
     
     clearActorFilter() {
       this.selectedActor = null
+      this.updateFilterData()
     },
     
     filterBySeries(seriesName) {
       this.selectedSeries = this.selectedSeries === seriesName ? null : seriesName
+      this.updateFilterData()
     },
     
     clearSeriesFilter() {
       this.selectedSeries = null
+      this.updateFilterData()
+    },
+    
+    // 处理来自 App.vue 的筛选器事件
+    handleFilterEvent(event, data) {
+      switch (event) {
+        case 'filter-select':
+          if (data.filterKey === 'tags') {
+            this.filterByTag(data.itemName)
+          } else if (data.filterKey === 'actors') {
+            this.filterByActor(data.itemName)
+          } else if (data.filterKey === 'series') {
+            this.filterBySeries(data.itemName)
+          }
+          break
+        case 'filter-clear':
+          if (data === 'tags') {
+            this.clearTagFilter()
+          } else if (data === 'actors') {
+            this.clearActorFilter()
+          } else if (data === 'series') {
+            this.clearSeriesFilter()
+          }
+          break
+      }
+    },
+    
+    // 更新筛选器数据到 App.vue
+    updateFilterData() {
+      this.$emit('filter-data-updated', {
+        filters: [
+          {
+            key: 'tags',
+            title: '标签筛选',
+            items: this.allTags,
+            selected: this.selectedTag
+          },
+          {
+            key: 'actors',
+            title: '演员筛选',
+            items: this.allActors,
+            selected: this.selectedActor
+          },
+          {
+            key: 'series',
+            title: '系列筛选',
+            items: this.allSeries,
+            selected: this.selectedSeries
+          }
+        ]
+      })
     }
   }
 }
@@ -2051,99 +2069,6 @@ export default {
   overflow: hidden;
 }
 
-/* 筛选栏容器 */
-.filter-sidebar-container {
-  display: flex;
-  flex-direction: column;
-  width: 250px;
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
-  overflow-y: auto;
-}
-
-/* 系列筛选样式 - 与FilterSidebar保持一致 */
-.filter-section {
-  border-top: 1px solid var(--border-color);
-  margin-top: 10px;
-  padding: 20px 0 0 0;
-}
-
-.filter-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 20px 10px 20px;
-}
-
-.filter-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-  transition: color 0.3s ease;
-}
-
-.btn-clear-filter {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.btn-clear-filter:hover {
-  background: var(--accent-hover);
-}
-
-.filter-list {
-  padding: 0;
-}
-
-.filter-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 20px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-left: 3px solid transparent;
-}
-
-.filter-item:hover {
-  background: var(--bg-tertiary);
-}
-
-.filter-item.active {
-  background: var(--accent-color);
-  color: white;
-  border-left-color: var(--accent-hover);
-}
-
-.filter-item.active .filter-count {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.filter-name {
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.filter-count {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  transition: color 0.3s ease;
-}
-
-.no-filters {
-  padding: 20px;
-  text-align: center;
-  color: var(--text-tertiary);
-  font-style: italic;
-}
 
 /* 视频主内容区域 */
 .video-content {

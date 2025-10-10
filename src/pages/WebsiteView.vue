@@ -1,18 +1,5 @@
 <template>
   <div class="website-view">
-    <!-- 左侧筛选导航栏 -->
-    <FilterSidebar
-      :all-tags="allTags"
-      :all-filters="allCategories"
-      :selected-tag="selectedTag"
-      :selected-filter="selectedCategory"
-      :filter-title="'分类筛选'"
-      @tag-filter="filterByTag"
-      @filter="filterByCategory"
-      @clear-tag-filter="clearTagFilter"
-      @clear-filter="clearCategoryFilter"
-    />
-
     <!-- 主内容区域 -->
     <div class="website-content">
       <!-- 工具栏 -->
@@ -360,7 +347,6 @@ import websiteManager from '../utils/WebsiteManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import FilterSidebar from '../components/FilterSidebar.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 
@@ -370,10 +356,10 @@ export default {
     Toolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar,
     FormField,
     MediaCard
   },
+  emits: ['filter-data-updated'],
   data() {
     return {
       websites: [],
@@ -585,18 +571,62 @@ export default {
     // 筛选方法
     filterByTag(tagName) {
       this.selectedTag = this.selectedTag === tagName ? null : tagName
+      this.updateFilterData()
     },
     
     clearTagFilter() {
       this.selectedTag = null
+      this.updateFilterData()
     },
     
     filterByCategory(categoryName) {
       this.selectedCategory = this.selectedCategory === categoryName ? null : categoryName
+      this.updateFilterData()
     },
     
     clearCategoryFilter() {
       this.selectedCategory = null
+      this.updateFilterData()
+    },
+    
+    // 处理来自 App.vue 的筛选器事件
+    handleFilterEvent(event, data) {
+      switch (event) {
+        case 'filter-select':
+          if (data.filterKey === 'tags') {
+            this.filterByTag(data.itemName)
+          } else if (data.filterKey === 'categories') {
+            this.filterByCategory(data.itemName)
+          }
+          break
+        case 'filter-clear':
+          if (data === 'tags') {
+            this.clearTagFilter()
+          } else if (data === 'categories') {
+            this.clearCategoryFilter()
+          }
+          break
+      }
+    },
+    
+    // 更新筛选器数据到 App.vue
+    updateFilterData() {
+      this.$emit('filter-data-updated', {
+        filters: [
+          {
+            key: 'tags',
+            title: '标签筛选',
+            items: this.allTags,
+            selected: this.selectedTag
+          },
+          {
+            key: 'categories',
+            title: '分类筛选',
+            items: this.allCategories,
+            selected: this.selectedCategory
+          }
+        ]
+      })
     },
     
     async addWebsite() {
@@ -1062,6 +1092,9 @@ export default {
     this.isElectronEnvironment = !!(window.electronAPI && window.electronAPI.openExternal)
     
     await this.loadWebsites()
+    
+    // 初始化筛选器数据
+    this.updateFilterData()
     
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {

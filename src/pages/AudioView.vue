@@ -297,11 +297,17 @@ export default {
     FormField,
     MediaCard
   },
+  emits: ['filter-data-updated'],
   data() {
     return {
       audios: [],
       searchQuery: '',
       sortBy: 'name',
+      // 筛选器相关数据
+      selectedTag: null,
+      selectedArtist: null,
+      allTags: [],
+      allArtists: [],
       showAddDialog: false,
       selectedAudio: null,
       contextMenu: {
@@ -354,6 +360,20 @@ export default {
       // 使用组件内部的 audios 数据，而不是直接调用 audioManager
       let filtered = this.audios
       
+      // 标签筛选
+      if (this.selectedTag) {
+        filtered = filtered.filter(audio => 
+          audio.tags && audio.tags.includes(this.selectedTag)
+        )
+      }
+      
+      // 艺术家筛选
+      if (this.selectedArtist) {
+        filtered = filtered.filter(audio => 
+          audio.artist === this.selectedArtist
+        )
+      }
+      
       // 搜索过滤
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase()
@@ -385,10 +405,103 @@ export default {
       try {
         this.audios = await audioManager.loadAudios()
         console.log('音频数据加载完成:', this.audios.length, '个音频')
+        // 更新筛选器数据
+        this.updateFilterOptions()
+        this.updateFilterData()
       } catch (error) {
         console.error('加载音频数据失败:', error)
         alert('加载音频数据失败: ' + error.message)
       }
+    },
+    
+    // 更新筛选器选项
+    updateFilterOptions() {
+      // 收集所有标签
+      const tagCount = {}
+      const artistCount = {}
+      
+      this.audios.forEach(audio => {
+        // 统计标签
+        if (audio.tags && Array.isArray(audio.tags)) {
+          audio.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1
+          })
+        }
+        
+        // 统计艺术家
+        if (audio.artist) {
+          artistCount[audio.artist] = (artistCount[audio.artist] || 0) + 1
+        }
+      })
+      
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allArtists = Object.entries(artistCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    
+    // 筛选方法
+    filterByTag(tagName) {
+      this.selectedTag = this.selectedTag === tagName ? null : tagName
+      this.updateFilterData()
+    },
+    
+    clearTagFilter() {
+      this.selectedTag = null
+      this.updateFilterData()
+    },
+    
+    filterByArtist(artistName) {
+      this.selectedArtist = this.selectedArtist === artistName ? null : artistName
+      this.updateFilterData()
+    },
+    
+    clearArtistFilter() {
+      this.selectedArtist = null
+      this.updateFilterData()
+    },
+    
+    // 处理来自 App.vue 的筛选器事件
+    handleFilterEvent(event, data) {
+      switch (event) {
+        case 'filter-select':
+          if (data.filterKey === 'tags') {
+            this.filterByTag(data.itemName)
+          } else if (data.filterKey === 'artists') {
+            this.filterByArtist(data.itemName)
+          }
+          break
+        case 'filter-clear':
+          if (data === 'tags') {
+            this.clearTagFilter()
+          } else if (data === 'artists') {
+            this.clearArtistFilter()
+          }
+          break
+      }
+    },
+    
+    // 更新筛选器数据到 App.vue
+    updateFilterData() {
+      this.$emit('filter-data-updated', {
+        filters: [
+          {
+            key: 'tags',
+            title: '标签筛选',
+            items: this.allTags,
+            selected: this.selectedTag
+          },
+          {
+            key: 'artists',
+            title: '艺术家筛选',
+            items: this.allArtists,
+            selected: this.selectedArtist
+          }
+        ]
+      })
     },
     
     async selectAudioFile() {

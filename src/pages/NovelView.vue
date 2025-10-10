@@ -1,14 +1,16 @@
 <template>
   <div class="novel-view">
-    <!-- 工具栏 -->
-    <Toolbar 
-      v-model:searchQuery="searchQuery"
-      v-model:sortBy="sortBy"
-      add-button-text="添加小说"
-      search-placeholder="搜索小说..."
-      :sort-options="novelSortOptions"
-      @add-item="showAddNovelDialog"
-    />
+    <!-- 主内容区域 -->
+    <div class="novel-content">
+      <!-- 工具栏 -->
+      <Toolbar 
+        v-model:searchQuery="searchQuery"
+        v-model:sortBy="sortBy"
+        add-button-text="添加小说"
+        search-placeholder="搜索小说..."
+        :sort-options="novelSortOptions"
+        @add-item="showAddNovelDialog"
+      />
     
     <!-- 额外的过滤器 -->
     <div class="novel-filters" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -333,6 +335,7 @@
       :menu-items="novelContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+    </div>
   </div>
 </template>
 
@@ -353,6 +356,7 @@ export default {
     FormField,
     MediaCard
   },
+  emits: ['filter-data-updated'],
   data() {
     return {
       novels: [],
@@ -375,6 +379,12 @@ export default {
         coverImage: ''
       },
       tagInput: '',
+      // 标签筛选相关
+      allTags: [],
+      selectedTag: null,
+      // 作者筛选相关
+      allAuthors: [],
+      selectedAuthor: null,
       // 编辑相关状态
       showEditDialog: false,
       editNovelForm: {
@@ -439,6 +449,16 @@ export default {
       let filtered = this.novels.filter(novel => {
         // 状态过滤
         if (this.statusFilter !== 'all' && novel.status !== this.statusFilter) {
+          return false
+        }
+        
+        // 标签筛选
+        if (this.selectedTag && (!novel.tags || !novel.tags.includes(this.selectedTag))) {
+          return false
+        }
+        
+        // 作者筛选
+        if (this.selectedAuthor && novel.author !== this.selectedAuthor) {
           return false
         }
         
@@ -1030,6 +1050,98 @@ export default {
       this.novels = await novelManager.loadNovels()
       // 为没有字数信息的小说重新计算字数
       await this.updateNovelsWordCount()
+      // 提取标签和作者
+      this.extractAllTagsAndAuthors()
+    },
+    
+    // 提取所有标签和作者
+    extractAllTagsAndAuthors() {
+      const tagCount = {}
+      const authorCount = {}
+      
+      this.novels.forEach(novel => {
+        // 提取标签
+        if (novel.tags && Array.isArray(novel.tags)) {
+          novel.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1
+          })
+        }
+        
+        // 提取作者
+        if (novel.author) {
+          authorCount[novel.author] = (authorCount[novel.author] || 0) + 1
+        }
+      })
+      
+      // 转换为数组并按名称排序
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allAuthors = Object.entries(authorCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    
+    // 筛选方法
+    filterByTag(tagName) {
+      this.selectedTag = this.selectedTag === tagName ? null : tagName
+      this.updateFilterData()
+    },
+    
+    clearTagFilter() {
+      this.selectedTag = null
+      this.updateFilterData()
+    },
+    
+    filterByAuthor(authorName) {
+      this.selectedAuthor = this.selectedAuthor === authorName ? null : authorName
+      this.updateFilterData()
+    },
+    
+    clearAuthorFilter() {
+      this.selectedAuthor = null
+      this.updateFilterData()
+    },
+    
+    // 处理来自 App.vue 的筛选器事件
+    handleFilterEvent(event, data) {
+      switch (event) {
+        case 'filter-select':
+          if (data.filterKey === 'tags') {
+            this.filterByTag(data.itemName)
+          } else if (data.filterKey === 'authors') {
+            this.filterByAuthor(data.itemName)
+          }
+          break
+        case 'filter-clear':
+          if (data === 'tags') {
+            this.clearTagFilter()
+          } else if (data === 'authors') {
+            this.clearAuthorFilter()
+          }
+          break
+      }
+    },
+    
+    // 更新筛选器数据到 App.vue
+    updateFilterData() {
+      this.$emit('filter-data-updated', {
+        filters: [
+          {
+            key: 'tags',
+            title: '标签筛选',
+            items: this.allTags,
+            selected: this.selectedTag
+          },
+          {
+            key: 'authors',
+            title: '作者筛选',
+            items: this.allAuthors,
+            selected: this.selectedAuthor
+          }
+        ]
+      })
     },
     async updateNovelsWordCount() {
       for (let novel of this.novels) {
@@ -1223,6 +1335,9 @@ export default {
   async mounted() {
     await this.loadNovels()
     
+    // 初始化筛选器数据
+    this.updateFilterData()
+    
     // 加载全局设置
     await this.getGlobalSettings()
     
@@ -1236,7 +1351,18 @@ export default {
 
 <style scoped>
 .novel-view {
-  padding: 20px;
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 小说主内容区域 */
+.novel-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
 }

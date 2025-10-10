@@ -43,34 +43,69 @@
         <p>{{ getCurrentViewDescription() }}</p>
       </header>
 
-      <div class="content-body">
-        <!-- 游戏页面 -->
-        <GameView v-if="currentView === 'games'" />
+      <div class="content-body" :class="{ 'with-filter': showFilterSidebar }">
+        <!-- 筛选器侧边栏 - 只在需要筛选的页面显示 -->
+        <div v-if="showFilterSidebar" class="filter-sidebar-container">
+          <FilterSidebar
+            :filters="currentFilterData.filters"
+            @filter-select="onFilterSelect"
+            @filter-clear="onFilterClear"
+          />
+        </div>
+        
+        <!-- 页面内容区域 -->
+        <div class="page-content">
+          <!-- 游戏页面 -->
+          <GameView 
+            v-if="currentView === 'games'" 
+            ref="gameView"
+            @filter-data-updated="updateFilterData"
+          />
 
-        <!-- 图片页面 -->
-        <ImageView v-if="currentView === 'images'" />
+          <!-- 图片页面 -->
+          <ImageView 
+            v-if="currentView === 'images'" 
+            ref="imageView"
+            @filter-data-updated="updateFilterData"
+          />
 
-        <!-- 视频页面 -->
-        <VideoView v-if="currentView === 'videos'" />
+          <!-- 视频页面 -->
+          <VideoView 
+            v-if="currentView === 'videos'" 
+            ref="videoView"
+            @filter-data-updated="updateFilterData"
+          />
 
-        <!-- 小说页面 -->
-        <NovelView v-if="currentView === 'novels'" />
+          <!-- 小说页面 -->
+          <NovelView 
+            v-if="currentView === 'novels'" 
+            ref="novelView"
+            @filter-data-updated="updateFilterData"
+          />
 
-        <!-- 网站页面 -->
-        <WebsiteView v-if="currentView === 'websites'" />
+          <!-- 网站页面 -->
+          <WebsiteView 
+            v-if="currentView === 'websites'" 
+            ref="websiteView"
+            @filter-data-updated="updateFilterData"
+          />
 
         <!-- 声音页面 -->
-        <AudioView v-if="currentView === 'audio'" />
+        <AudioView 
+          v-if="currentView === 'audio'" 
+          ref="audioView"
+          @filter-data-updated="updateFilterData"
+        />
 
-        <!-- 信息中心页面 -->
-        <MessageCenterView v-if="currentView === 'messages'" />
+          <!-- 信息中心页面 -->
+          <MessageCenterView v-if="currentView === 'messages'" />
 
-        <!-- 设置页面 -->
-        <SettingsView v-if="currentView === 'settings'" @theme-changed="onThemeChanged" />
+          <!-- 设置页面 -->
+          <SettingsView v-if="currentView === 'settings'" @theme-changed="onThemeChanged" />
 
-        <!-- 帮助页面 -->
-        <HelpView v-if="currentView === 'help'" />
-        
+          <!-- 帮助页面 -->
+          <HelpView v-if="currentView === 'help'" />
+        </div>
       </div>
       <!-- 全局音频播放器 -->
       <GlobalAudioPlayer @audio-started="onAudioStarted" @playlist-ended="onPlaylistEnded" />
@@ -94,6 +129,7 @@ import MessageCenterView from './pages/MessageCenterView.vue'
 import HelpView from './pages/HelpView.vue'
 import GlobalAudioPlayer from './components/GlobalAudioPlayer.vue'
 import ToastNotification from './components/ToastNotification.vue'
+import FilterSidebar from './components/FilterSidebar.vue'
 
 export default {
   name: 'App',
@@ -108,12 +144,18 @@ export default {
     MessageCenterView,
     HelpView,
     GlobalAudioPlayer,
-    ToastNotification
+    ToastNotification,
+    FilterSidebar
   },
   data() {
     return {
       currentView: 'games',
       theme: 'light',
+      // 筛选器相关数据
+      showFilterSidebar: false,
+      currentFilterData: {
+        filters: []
+      },
       navItems: [
         {
           id: 'games',
@@ -157,6 +199,52 @@ export default {
   methods: {
     switchView(viewId) {
       this.currentView = viewId
+      // 根据页面类型决定是否显示筛选器
+      this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(viewId)
+      // 重置筛选器数据
+      this.resetFilterData()
+    },
+    resetFilterData() {
+      this.currentFilterData = {
+        filters: []
+      }
+    },
+    updateFilterData(filterData) {
+      this.currentFilterData = { ...this.currentFilterData, ...filterData }
+    },
+    onFilterSelect({ filterKey, itemName }) {
+      // 更新筛选器的选中状态
+      const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
+      if (filter) {
+        filter.selected = filter.selected === itemName ? null : itemName
+      }
+      this.notifyCurrentView('filter-select', { filterKey, itemName })
+    },
+    onFilterClear(filterKey) {
+      // 清除筛选器的选中状态
+      const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
+      if (filter) {
+        filter.selected = null
+      }
+      this.notifyCurrentView('filter-clear', filterKey)
+    },
+    notifyCurrentView(event, data) {
+      // 通知当前页面筛选器状态变化
+      const currentViewRef = this.getCurrentViewRef()
+      if (currentViewRef && currentViewRef.handleFilterEvent) {
+        currentViewRef.handleFilterEvent(event, data)
+      }
+    },
+    getCurrentViewRef() {
+      const refMap = {
+        'games': this.$refs.gameView,
+        'images': this.$refs.imageView,
+        'videos': this.$refs.videoView,
+        'novels': this.$refs.novelView,
+        'websites': this.$refs.websiteView,
+        'audio': this.$refs.audioView
+      }
+      return refMap[this.currentView]
     },
     getCurrentViewTitle() {
       if (this.currentView === 'settings') {
@@ -214,6 +302,9 @@ export default {
     }
   },
   async mounted() {
+    // 初始化筛选器状态
+    this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(this.currentView)
+    
     // 初始化通知服务
     try {
       const notificationService = (await import('./utils/NotificationService.js')).default
@@ -263,3 +354,36 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+/* 内容区域布局 */
+.content-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.content-body.with-filter {
+  display: flex;
+}
+
+.page-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 筛选器侧边栏样式 */
+.filter-sidebar-container {
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  overflow-y: auto;
+  transition: background-color 0.3s ease;
+  flex-shrink: 0;
+}
+
+</style>

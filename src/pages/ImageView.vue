@@ -1,18 +1,5 @@
 <template>
   <div class="image-view">
-    <!-- 左侧筛选导航栏 -->
-      <FilterSidebar
-        :all-tags="allTags"
-        :all-filters="allAuthors"
-        :selected-tag="selectedTag"
-        :selected-filter="selectedAuthor"
-        :filter-title="'作者筛选'"
-        @tag-filter="filterByTag"
-        @filter="filterByAuthor"
-        @clear-tag-filter="clearTagFilter"
-        @clear-filter="clearAuthorFilter"
-      />
-
     <!-- 主内容区域 -->
     <div 
       class="image-content"
@@ -463,7 +450,6 @@ import saveManager from '../utils/SaveManager.js'
 import GameToolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
-import FilterSidebar from '../components/FilterSidebar.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 
@@ -473,10 +459,10 @@ export default {
     GameToolbar,
     EmptyState,
     ContextMenu,
-    FilterSidebar,
     FormField,
     MediaCard
   },
+  emits: ['filter-data-updated'],
   data() {
     return {
       albums: [],
@@ -1967,22 +1953,69 @@ export default {
     // 筛选方法
     filterByTag(tagName) {
       this.selectedTag = this.selectedTag === tagName ? null : tagName
+      this.updateFilterData()
     },
     
     clearTagFilter() {
       this.selectedTag = null
+      this.updateFilterData()
     },
     
     filterByAuthor(authorName) {
       this.selectedAuthor = this.selectedAuthor === authorName ? null : authorName
+      this.updateFilterData()
     },
     
     clearAuthorFilter() {
       this.selectedAuthor = null
+      this.updateFilterData()
+    },
+    
+    // 处理来自 App.vue 的筛选器事件
+    handleFilterEvent(event, data) {
+      switch (event) {
+        case 'filter-select':
+          if (data.filterKey === 'tags') {
+            this.filterByTag(data.itemName)
+          } else if (data.filterKey === 'authors') {
+            this.filterByAuthor(data.itemName)
+          }
+          break
+        case 'filter-clear':
+          if (data === 'tags') {
+            this.clearTagFilter()
+          } else if (data === 'authors') {
+            this.clearAuthorFilter()
+          }
+          break
+      }
+    },
+    
+    // 更新筛选器数据到 App.vue
+    updateFilterData() {
+      this.$emit('filter-data-updated', {
+        filters: [
+          {
+            key: 'tags',
+            title: '标签筛选',
+            items: this.allTags,
+            selected: this.selectedTag
+          },
+          {
+            key: 'authors',
+            title: '作者筛选',
+            items: this.allAuthors,
+            selected: this.selectedAuthor
+          }
+        ]
+      })
     }
   },
   async mounted() {
     await this.loadAlbums()
+    
+    // 初始化筛选器数据
+    this.updateFilterData()
     
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {
