@@ -357,6 +357,16 @@
             <button class="btn-zoom-in" @click="zoomIn" :disabled="zoomLevel >= 3">
               <span class="btn-icon">🔍+</span>
             </button>
+            <div class="quality-controls">
+              <select v-model="imageQuality" @change="setImageQuality(imageQuality)" class="quality-select">
+                <option value="high">高质量</option>
+                <option value="medium">中等质量</option>
+                <option value="low">低质量</option>
+              </select>
+            </div>
+            <button class="btn-performance" @click="logPerformanceInfo" title="查看性能信息">
+              <span class="btn-icon">📊</span>
+            </button>
             <button class="btn-fullscreen" @click="toggleFullscreen">
               <span class="btn-icon">⛶</span>
               全屏
@@ -375,7 +385,7 @@
               :src="currentPageImage" 
               :alt="`第 ${currentPageIndex + 1} 页`"
               class="comic-image"
-              :style="{ transform: `scale(${zoomLevel}) translate(${imageOffsetX}px, ${imageOffsetY}px)` }"
+              :style="{ transform: `translate3d(${imageOffsetX}px, ${imageOffsetY}px, 0) scale(${zoomLevel})` }"
               @load="onImageLoad"
               @error="onImageError"
               @wheel="onImageWheel"
@@ -490,7 +500,15 @@ export default {
       contextMenuPos: { x: 0, y: 0 },
       selectedAlbum: null,
       pages: [],
-      imageCache: {},
+      // 优化的图片缓存系统
+      imageCache: new Map(), // 使用Map替代Object，支持LRU
+      imageCacheSize: 0,
+      maxCacheSize: 50 * 1024 * 1024, // 50MB缓存限制
+      preloadQueue: [], // 预加载队列
+      isPreloading: false,
+      // 图片质量设置
+      imageQuality: 'high', // 'high', 'medium', 'low'
+      enableThumbnails: true, // 是否启用缩略图
       // 编辑相关
       showEditDialog: false,
       editAlbumForm: {
@@ -1584,6 +1602,7 @@ export default {
       
       await this.loadCurrentPage()
     },
+    // 优化的图片解析方法 - 优先使用file://协议，减少内存占用
     resolveImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
         return '/default-image.svg'
@@ -1594,25 +1613,26 @@ export default {
       if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
         return imagePath
       }
-      if (this.imageCache[imagePath]) return this.imageCache[imagePath]
-      if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
-        window.electronAPI.readFileAsDataUrl(imagePath).then((dataUrl) => {
-          if (dataUrl) {
-            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
-          } else {
-            this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
-          }
-        }).catch(() => {
-          this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
-        })
-      } else {
-        const normalizedPath = String(imagePath).replace(/\\/g, '/')
-        const fileUrl = `file:///${normalizedPath}`
-        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+      
+      // 检查缓存
+      if (this.imageCache.has(imagePath)) {
+        const cached = this.imageCache.get(imagePath)
+        // 更新访问时间（LRU）
+        cached.lastAccessed = Date.now()
+        return cached.url
       }
-      return this.imageCache[imagePath] || '/default-image.svg'
+      
+      // 优先使用file://协议，避免DataURL的内存占用
+      const normalizedPath = String(imagePath).replace(/\\/g, '/')
+      const fileUrl = `file:///${normalizedPath}`
+      
+      // 缓存文件URL而不是DataURL
+      this.addToCache(imagePath, fileUrl, 0) // 文件URL不占用额外内存
+      
+      return fileUrl
     },
     
+    // 异步图片解析 - 用于需要DataURL的场景（如封面预览）
     async resolveImageAsync(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
         return '/default-image.svg'
@@ -1623,28 +1643,120 @@ export default {
       if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
         return imagePath
       }
-      if (this.imageCache[imagePath]) return this.imageCache[imagePath]
       
+      // 检查缓存
+      if (this.imageCache.has(imagePath)) {
+        const cached = this.imageCache.get(imagePath)
+        cached.lastAccessed = Date.now()
+        return cached.url
+      }
+      
+      // 对于阅读器中的大图，优先使用file://协议
+      if (this.showComicViewer) {
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        this.addToCache(imagePath, fileUrl, 0)
+        return fileUrl
+      }
+      
+      // 对于小图（如封面），可以使用DataURL
       if (window.electronAPI && window.electronAPI.readFileAsDataUrl) {
         try {
           const dataUrl = await window.electronAPI.readFileAsDataUrl(imagePath)
           if (dataUrl) {
-            this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
+            // 估算DataURL大小
+            const estimatedSize = dataUrl.length * 2 // 粗略估算
+            this.addToCache(imagePath, dataUrl, estimatedSize)
             return dataUrl
           } else {
-            this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
+            this.addToCache(imagePath, '/default-image.svg', 0)
             return '/default-image.svg'
           }
         } catch (error) {
           console.error('读取图片文件失败:', error)
-          this.$set ? this.$set(this.imageCache, imagePath, '/default-image.svg') : (this.imageCache[imagePath] = '/default-image.svg')
+          this.addToCache(imagePath, '/default-image.svg', 0)
           return '/default-image.svg'
         }
       } else {
         const normalizedPath = String(imagePath).replace(/\\/g, '/')
         const fileUrl = `file:///${normalizedPath}`
-        this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
+        this.addToCache(imagePath, fileUrl, 0)
         return fileUrl
+      }
+    },
+    
+    // LRU缓存管理方法
+    addToCache(imagePath, url, size) {
+      // 如果缓存已满，清理最旧的条目
+      while (this.imageCacheSize + size > this.maxCacheSize && this.imageCache.size > 0) {
+        this.evictOldestCache()
+      }
+      
+      this.imageCache.set(imagePath, {
+        url: url,
+        size: size,
+        lastAccessed: Date.now()
+      })
+      this.imageCacheSize += size
+    },
+    
+    evictOldestCache() {
+      let oldestKey = null
+      let oldestTime = Date.now()
+      
+      for (const [key, value] of this.imageCache.entries()) {
+        if (value.lastAccessed < oldestTime) {
+          oldestTime = value.lastAccessed
+          oldestKey = key
+        }
+      }
+      
+      if (oldestKey) {
+        const removed = this.imageCache.get(oldestKey)
+        this.imageCacheSize -= removed.size
+        this.imageCache.delete(oldestKey)
+        console.log('缓存清理:', oldestKey, '释放内存:', removed.size, 'bytes')
+      }
+    },
+    
+    // 预加载图片
+    async preloadImages(startIndex, count = 3) {
+      if (this.isPreloading || !this.pages || this.pages.length === 0) return
+      
+      this.isPreloading = true
+      const preloadPromises = []
+      
+      // 预加载当前页前后的图片
+      for (let i = Math.max(0, startIndex - 1); i <= Math.min(this.pages.length - 1, startIndex + count); i++) {
+        if (i !== startIndex && !this.imageCache.has(this.pages[i])) {
+          preloadPromises.push(this.preloadImage(this.pages[i]))
+        }
+      }
+      
+      try {
+        await Promise.all(preloadPromises)
+      } catch (error) {
+        console.error('预加载图片失败:', error)
+      } finally {
+        this.isPreloading = false
+      }
+    },
+    
+    async preloadImage(imagePath) {
+      try {
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        this.addToCache(imagePath, fileUrl, 0)
+        
+        // 创建Image对象预加载
+        return new Promise((resolve, reject) => {
+          const img = new Image()
+          img.onload = () => resolve(img)
+          img.onerror = reject
+          img.src = fileUrl
+        })
+      } catch (error) {
+        console.error('预加载单张图片失败:', imagePath, error)
       }
     },
     
@@ -1712,18 +1824,27 @@ export default {
       return `${y}-${m}-${day} ${hh}:${mm}:${ss}`
     },
     
-     // 漫画阅读器方法
+     // 漫画阅读器方法 - 优化版本
      async loadCurrentPage() {
        if (this.pages && this.pages.length > 0 && this.currentPageIndex >= 0 && this.currentPageIndex < this.pages.length) {
          const imagePath = this.pages[this.currentPageIndex]
          console.log('加载当前页，图片路径:', imagePath)
+         
+         // 使用优化的图片解析
          this.currentPageImage = await this.resolveImageAsync(imagePath)
          this.jumpToPage = this.currentPageIndex + 1
          
-         // 获取当前文件大小
-         console.log('开始获取文件大小...')
-         this.currentFileSize = await this.getFileSize(imagePath)
-         console.log('获取到的文件大小:', this.currentFileSize)
+         // 异步获取文件大小，不阻塞图片显示
+         this.getFileSize(imagePath).then(size => {
+           this.currentFileSize = size
+         }).catch(error => {
+           console.error('获取文件大小失败:', error)
+           this.currentFileSize = 0
+         })
+         
+         // 预加载相邻图片
+         this.preloadImages(this.currentPageIndex, 2)
+         
        } else if (this.currentAlbum && this.currentAlbum.folderPath) {
          // 如果pages还没有加载，先加载图片文件
          await this.loadAlbumPages()
@@ -1850,6 +1971,8 @@ export default {
         this.imageOffsetX = 0
         this.imageOffsetY = 0
         await this.loadCurrentPage()
+        // 预加载更多图片
+        this.preloadImages(this.currentPageIndex, 3)
       }
     },
     
@@ -1860,6 +1983,8 @@ export default {
         this.imageOffsetX = 0
         this.imageOffsetY = 0
         await this.loadCurrentPage()
+        // 预加载更多图片
+        this.preloadImages(this.currentPageIndex, 3)
       }
     },
     
@@ -1934,6 +2059,9 @@ export default {
        this.imageOffsetX = 0
        this.imageOffsetY = 0
        
+       // 清理缓存以释放内存
+       this.clearImageCache()
+       
        // 只清空阅读器相关的状态，保留currentAlbum用于详情页显示
        // 如果是从详情页打开的，保持详情页状态
        // 如果是从卡片直接打开的，清空详情页状态
@@ -1946,6 +2074,72 @@ export default {
        if (this.isFullscreen && document.fullscreenElement) {
          document.exitFullscreen()
          this.isFullscreen = false
+       }
+     },
+     
+     // 清理图片缓存
+     clearImageCache() {
+       console.log('清理图片缓存，释放内存:', this.imageCacheSize, 'bytes')
+       this.imageCache.clear()
+       this.imageCacheSize = 0
+       this.preloadQueue = []
+       this.isPreloading = false
+     },
+     
+     // 性能监控
+     logPerformanceInfo() {
+       console.log('=== 图片性能信息 ===')
+       console.log('缓存大小:', this.imageCacheSize, 'bytes')
+       console.log('缓存条目数:', this.imageCache.size)
+       console.log('预加载状态:', this.isPreloading)
+       console.log('当前页索引:', this.currentPageIndex)
+       console.log('总页数:', this.pages.length)
+       console.log('缩放级别:', this.zoomLevel)
+       console.log('图片质量:', this.imageQuality)
+       console.log('缩略图启用:', this.enableThumbnails)
+       
+       // 内存使用情况（如果可用）
+       if (performance.memory) {
+         console.log('内存使用:', {
+           used: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + 'MB',
+           total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) + 'MB',
+           limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
+         })
+       }
+     },
+     
+     // 设置图片质量
+     setImageQuality(quality) {
+       this.imageQuality = quality
+       console.log('图片质量设置为:', quality)
+       
+       // 根据质量调整缓存大小
+       switch (quality) {
+         case 'high':
+           this.maxCacheSize = 100 * 1024 * 1024 // 100MB
+           break
+         case 'medium':
+           this.maxCacheSize = 50 * 1024 * 1024 // 50MB
+           break
+         case 'low':
+           this.maxCacheSize = 20 * 1024 * 1024 // 20MB
+           break
+       }
+       
+       // 如果当前缓存超过新限制，清理缓存
+       if (this.imageCacheSize > this.maxCacheSize) {
+         this.clearImageCache()
+       }
+     },
+     
+     // 切换缩略图模式
+     toggleThumbnails() {
+       this.enableThumbnails = !this.enableThumbnails
+       console.log('缩略图模式:', this.enableThumbnails ? '启用' : '禁用')
+       
+       // 重新加载当前页面
+       if (this.showComicViewer) {
+         this.loadCurrentPage()
        }
      },
     
@@ -3317,6 +3511,32 @@ export default {
   text-align: center;
 }
 
+.quality-controls {
+  display: flex;
+  align-items: center;
+}
+
+.quality-select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.quality-select:hover {
+  border-color: var(--accent-color);
+}
+
+.quality-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(102, 192, 244, 0.1);
+}
+
 .comic-viewer-body {
   flex: 1;
   display: flex;
@@ -3327,6 +3547,11 @@ export default {
   padding-top: 20px;
   overflow: hidden;
   position: relative;
+  /* GPU硬件加速优化 */
+  will-change: transform;
+  transform: translateZ(0);
+  /* 优化渲染性能 */
+  contain: layout style paint;
 }
 
 .comic-image-container {
@@ -3336,6 +3561,11 @@ export default {
   width: 100%;
   height: 100%;
   position: relative;
+  /* GPU硬件加速优化 */
+  will-change: transform;
+  transform: translateZ(0);
+  /* 优化渲染性能 */
+  contain: layout style paint;
 }
 
 .comic-image {
@@ -3345,6 +3575,16 @@ export default {
   transition: transform 0.2s ease;
   cursor: grab;
   user-select: none;
+  /* GPU硬件加速优化 */
+  will-change: transform;
+  transform: translateZ(0); /* 强制启用硬件加速 */
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* 优化渲染性能 */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* 减少重绘 */
+  contain: layout style paint;
 }
 
 .comic-image:active {
