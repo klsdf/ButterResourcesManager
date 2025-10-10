@@ -670,12 +670,18 @@ export default {
         })
         
         if (successCount > 0) {
-          const message = `成功添加 ${successCount} 个漫画${failCount > 0 ? `，${failCount} 个失败` : ''}`
-          console.log('显示成功通知:', message)
-          this.showNotification('批量添加完成', message)
+          // 使用通知服务的批量结果处理，会自动显示详细的成功和失败信息
+          console.log('显示批量操作结果通知')
+          this.showToastNotification('批量添加完成', '', results)
         } else {
           console.log('所有文件夹添加失败，显示失败通知')
-          this.showNotification('添加失败', '所有文件夹添加失败')
+          // 收集所有失败原因，添加序号和换行
+          const failureReasons = results
+            .filter(r => !r.success)
+            .map((r, index) => `${index + 1}. "${r.folderName}": ${r.error || '未知错误'}`)
+            .join('\n')
+          
+          this.showToastNotification('添加失败', `所有文件夹添加失败:\n${failureReasons}`, results)
         }
         
         console.log('=== 拖拽事件完成 ===')
@@ -683,7 +689,7 @@ export default {
       } catch (error) {
         console.error('拖拽添加漫画失败:', error)
         console.error('错误堆栈:', error.stack)
-        this.showNotification('添加失败', `添加漫画失败: ${error.message}`)
+        this.showToastNotification('添加失败', `添加漫画失败: ${error.message}`)
       }
     },
     
@@ -902,7 +908,21 @@ export default {
             results.push({
               success: false,
               folderName: folder.name,
-              error: `文件夹 "${folder.name}" 已经存在`
+              error: `文件夹 "${folder.name}" 已经存在`,
+              folderPath: folder.path,
+              existingAlbumId: existingAlbum.id
+            })
+            continue
+          }
+          
+          // 验证文件夹路径
+          if (!folder.path || folder.path.trim() === '') {
+            console.log('文件夹路径为空，跳过:', folder.name)
+            results.push({
+              success: false,
+              folderName: folder.name,
+              error: '文件夹路径为空',
+              folderPath: folder.path
             })
             continue
           }
@@ -956,10 +976,29 @@ export default {
         } catch (error) {
           console.error(`处理文件夹 "${folder.name}" 失败:`, error)
           console.error('错误堆栈:', error.stack)
+          
+          // 根据错误类型提供更具体的错误信息
+          let errorMessage = error.message
+          if (error.message.includes('ENOENT')) {
+            errorMessage = '文件夹不存在或无法访问'
+          } else if (error.message.includes('EACCES')) {
+            errorMessage = '没有访问权限'
+          } else if (error.message.includes('EMFILE') || error.message.includes('ENFILE')) {
+            errorMessage = '打开文件过多，请稍后重试'
+          } else if (error.message.includes('timeout')) {
+            errorMessage = '操作超时'
+          } else if (error.message.includes('Invalid path')) {
+            errorMessage = '无效的文件夹路径'
+          } else if (error.message.includes('No image files found')) {
+            errorMessage = '文件夹中没有找到图片文件'
+          }
+          
           results.push({
             success: false,
             folderName: folder.name,
-            error: error.message
+            error: errorMessage,
+            folderPath: folder.path,
+            originalError: error.message
           })
         }
       }
@@ -1028,6 +1067,26 @@ export default {
             }
           })
         }
+      }
+    },
+
+    // 显示 Toast 通知
+    async showToastNotification(title, message, results = null) {
+      try {
+        const { notify } = await import('../utils/NotificationService.js')
+        
+        if (results && results.length > 0) {
+          // 批量操作结果通知
+          notify.batch(title, results)
+        } else {
+          // 普通通知
+          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
+          notify[type](title, message)
+        }
+      } catch (error) {
+        console.error('显示 Toast 通知失败:', error)
+        // 降级到原来的通知方式
+        this.showNotification(title, message)
       }
     },
     async saveAlbums() {
@@ -1120,10 +1179,13 @@ export default {
         this.albums.push(album)
         await this.saveAlbums()
         console.log('专辑添加成功')
+        // 显示成功通知，包含漫画名称和页数
+        this.showToastNotification('添加成功', `已成功添加漫画 "${this.newAlbum.name}" (${pages.length}页)`)
         this.closeAddAlbumDialog()
       } catch (e) {
         console.error('添加漫画失败:', e)
-        alert('添加漫画失败: ' + e.message)
+        // 显示失败通知，包含漫画名称和错误信息
+        this.showToastNotification('添加失败', `无法添加漫画 "${this.newAlbum.name}": ${e.message}`)
       }
     },
     extractFolderName(p) {
@@ -1241,11 +1303,27 @@ export default {
     },
     async removeAlbum(album) {
       if (!confirm(`确定要删除漫画 "${album.name}" 吗？`)) return
-      const idx = this.albums.findIndex(a => a.id === album.id)
-      if (idx > -1) {
-        this.albums.splice(idx, 1)
-        await this.saveAlbums()
+      
+      try {
+        const idx = this.albums.findIndex(a => a.id === album.id)
+        if (idx > -1) {
+          this.albums.splice(idx, 1)
+          await this.saveAlbums()
+          
+          // 显示删除成功通知
+          this.showToastNotification('删除成功', `已成功删除漫画 "${album.name}"`)
+          console.log('漫画删除成功:', album.name)
+        } else {
+          // 显示删除失败通知
+          this.showToastNotification('删除失败', `漫画 "${album.name}" 不存在`)
+          console.error('漫画不存在:', album.name)
+        }
+      } catch (error) {
+        // 显示删除失败通知
+        this.showToastNotification('删除失败', `无法删除漫画 "${album.name}": ${error.message}`)
+        console.error('删除漫画失败:', error)
       }
+      
       this.closeAlbumDetail()
     },
     editAlbum(album) {
@@ -1563,11 +1641,26 @@ export default {
              }
            } else {
              console.error('扫描图片文件失败:', resp.error)
-             throw new Error(`扫描图片文件失败: ${resp.error}`)
+             // 根据错误类型提供更具体的错误信息
+             let errorMessage = resp.error || '扫描图片文件失败'
+             if (resp.error && resp.error.includes('ENOENT')) {
+               errorMessage = '文件夹不存在或无法访问'
+             } else if (resp.error && resp.error.includes('EACCES')) {
+               errorMessage = '没有访问权限'
+             } else if (resp.error && resp.error.includes('EMFILE')) {
+               errorMessage = '打开文件过多，请稍后重试'
+             }
+             throw new Error(errorMessage)
            }
          } else {
            console.error('Electron API 不可用')
-           throw new Error('Electron API 不可用')
+           throw new Error('Electron API 不可用，请确保在 Electron 环境中运行')
+         }
+         
+         // 检查是否找到了图片文件
+         if (files.length === 0) {
+           console.log('文件夹中没有找到图片文件')
+           throw new Error('文件夹中没有找到图片文件')
          }
          
          this.pages = files

@@ -16,8 +16,13 @@
         </li>
       </ul>
 
-      <!-- 设置按钮 -->
+      <!-- 底部按钮 -->
       <div class="nav-footer">
+        <div :class="{ active: currentView === 'messages' }" @click="switchView('messages')"
+          class="nav-item messages-item">
+          <span class="nav-icon">📢</span>
+          <span class="nav-text">信息中心</span>
+        </div>
         <div :class="{ active: currentView === 'settings' }" @click="switchView('settings')"
           class="nav-item settings-item">
           <span class="nav-icon">⚙️</span>
@@ -52,6 +57,9 @@
         <!-- 声音页面 -->
         <AudioView v-if="currentView === 'audio'" />
 
+        <!-- 信息中心页面 -->
+        <MessageCenterView v-if="currentView === 'messages'" />
+
         <!-- 设置页面 -->
         <SettingsView v-if="currentView === 'settings'" @theme-changed="onThemeChanged" />
         
@@ -60,6 +68,8 @@
       <GlobalAudioPlayer @audio-started="onAudioStarted" @playlist-ended="onPlaylistEnded" />
     </main>
 
+    <!-- 全局通知组件 -->
+    <ToastNotification ref="toastNotification" />
 
   </div>
 </template>
@@ -72,7 +82,9 @@ import NovelView from './pages/NovelView.vue'
 import WebsiteView from './pages/WebsiteView.vue'
 import AudioView from './pages/AudioView.vue'
 import SettingsView from './pages/SettingsView.vue'
+import MessageCenterView from './pages/MessageCenterView.vue'
 import GlobalAudioPlayer from './components/GlobalAudioPlayer.vue'
+import ToastNotification from './components/ToastNotification.vue'
 
 export default {
   name: 'App',
@@ -84,7 +96,9 @@ export default {
     WebsiteView,
     AudioView,
     SettingsView,
-    GlobalAudioPlayer
+    MessageCenterView,
+    GlobalAudioPlayer,
+    ToastNotification
   },
   data() {
     return {
@@ -135,9 +149,11 @@ export default {
       this.currentView = viewId
     },
     getCurrentViewTitle() {
-
       if (this.currentView === 'settings') {
         return '设置'
+      }
+      if (this.currentView === 'messages') {
+        return '信息中心'
       }
       const item = this.navItems.find(item => item.id === this.currentView)
       return item ? item.name : '未知，请配置'
@@ -145,6 +161,9 @@ export default {
     getCurrentViewDescription() {
       if (this.currentView === 'settings') {
         return '管理应用设置和偏好'
+      }
+      if (this.currentView === 'messages') {
+        return '查看系统通知和操作历史'
       }
       const item = this.navItems.find(item => item.id === this.currentView)
       return item ? item.description : '无描述，请配置'
@@ -179,6 +198,15 @@ export default {
     }
   },
   async mounted() {
+    // 初始化通知服务
+    try {
+      const notificationService = (await import('./utils/NotificationService.js')).default
+      notificationService.init(this.$refs.toastNotification)
+      console.log('✅ 通知服务初始化成功')
+    } catch (error) {
+      console.error('通知服务初始化失败:', error)
+    }
+
     // 首先初始化存档系统
     try {
       const saveManager = (await import('./utils/SaveManager.js')).default

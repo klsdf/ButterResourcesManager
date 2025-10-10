@@ -687,6 +687,26 @@ export default {
         }
       }
     },
+
+    // 显示 Toast 通知
+    async showToastNotification(title, message, results = null) {
+      try {
+        const { notify } = await import('../utils/NotificationService.js')
+        
+        if (results && results.length > 0) {
+          // 批量操作结果通知
+          notify.batch(title, results)
+        } else {
+          // 普通通知
+          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
+          notify[type](title, message)
+        }
+      } catch (error) {
+        console.error('显示 Toast 通知失败:', error)
+        // 降级到原来的通知方式
+        this.showNotification(title, message)
+      }
+    },
     showGameDetail(game) {
       this.currentGame = game
       this.showDetailModal = true
@@ -971,14 +991,29 @@ export default {
         alert('保存编辑失败: ' + error.message)
       }
     },
-    removeGame(game) {
-      if (confirm(`确定要删除游戏 "${game.name}" 吗？`)) {
+    async removeGame(game) {
+      if (!confirm(`确定要删除游戏 "${game.name}" 吗？`)) return
+      
+      try {
         const index = this.games.findIndex(g => g.id === game.id)
         if (index > -1) {
           this.games.splice(index, 1)
-          this.saveGames()
+          await this.saveGames()
+          
+          // 显示删除成功通知
+          this.showToastNotification('删除成功', `已成功删除游戏 "${game.name}"`)
+          console.log('游戏删除成功:', game.name)
+        } else {
+          // 显示删除失败通知
+          this.showToastNotification('删除失败', `游戏 "${game.name}" 不存在`)
+          console.error('游戏不存在:', game.name)
         }
+      } catch (error) {
+        // 显示删除失败通知
+        this.showToastNotification('删除失败', `无法删除游戏 "${game.name}": ${error.message}`)
+        console.error('删除游戏失败:', error)
       }
+      
       this.showContextMenu = false
     },
     formatDate,

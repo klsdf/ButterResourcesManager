@@ -491,16 +491,21 @@ export default {
     },
     
     async deleteAudio(audio) {
-      if (confirm(`确定要删除音频 "${audio.name}" 吗？`)) {
-        try {
-          await audioManager.deleteAudio(audio.id)
-          this.audios = this.audios.filter(a => a.id !== audio.id)
-          this.closeAudioDetail()
-          this.showNotification('音频删除成功', `已删除音频: ${audio.name}`)
-        } catch (error) {
-          console.error('删除音频失败:', error)
-          alert('删除音频失败: ' + error.message)
-        }
+      if (!confirm(`确定要删除音频 "${audio.name}" 吗？`)) return
+      
+      try {
+        await audioManager.deleteAudio(audio.id)
+        this.audios = this.audios.filter(a => a.id !== audio.id)
+        
+        // 显示删除成功通知
+        this.showToastNotification('删除成功', `已成功删除音频 "${audio.name}"`)
+        console.log('音频删除成功:', audio.name)
+        
+        this.closeAudioDetail()
+      } catch (error) {
+        console.error('删除音频失败:', error)
+        // 显示删除失败通知
+        this.showToastNotification('删除失败', `无法删除音频 "${audio.name}": ${error.message}`)
       }
     },
     
@@ -907,6 +912,26 @@ export default {
             }
           })
         }
+      }
+    },
+
+    // 显示 Toast 通知
+    async showToastNotification(title, message, results = null) {
+      try {
+        const { notify } = await import('../utils/NotificationService.js')
+        
+        if (results && results.length > 0) {
+          // 批量操作结果通知
+          notify.batch(title, results)
+        } else {
+          // 普通通知
+          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
+          notify[type](title, message)
+        }
+      } catch (error) {
+        console.error('显示 Toast 通知失败:', error)
+        // 降级到原来的通知方式
+        this.showNotification(title, message)
       }
     }
   },

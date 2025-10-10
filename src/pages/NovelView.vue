@@ -769,14 +769,29 @@ export default {
         alert('保存编辑失败: ' + error.message)
       }
     },
-    removeNovel(novel) {
-      if (confirm(`确定要删除小说 "${novel.name}" 吗？`)) {
+    async removeNovel(novel) {
+      if (!confirm(`确定要删除小说 "${novel.name}" 吗？`)) return
+      
+      try {
         const index = this.novels.findIndex(n => n.id === novel.id)
         if (index > -1) {
           this.novels.splice(index, 1)
-          novelManager.deleteNovel(novel.id)
+          await novelManager.deleteNovel(novel.id)
+          
+          // 显示删除成功通知
+          this.showToastNotification('删除成功', `已成功删除小说 "${novel.name}"`)
+          console.log('小说删除成功:', novel.name)
+        } else {
+          // 显示删除失败通知
+          this.showToastNotification('删除失败', `小说 "${novel.name}" 不存在`)
+          console.error('小说不存在:', novel.name)
         }
+      } catch (error) {
+        // 显示删除失败通知
+        this.showToastNotification('删除失败', `无法删除小说 "${novel.name}": ${error.message}`)
+        console.error('删除小说失败:', error)
       }
+      
       this.showContextMenu = false
     },
     async openNovelReader(novel) {
@@ -989,6 +1004,26 @@ export default {
             }
           })
         }
+      }
+    },
+
+    // 显示 Toast 通知
+    async showToastNotification(title, message, results = null) {
+      try {
+        const { notify } = await import('../utils/NotificationService.js')
+        
+        if (results && results.length > 0) {
+          // 批量操作结果通知
+          notify.batch(title, results)
+        } else {
+          // 普通通知
+          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
+          notify[type](title, message)
+        }
+      } catch (error) {
+        console.error('显示 Toast 通知失败:', error)
+        // 降级到原来的通知方式
+        this.showNotification(title, message)
       }
     },
     async loadNovels() {
