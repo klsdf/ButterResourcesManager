@@ -273,11 +273,126 @@
           <!-- 图片设置 -->
           <div v-if="currentCategory === 'images'" class="settings-section">
             <div class="settings-grid">
-              <!-- 图片相关设置可以在这里添加 -->
-              <div class="empty-state">
-                <div class="empty-icon">🖼️</div>
-                <h4>图片设置</h4>
-                <p>图片相关的设置选项将在这里显示</p>
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">JPEG压缩质量</span>
+                  <span class="setting-desc">设置缩略图生成的JPEG压缩质量 (1-100)</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.image.jpegQuality" 
+                    min="10" 
+                    max="100" 
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.image.jpegQuality }}%</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">缩略图尺寸</span>
+                  <span class="setting-desc">设置缩略图的最大宽度和高度 (像素)</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.image.thumbnailSize" 
+                    min="100" 
+                    max="500" 
+                    step="10"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.image.thumbnailSize }}px</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">图片缓存大小</span>
+                  <span class="setting-desc">设置图片缓存的最大内存占用 (MB)</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.image.cacheSize" 
+                    min="10" 
+                    max="200" 
+                    step="10"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.image.cacheSize }}MB</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">启用缩略图模式</span>
+                  <span class="setting-desc">在预览网格中使用缩略图以节省内存</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.image.enableThumbnails">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">图片预加载数量</span>
+                  <span class="setting-desc">在阅读器中预加载的图片数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.image.preloadCount" 
+                    min="1" 
+                    max="10" 
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.image.preloadCount }} 张</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">启用硬件加速</span>
+                  <span class="setting-desc">使用GPU硬件加速渲染图片</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.image.hardwareAcceleration">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">图片渲染质量</span>
+                  <span class="setting-desc">设置图片的渲染质量级别</span>
+                </label>
+                <div class="setting-control">
+                  <select v-model="settings.image.renderQuality" class="setting-select">
+                    <option value="high">高质量</option>
+                    <option value="medium">中等质量</option>
+                    <option value="low">低质量</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">测试图片设置</span>
+                  <span class="setting-desc">测试当前图片设置是否正确保存</span>
+                </label>
+                <div class="setting-control">
+                  <button class="btn-test-image-settings" @click="testImageSettings">
+                    测试设置
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -685,6 +800,17 @@ export default {
           }
         }
         
+        // 构建image对象
+        cleanSettings.image = {
+          jpegQuality: this.settings.image?.jpegQuality || 80,
+          thumbnailSize: this.settings.image?.thumbnailSize || 200,
+          cacheSize: this.settings.image?.cacheSize || 50,
+          enableThumbnails: this.settings.image?.enableThumbnails !== undefined ? this.settings.image.enableThumbnails : true,
+          preloadCount: this.settings.image?.preloadCount || 3,
+          hardwareAcceleration: this.settings.image?.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
+          renderQuality: this.settings.image?.renderQuality || 'high'
+        }
+        
         // 清理单独的字段，只保留novel对象
         delete cleanSettings.novelDefaultOpenMode
         delete cleanSettings.novelFontSize
@@ -701,10 +827,10 @@ export default {
         const success = await saveManager.saveSettings(cleanSettings)
         if (success) {
           this.$emit('settings-saved', cleanSettings)
-          this.showNotification('设置已保存', '所有设置已成功保存')
+          this.showToastNotification('设置保存成功', '所有设置已成功保存')
           console.log('设置保存成功:', cleanSettings)
         } else {
-          alert('设置保存失败！')
+          this.showToastNotification('设置保存失败', '设置保存失败，请重试')
         }
       } catch (error) {
         console.error('保存设置失败:', error)
@@ -734,7 +860,7 @@ export default {
           // 视频播放设置
           videoPlayMode: 'external'
         }
-        alert('设置已重置！')
+        this.showToastNotification('设置已重置', '所有设置已恢复为默认值')
       }
     },
     async selectScreenshotsDirectory() {
@@ -840,13 +966,33 @@ export default {
         }
       }
     },
+
+    // 显示 Toast 通知
+    async showToastNotification(title, message, results = null) {
+      try {
+        const { notify } = await import('../utils/NotificationService.js')
+        
+        if (results && results.length > 0) {
+          // 批量操作结果通知
+          notify.batch(title, results)
+        } else {
+          // 普通通知
+          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
+          notify[type](title, message)
+        }
+      } catch (error) {
+        console.error('显示 Toast 通知失败:', error)
+        // 降级到原来的通知方式
+        this.showNotification(title, message)
+      }
+    },
     async exportSettings() {
       // 使用 SaveManager 导出设置
       const success = await saveManager.exportData('settings')
       if (success) {
-        alert('设置导出成功！')
+        this.showToastNotification('设置导出成功', '设置已成功导出到文件')
       } else {
-        alert('设置导出失败！')
+        this.showToastNotification('设置导出失败', '设置导出失败，请重试')
       }
     },
     async openSaveDataFolder() {
@@ -947,13 +1093,53 @@ export default {
           const reloadedSettings = await saveManager.loadSettings()
           console.log('重新加载的设置:', reloadedSettings)
           
-          this.showNotification('测试完成', '设置已保存并验证，请查看控制台输出')
+          this.showToastNotification('测试完成', '设置已保存并验证，请查看控制台输出')
         } else {
           alert('设置保存失败！')
         }
       } catch (error) {
         console.error('测试设置失败:', error)
         alert('测试设置失败: ' + error.message)
+      }
+    },
+    
+    async testImageSettings() {
+      try {
+        console.log('=== 测试图片设置 ===')
+        console.log('当前图片设置:', {
+          jpegQuality: this.settings.image.jpegQuality,
+          thumbnailSize: this.settings.image.thumbnailSize,
+          cacheSize: this.settings.image.cacheSize,
+          enableThumbnails: this.settings.image.enableThumbnails,
+          preloadCount: this.settings.image.preloadCount,
+          hardwareAcceleration: this.settings.image.hardwareAcceleration,
+          renderQuality: this.settings.image.renderQuality
+        })
+        
+        // 保存设置
+        const success = await saveManager.saveSettings(this.settings)
+        if (success) {
+          console.log('图片设置保存成功')
+          
+          // 重新加载设置验证
+          const reloadedSettings = await saveManager.loadSettings()
+          console.log('重新加载的图片设置:', {
+            jpegQuality: reloadedSettings.image?.jpegQuality,
+            thumbnailSize: reloadedSettings.image?.thumbnailSize,
+            cacheSize: reloadedSettings.image?.cacheSize,
+            enableThumbnails: reloadedSettings.image?.enableThumbnails,
+            preloadCount: reloadedSettings.image?.preloadCount,
+            hardwareAcceleration: reloadedSettings.image?.hardwareAcceleration,
+            renderQuality: reloadedSettings.image?.renderQuality
+          })
+          
+          this.showToastNotification('图片设置测试完成', '图片设置已保存并验证，请查看控制台输出')
+        } else {
+          alert('图片设置保存失败！')
+        }
+      } catch (error) {
+        console.error('测试图片设置失败:', error)
+        alert('测试图片设置失败: ' + error.message)
       }
     }
   },
@@ -974,6 +1160,30 @@ export default {
           this.settings.novelTextColor = this.settings.novel.readerSettings.textColor || '#333333'
           this.settings.novelWordsPerPage = this.settings.novel.readerSettings.wordsPerPage || 1000
           this.settings.novelShowProgress = this.settings.novel.readerSettings.showProgress !== undefined ? this.settings.novel.readerSettings.showProgress : true
+        }
+      }
+      
+      // 从image对象中读取图片设置到表单字段
+      if (this.settings.image) {
+        this.settings.image = {
+          jpegQuality: this.settings.image.jpegQuality || 80,
+          thumbnailSize: this.settings.image.thumbnailSize || 200,
+          cacheSize: this.settings.image.cacheSize || 50,
+          enableThumbnails: this.settings.image.enableThumbnails !== undefined ? this.settings.image.enableThumbnails : true,
+          preloadCount: this.settings.image.preloadCount || 3,
+          hardwareAcceleration: this.settings.image.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
+          renderQuality: this.settings.image.renderQuality || 'high'
+        }
+      } else {
+        // 如果没有image对象，创建默认的
+        this.settings.image = {
+          jpegQuality: 80,
+          thumbnailSize: 200,
+          cacheSize: 50,
+          enableThumbnails: true,
+          preloadCount: 3,
+          hardwareAcceleration: true,
+          renderQuality: 'high'
         }
       }
       
@@ -1387,6 +1597,23 @@ export default {
 
 .btn-test-settings:hover {
   background: #059669;
+  transform: translateY(-1px);
+}
+
+.btn-test-image-settings {
+  background: #f59e0b;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-test-image-settings:hover {
+  background: #d97706;
   transform: translateY(-1px);
 }
 

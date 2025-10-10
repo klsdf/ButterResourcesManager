@@ -515,6 +515,13 @@ export default {
       // 图片质量设置
       imageQuality: 'high', // 'high', 'medium', 'low'
       enableThumbnails: true, // 是否启用缩略图
+      // 从设置中加载的配置
+      jpegQuality: 80, // JPEG压缩质量
+      thumbnailSize: 200, // 缩略图尺寸
+      cacheSize: 50, // 缓存大小(MB)
+      preloadCount: 3, // 预加载数量
+      hardwareAcceleration: true, // 硬件加速
+      renderQuality: 'high', // 渲染质量
       // 编辑相关
       showEditDialog: false,
       editAlbumForm: {
@@ -1689,7 +1696,7 @@ export default {
       
       // 尝试生成Canvas缩略图
       try {
-        const thumbnailDataUrl = await this.createCanvasThumbnail(normalizedPath, 200, 200)
+        const thumbnailDataUrl = await this.createCanvasThumbnail(normalizedPath, this.thumbnailSize, this.thumbnailSize)
         if (thumbnailDataUrl) {
           // 缓存缩略图DataURL
           this.addToCache(thumbnailKey, thumbnailDataUrl, thumbnailDataUrl.length * 2)
@@ -1747,8 +1754,9 @@ export default {
             // 绘制缩略图
             ctx.drawImage(img, 0, 0, width, height)
             
-            // 转换为DataURL
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.8) // 80%质量
+            // 转换为DataURL，使用设置中的JPEG质量
+            const quality = this.jpegQuality / 100 // 转换为0-1范围
+            const dataUrl = canvas.toDataURL('image/jpeg', quality)
             resolve(dataUrl)
           } catch (error) {
             reject(error)
@@ -1894,14 +1902,16 @@ export default {
     },
     
     // 预加载图片
-    async preloadImages(startIndex, count = 3) {
+    async preloadImages(startIndex, count = null) {
+      // 使用设置中的预加载数量，如果没有指定则使用默认值
+      const preloadCount = count || this.preloadCount || 3
       if (this.isPreloading || !this.pages || this.pages.length === 0) return
       
       this.isPreloading = true
       const preloadPromises = []
       
       // 预加载当前页前后的图片
-      for (let i = Math.max(0, startIndex - 1); i <= Math.min(this.pages.length - 1, startIndex + count); i++) {
+      for (let i = Math.max(0, startIndex - 1); i <= Math.min(this.pages.length - 1, startIndex + preloadCount); i++) {
         if (i !== startIndex && !this.imageCache.has(this.pages[i])) {
           preloadPromises.push(this.preloadImage(this.pages[i]))
         }
@@ -2335,18 +2345,19 @@ export default {
        this.imageQuality = quality
        console.log('图片质量设置为:', quality)
        
-       // 根据质量调整缓存大小
-       switch (quality) {
-         case 'high':
-           this.maxCacheSize = 100 * 1024 * 1024 // 100MB
-           break
-         case 'medium':
-           this.maxCacheSize = 50 * 1024 * 1024 // 50MB
-           break
-         case 'low':
-           this.maxCacheSize = 20 * 1024 * 1024 // 20MB
-           break
-       }
+      // 根据质量调整缓存大小，优先使用设置中的值
+      const cacheSizeMB = this.cacheSize || 50
+      switch (quality) {
+        case 'high':
+          this.maxCacheSize = Math.max(cacheSizeMB, 100) * 1024 * 1024
+          break
+        case 'medium':
+          this.maxCacheSize = Math.max(cacheSizeMB, 50) * 1024 * 1024
+          break
+        case 'low':
+          this.maxCacheSize = Math.max(cacheSizeMB, 20) * 1024 * 1024
+          break
+      }
        
        // 如果当前缓存超过新限制，清理缓存
        if (this.imageCacheSize > this.maxCacheSize) {
@@ -2354,16 +2365,60 @@ export default {
        }
      },
      
-     // 切换缩略图模式
-     toggleThumbnails() {
-       this.enableThumbnails = !this.enableThumbnails
-       console.log('缩略图模式:', this.enableThumbnails ? '启用' : '禁用')
-       
-       // 重新加载当前页面
-       if (this.showComicViewer) {
-         this.loadCurrentPage()
-       }
-     },
+    // 切换缩略图模式
+    toggleThumbnails() {
+      this.enableThumbnails = !this.enableThumbnails
+      console.log('缩略图模式:', this.enableThumbnails ? '启用' : '禁用')
+      
+      // 重新加载当前页面
+      if (this.showComicViewer) {
+        this.loadCurrentPage()
+      }
+    },
+    
+    // 从设置中加载图片配置
+    async loadImageSettings() {
+      try {
+        // 动态导入SaveManager以避免循环依赖
+        const saveManager = await import('../utils/SaveManager.js')
+        const settings = await saveManager.default.loadSettings()
+        
+        if (settings && settings.image) {
+          // 从image对象中更新图片相关配置
+          this.jpegQuality = settings.image.jpegQuality || 80
+          this.thumbnailSize = settings.image.thumbnailSize || 200
+          this.cacheSize = settings.image.cacheSize || 50
+          this.enableThumbnails = settings.image.enableThumbnails !== undefined ? settings.image.enableThumbnails : true
+          this.preloadCount = settings.image.preloadCount || 3
+          this.hardwareAcceleration = settings.image.hardwareAcceleration !== undefined ? settings.image.hardwareAcceleration : true
+          this.renderQuality = settings.image.renderQuality || 'high'
+          
+          // 更新缓存大小
+          this.maxCacheSize = this.cacheSize * 1024 * 1024
+          
+          console.log('图片设置已加载:', {
+            jpegQuality: this.jpegQuality,
+            thumbnailSize: this.thumbnailSize,
+            cacheSize: this.cacheSize,
+            enableThumbnails: this.enableThumbnails,
+            preloadCount: this.preloadCount,
+            hardwareAcceleration: this.hardwareAcceleration,
+            renderQuality: this.renderQuality
+          })
+        }
+      } catch (error) {
+        console.error('加载图片设置失败:', error)
+        // 使用默认值
+        this.jpegQuality = 80
+        this.thumbnailSize = 200
+        this.cacheSize = 50
+        this.enableThumbnails = true
+        this.preloadCount = 3
+        this.hardwareAcceleration = true
+        this.renderQuality = 'high'
+        this.maxCacheSize = 50 * 1024 * 1024
+      }
+    },
     
     onImageLoad() {
       // 图片加载完成后的处理
@@ -2709,6 +2764,9 @@ export default {
   },
   async mounted() {
     await this.loadAlbums()
+    
+    // 加载图片设置
+    await this.loadImageSettings()
     
     // 初始化筛选器数据
     this.updateFilterData()
