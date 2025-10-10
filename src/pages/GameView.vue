@@ -628,10 +628,10 @@ export default {
             this.runningGames.add(game.id)
             
             // 显示成功提示
-            this.showNotification('游戏启动成功', `${game.name} 已启动`)
+            this.showToastNotification('游戏启动成功', `${game.name} 已启动`)
           } else {
             console.error('游戏启动失败:', result.error)
-            alert(`启动游戏失败: ${result.error}`)
+            this.showToastNotification('游戏启动失败', `启动游戏失败: ${result.error}`)
             return
           }
         } else {
@@ -649,7 +649,7 @@ export default {
             errorMessage += `请检查应用是否正确打包\n\n`
           }
           errorMessage += `游戏路径: ${game.executablePath}`
-          alert(errorMessage)
+          this.showToastNotification('游戏启动失败', errorMessage)
           return
         }
         
@@ -657,7 +657,7 @@ export default {
         this.closeGameDetail()
       } catch (error) {
         console.error('启动游戏失败:', error)
-        alert(`启动游戏失败: ${error.message}`)
+        this.showToastNotification('游戏启动失败', `启动游戏失败: ${error.message}`)
       }
     },
     showNotification(title, message) {
@@ -1479,11 +1479,11 @@ export default {
             if (showNotification) {
               // 延迟显示通知，避免通知被包含在截图中
               setTimeout(() => {
-                this.showNotification(
+                this.showToastNotification(
                   '截图成功', 
                   `截图已保存为: ${result.filename}\n游戏文件夹: ${result.gameFolder}\n窗口: ${result.windowName}`
                 )
-              }, 100) // 延迟1秒显示通知
+              }, 100) // 延迟100ms显示通知
             }
             
             // 自动打开截图文件夹
@@ -1499,7 +1499,7 @@ export default {
             if (showNotification) {
               // 延迟显示失败通知
               setTimeout(() => {
-                this.showNotification('截图失败', result.error)
+                this.showToastNotification('截图失败', result.error)
               }, 100)
             }
           }
@@ -1508,7 +1508,7 @@ export default {
           if (showNotification) {
             // 延迟显示API不可用通知
             setTimeout(() => {
-              this.showNotification('截图失败', '当前环境不支持截图功能')
+              this.showToastNotification('截图失败', '当前环境不支持截图功能')
             }, 100)
           }
         }
@@ -1518,7 +1518,7 @@ export default {
         if (settings.screenshotNotification !== false) {
           // 延迟显示异常通知
           setTimeout(() => {
-            this.showNotification('截图失败', error.message)
+            this.showToastNotification('截图失败', error.message)
           }, 100)
         }
       } finally {
