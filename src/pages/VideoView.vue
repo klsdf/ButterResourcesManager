@@ -393,12 +393,12 @@ export default {
       ],
       // 标签筛选相关
       allTags: [],
-      selectedTag: null,
-      excludedTag: null,
+      selectedTags: [],
+      excludedTags: [],
       // 演员筛选相关
       allActors: [],
-      selectedActor: null,
-      excludedActor: null,
+      selectedActors: [],
+      excludedActors: [],
       // 系列筛选相关
       allSeries: [],
       selectedSeries: null,
@@ -417,13 +417,13 @@ export default {
           video.tags.some(tag => tag.toLowerCase().includes(this.searchQuery.toLowerCase()))
         )
         
-        // 标签筛选
-        const matchesTag = !this.selectedTag || (video.tags && video.tags.includes(this.selectedTag))
-        const notExcludedTag = !this.excludedTag || !(video.tags && video.tags.includes(this.excludedTag))
+        // 标签筛选 - 必须包含所有选中的标签（AND逻辑）
+        const matchesTag = this.selectedTags.length === 0 || (video.tags && this.selectedTags.every(tag => video.tags.includes(tag)))
+        const notExcludedTag = this.excludedTags.length === 0 || !(video.tags && this.excludedTags.some(tag => video.tags.includes(tag)))
         
-        // 演员筛选
-        const matchesActor = !this.selectedActor || (video.actors && video.actors.includes(this.selectedActor))
-        const notExcludedActor = !this.excludedActor || !(video.actors && video.actors.includes(this.excludedActor))
+        // 演员筛选 - 演员是"或"逻辑（一个视频可以有多个演员）
+        const matchesActor = this.selectedActors.length === 0 || (video.actors && this.selectedActors.some(actor => video.actors.includes(actor)))
+        const notExcludedActor = this.excludedActors.length === 0 || !(video.actors && this.excludedActors.some(actor => video.actors.includes(actor)))
         
         // 系列筛选
         const matchesSeries = !this.selectedSeries || video.series === this.selectedSeries
@@ -1986,44 +1986,44 @@ export default {
     
     // 筛选方法
     filterByTag(tagName) {
-      if (this.selectedTag === tagName) {
+      if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedTag = null
-      } else if (this.excludedTag === tagName) {
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+      } else if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedTag = null
-        this.selectedTag = tagName
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+        this.selectedTags = [...this.selectedTags, tagName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedTag = tagName
+        this.selectedTags = [...this.selectedTags, tagName]
       }
       this.updateFilterData()
     },
     
     clearTagFilter() {
-      this.selectedTag = null
-      this.excludedTag = null
+      this.selectedTags = []
+      this.excludedTags = []
       this.updateFilterData()
     },
     
     filterByActor(actorName) {
-      if (this.selectedActor === actorName) {
+      if (this.selectedActors.indexOf(actorName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedActor = null
-      } else if (this.excludedActor === actorName) {
+        this.selectedActors = this.selectedActors.filter(actor => actor !== actorName)
+      } else if (this.excludedActors.indexOf(actorName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedActor = null
-        this.selectedActor = actorName
+        this.excludedActors = this.excludedActors.filter(actor => actor !== actorName)
+        this.selectedActors = [...this.selectedActors, actorName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedActor = actorName
+        this.selectedActors = [...this.selectedActors, actorName]
       }
       this.updateFilterData()
     },
     
     clearActorFilter() {
-      this.selectedActor = null
-      this.excludedActor = null
+      this.selectedActors = []
+      this.excludedActors = []
       this.updateFilterData()
     },
     
@@ -2050,31 +2050,31 @@ export default {
     
     // 排除方法
     excludeByTag(tagName) {
-      if (this.excludedTag === tagName) {
+      if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedTag = null
-      } else if (this.selectedTag === tagName) {
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+      } else if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedTag = null
-        this.excludedTag = tagName
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+        this.excludedTags = [...this.excludedTags, tagName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedTag = tagName
+        this.excludedTags = [...this.excludedTags, tagName]
       }
       this.updateFilterData()
     },
     
     excludeByActor(actorName) {
-      if (this.excludedActor === actorName) {
+      if (this.excludedActors.indexOf(actorName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedActor = null
-      } else if (this.selectedActor === actorName) {
+        this.excludedActors = this.excludedActors.filter(actor => actor !== actorName)
+      } else if (this.selectedActors.indexOf(actorName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedActor = null
-        this.excludedActor = actorName
+        this.selectedActors = this.selectedActors.filter(actor => actor !== actorName)
+        this.excludedActors = [...this.excludedActors, actorName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedActor = actorName
+        this.excludedActors = [...this.excludedActors, actorName]
       }
       this.updateFilterData()
     },
@@ -2118,13 +2118,10 @@ export default {
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
-            this.excludedTag = null
           } else if (data === 'actors') {
             this.clearActorFilter()
-            this.excludedActor = null
           } else if (data === 'series') {
             this.clearSeriesFilter()
-            this.excludedSeries = null
           }
           break
       }
@@ -2138,15 +2135,15 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag,
-            excluded: this.excludedTag
+            selected: this.selectedTags,
+            excluded: this.excludedTags
           },
           {
             key: 'actors',
             title: '演员筛选',
             items: this.allActors,
-            selected: this.selectedActor,
-            excluded: this.excludedActor
+            selected: this.selectedActors,
+            excluded: this.excludedActors
           },
           {
             key: 'series',

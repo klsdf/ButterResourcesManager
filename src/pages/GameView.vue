@@ -407,11 +407,11 @@ export default {
         const matchesSearch = game.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
                             game.developer.toLowerCase().includes(this.searchQuery.toLowerCase())
         
-        // 标签筛选
-        const matchesTag = this.selectedTags.length === 0 || (game.tags && this.selectedTags.some(tag => game.tags.includes(tag)))
+        // 标签筛选 - 必须包含所有选中的标签（AND逻辑）
+        const matchesTag = this.selectedTags.length === 0 || (game.tags && this.selectedTags.every(tag => game.tags.includes(tag)))
         const notExcludedTag = this.excludedTags.length === 0 || !(game.tags && this.excludedTags.some(tag => game.tags.includes(tag)))
         
-        // 开发商筛选
+        // 开发商筛选 - 开发商是"或"逻辑（一个游戏只能有一个开发商）
         const matchesDeveloper = this.selectedDevelopers.length === 0 || this.selectedDevelopers.includes(game.developer)
         const notExcludedDeveloper = this.excludedDevelopers.length === 0 || !this.excludedDevelopers.includes(game.developer)
         

@@ -399,12 +399,12 @@ export default {
       isElectronEnvironment: false,
       // 标签筛选相关
       allTags: [],
-      selectedTag: null,
-      excludedTag: null,
+      selectedTags: [],
+      excludedTags: [],
       // 分类筛选相关
       allCategories: [],
-      selectedCategory: null,
-      excludedCategory: null,
+      selectedCategories: [],
+      excludedCategories: [],
       // 排序选项
       websiteSortOptions: [
         { value: 'name', label: '按名称' },
@@ -444,20 +444,20 @@ export default {
         filtered = filtered.filter(website => website.category === this.filterCategory)
       }
       
-      // 标签筛选
-      if (this.selectedTag) {
-        filtered = filtered.filter(website => website.tags && website.tags.includes(this.selectedTag))
+      // 标签筛选 - 必须包含所有选中的标签（AND逻辑）
+      if (this.selectedTags.length > 0) {
+        filtered = filtered.filter(website => website.tags && this.selectedTags.every(tag => website.tags.includes(tag)))
       }
-      if (this.excludedTag) {
-        filtered = filtered.filter(website => !(website.tags && website.tags.includes(this.excludedTag)))
+      if (this.excludedTags.length > 0) {
+        filtered = filtered.filter(website => !(website.tags && this.excludedTags.some(tag => website.tags.includes(tag))))
       }
       
-      // 分类筛选（新的筛选器）
-      if (this.selectedCategory) {
-        filtered = filtered.filter(website => website.category === this.selectedCategory)
+      // 分类筛选 - 分类是"或"逻辑（一个网站只能有一个分类）
+      if (this.selectedCategories.length > 0) {
+        filtered = filtered.filter(website => this.selectedCategories.includes(website.category))
       }
-      if (this.excludedCategory) {
-        filtered = filtered.filter(website => website.category !== this.excludedCategory)
+      if (this.excludedCategories.length > 0) {
+        filtered = filtered.filter(website => !this.excludedCategories.includes(website.category))
       }
       
       // 排序
@@ -578,74 +578,74 @@ export default {
     
     // 筛选方法
     filterByTag(tagName) {
-      if (this.selectedTag === tagName) {
+      if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedTag = null
-      } else if (this.excludedTag === tagName) {
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+      } else if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedTag = null
-        this.selectedTag = tagName
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+        this.selectedTags = [...this.selectedTags, tagName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedTag = tagName
+        this.selectedTags = [...this.selectedTags, tagName]
       }
       this.updateFilterData()
     },
     
     clearTagFilter() {
-      this.selectedTag = null
-      this.excludedTag = null
+      this.selectedTags = []
+      this.excludedTags = []
       this.updateFilterData()
     },
     
     filterByCategory(categoryName) {
-      if (this.selectedCategory === categoryName) {
+      if (this.selectedCategories.indexOf(categoryName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedCategory = null
-      } else if (this.excludedCategory === categoryName) {
+        this.selectedCategories = this.selectedCategories.filter(category => category !== categoryName)
+      } else if (this.excludedCategories.indexOf(categoryName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedCategory = null
-        this.selectedCategory = categoryName
+        this.excludedCategories = this.excludedCategories.filter(category => category !== categoryName)
+        this.selectedCategories = [...this.selectedCategories, categoryName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedCategory = categoryName
+        this.selectedCategories = [...this.selectedCategories, categoryName]
       }
       this.updateFilterData()
     },
     
     clearCategoryFilter() {
-      this.selectedCategory = null
-      this.excludedCategory = null
+      this.selectedCategories = []
+      this.excludedCategories = []
       this.updateFilterData()
     },
     
     // 排除方法
     excludeByTag(tagName) {
-      if (this.excludedTag === tagName) {
+      if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedTag = null
-      } else if (this.selectedTag === tagName) {
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+      } else if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedTag = null
-        this.excludedTag = tagName
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+        this.excludedTags = [...this.excludedTags, tagName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedTag = tagName
+        this.excludedTags = [...this.excludedTags, tagName]
       }
       this.updateFilterData()
     },
     
     excludeByCategory(categoryName) {
-      if (this.excludedCategory === categoryName) {
+      if (this.excludedCategories.indexOf(categoryName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedCategory = null
-      } else if (this.selectedCategory === categoryName) {
+        this.excludedCategories = this.excludedCategories.filter(category => category !== categoryName)
+      } else if (this.selectedCategories.indexOf(categoryName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedCategory = null
-        this.excludedCategory = categoryName
+        this.selectedCategories = this.selectedCategories.filter(category => category !== categoryName)
+        this.excludedCategories = [...this.excludedCategories, categoryName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedCategory = categoryName
+        this.excludedCategories = [...this.excludedCategories, categoryName]
       }
       this.updateFilterData()
     },
@@ -670,10 +670,8 @@ export default {
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
-            this.excludedTag = null
           } else if (data === 'categories') {
             this.clearCategoryFilter()
-            this.excludedCategory = null
           }
           break
       }
@@ -687,15 +685,15 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag,
-            excluded: this.excludedTag
+            selected: this.selectedTags,
+            excluded: this.excludedTags
           },
           {
             key: 'categories',
             title: '分类筛选',
             items: this.allCategories,
-            selected: this.selectedCategory,
-            excluded: this.excludedCategory
+            selected: this.selectedCategories,
+            excluded: this.excludedCategories
           }
         ]
       })

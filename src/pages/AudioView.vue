@@ -362,10 +362,10 @@ export default {
       // 使用组件内部的 audios 数据，而不是直接调用 audioManager
       let filtered = this.audios
       
-      // 标签筛选
+      // 标签筛选 - 必须包含所有选中的标签（AND逻辑）
       if (this.selectedTags.length > 0) {
         filtered = filtered.filter(audio => 
-          audio.tags && this.selectedTags.some(tag => audio.tags.includes(tag))
+          audio.tags && this.selectedTags.every(tag => audio.tags.includes(tag))
         )
       }
       if (this.excludedTags.length > 0) {
