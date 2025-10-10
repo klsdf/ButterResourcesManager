@@ -99,7 +99,7 @@
             <label class="form-label">封面图片 (可选)</label>
             <div class="cover-selection-container">
               <div class="cover-preview" v-if="newAlbum.cover">
-                <img :src="resolveImage(newAlbum.cover)" :alt="'封面预览'" @error="handleImageError">
+                <img :src="resolveCoverImage(newAlbum.cover)" :alt="'封面预览'" @error="handleImageError">
                 <div class="cover-preview-info">
                   <span class="cover-filename">{{ getImageFileName(newAlbum.cover) }}</span>
                 </div>
@@ -141,7 +141,7 @@
         <div class="detail-body" v-if="currentAlbum">
           <div class="detail-cover">
             <img 
-              :src="resolveImage(currentAlbum.cover)" 
+              :src="resolveCoverImage(currentAlbum.cover)" 
               :alt="currentAlbum.name"
               @error="handleImageError"
             >
@@ -252,7 +252,13 @@
               class="page-item" 
               @click="viewPage(idx)"
             >
-              <img :src="resolveImage(p)" :alt="'Page ' + (currentPageStartIndex + idx + 1)" @error="handleImageError">
+              <img 
+                :src="resolveImage(p)" 
+                :alt="'Page ' + (currentPageStartIndex + idx + 1)" 
+                @error="handleImageError"
+                loading="lazy"
+                class="preview-thumbnail"
+              >
               <div class="page-index">{{ currentPageStartIndex + idx + 1 }}</div>
             </div>
           </div>
@@ -307,7 +313,7 @@
             <label class="form-label">封面图片</label>
             <div class="cover-selection-container">
               <div class="cover-preview" v-if="editAlbumForm.cover">
-                <img :src="resolveImage(editAlbumForm.cover)" :alt="'封面预览'" @error="handleImageError">
+                <img :src="resolveCoverImage(editAlbumForm.cover)" :alt="'封面预览'" @error="handleImageError">
                 <div class="cover-preview-info">
                   <span class="cover-filename">{{ getImageFileName(editAlbumForm.cover) }}</span>
                 </div>
@@ -1251,6 +1257,9 @@ export default {
        this.pages = []
        this.currentPageImage = null
        
+       // 清理缩略图缓存，为阅读器腾出空间
+       this.clearThumbnailCache()
+       
        // 增加浏览次数
        album.viewCount = (album.viewCount || 0) + 1
        album.lastViewed = new Date().toISOString()
@@ -1602,7 +1611,7 @@ export default {
       
       await this.loadCurrentPage()
     },
-    // 优化的图片解析方法 - 优先使用file://协议，减少内存占用
+    // 优化的图片解析方法 - 根据使用场景选择不同的加载策略
     resolveImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
         return '/default-image.svg'
@@ -1614,7 +1623,15 @@ export default {
         return imagePath
       }
       
-      // 检查缓存
+      // 对于阅读器，强制使用原图，忽略所有缓存
+      if (this.showComicViewer) {
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        console.log('阅读器resolveImage加载原图:', imagePath)
+        return fileUrl
+      }
+      
+      // 检查缓存（非阅读器场景）
       if (this.imageCache.has(imagePath)) {
         const cached = this.imageCache.get(imagePath)
         // 更新访问时间（LRU）
@@ -1622,13 +1639,165 @@ export default {
         return cached.url
       }
       
-      // 优先使用file://协议，避免DataURL的内存占用
+      // 根据使用场景选择加载策略
+      if (this.showDetailModal) {
+        // 详情页预览图：使用缩略图或压缩版本
+        return this.resolveThumbnailImage(imagePath)
+      } else {
+        // 其他场景：使用缩略图
+        return this.resolveThumbnailImage(imagePath)
+      }
+    },
+    
+    // 解析缩略图 - 用于预览和列表显示
+    resolveThumbnailImage(imagePath) {
+      const normalizedPath = String(imagePath).replace(/\\/g, '/')
+      
+      // 对于预览图，我们使用一个巧妙的技巧：
+      // 1. 使用file://协议避免DataURL的内存占用
+      // 2. 通过CSS object-fit: cover 让浏览器自动缩放
+      // 3. 设置固定尺寸减少渲染负担
+      const fileUrl = `file:///${normalizedPath}`
+      
+      // 缓存文件URL
+      this.addToCache(imagePath, fileUrl, 0)
+      
+      // 如果启用了缩略图模式，异步生成真正的缩略图
+      if (this.enableThumbnails) {
+        this.generateThumbnail(imagePath, normalizedPath).then(thumbnailUrl => {
+          // 更新缓存为缩略图
+          this.addToCache(imagePath, thumbnailUrl, thumbnailUrl.length * 2)
+          // 触发重新渲染（如果需要）
+          this.$forceUpdate()
+        }).catch(error => {
+          console.warn('缩略图生成失败，继续使用原图:', error)
+        })
+      }
+      
+      return fileUrl
+    },
+    
+    // 生成缩略图
+    async generateThumbnail(imagePath, normalizedPath) {
+      // 检查是否已有缩略图缓存
+      const thumbnailKey = `thumb_${imagePath}`
+      if (this.imageCache.has(thumbnailKey)) {
+        const cached = this.imageCache.get(thumbnailKey)
+        cached.lastAccessed = Date.now()
+        return cached.url
+      }
+      
+      // 尝试生成Canvas缩略图
+      try {
+        const thumbnailDataUrl = await this.createCanvasThumbnail(normalizedPath, 200, 200)
+        if (thumbnailDataUrl) {
+          // 缓存缩略图DataURL
+          this.addToCache(thumbnailKey, thumbnailDataUrl, thumbnailDataUrl.length * 2)
+          return thumbnailDataUrl
+        }
+      } catch (error) {
+        console.warn('生成缩略图失败，使用原图:', error)
+      }
+      
+      // 降级：直接使用原图
+      const fileUrl = `file:///${normalizedPath}`
+      this.addToCache(thumbnailKey, fileUrl, 0)
+      return fileUrl
+    },
+    
+    // 使用Canvas创建缩略图
+    async createCanvasThumbnail(imagePath, maxWidth, maxHeight) {
+      // 优先使用Electron API生成缩略图
+      if (window.electronAPI && window.electronAPI.generateThumbnail) {
+        try {
+          const result = await window.electronAPI.generateThumbnail(imagePath, maxWidth, maxHeight)
+          if (result && result.success && result.dataUrl) {
+            return result.dataUrl
+          }
+        } catch (error) {
+          console.warn('Electron缩略图生成失败，使用Canvas:', error)
+        }
+      }
+      
+      // 降级到Canvas方案
+      return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        
+        img.onload = () => {
+          try {
+            // 计算缩略图尺寸
+            let { width, height } = img
+            const aspectRatio = width / height
+            
+            if (width > height) {
+              width = Math.min(maxWidth, width)
+              height = width / aspectRatio
+            } else {
+              height = Math.min(maxHeight, height)
+              width = height * aspectRatio
+            }
+            
+            // 创建Canvas
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            canvas.width = width
+            canvas.height = height
+            
+            // 绘制缩略图
+            ctx.drawImage(img, 0, 0, width, height)
+            
+            // 转换为DataURL
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8) // 80%质量
+            resolve(dataUrl)
+          } catch (error) {
+            reject(error)
+          }
+        }
+        
+        img.onerror = () => reject(new Error('图片加载失败'))
+        img.src = imagePath
+      })
+    },
+    
+    // 解析原图 - 用于阅读器
+    resolveFullImage(imagePath) {
       const normalizedPath = String(imagePath).replace(/\\/g, '/')
       const fileUrl = `file:///${normalizedPath}`
       
-      // 缓存文件URL而不是DataURL
-      this.addToCache(imagePath, fileUrl, 0) // 文件URL不占用额外内存
+      // 缓存文件URL
+      this.addToCache(imagePath, fileUrl, 0)
       
+      return fileUrl
+    },
+    
+    // 解析封面图 - 用于详情页封面和对话框预览，始终使用原图
+    resolveCoverImage(imagePath) {
+      if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
+        return '/default-image.svg'
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+        return imagePath
+      }
+      if (typeof imagePath === 'string' && (imagePath.startsWith('data:') || imagePath.startsWith('file:'))) {
+        return imagePath
+      }
+      
+      // 封面图始终使用原图，创建专用的封面缓存键
+      const coverKey = `cover_${imagePath}`
+      if (this.imageCache.has(coverKey)) {
+        const cached = this.imageCache.get(coverKey)
+        cached.lastAccessed = Date.now()
+        return cached.url
+      }
+      
+      const normalizedPath = String(imagePath).replace(/\\/g, '/')
+      const fileUrl = `file:///${normalizedPath}`
+      
+      // 缓存封面图URL
+      this.addToCache(coverKey, fileUrl, 0)
+      
+      console.log('封面图加载原图:', imagePath)
       return fileUrl
     },
     
@@ -1644,19 +1813,24 @@ export default {
         return imagePath
       }
       
-      // 检查缓存
+      // 对于阅读器，强制使用原图，忽略缩略图缓存
+      if (this.showComicViewer) {
+        const normalizedPath = String(imagePath).replace(/\\/g, '/')
+        const fileUrl = `file:///${normalizedPath}`
+        
+        // 为阅读器创建专用的原图缓存键
+        const fullImageKey = `full_${imagePath}`
+        this.addToCache(fullImageKey, fileUrl, 0)
+        
+        console.log('阅读器加载原图:', imagePath)
+        return fileUrl
+      }
+      
+      // 检查普通缓存（非阅读器场景）
       if (this.imageCache.has(imagePath)) {
         const cached = this.imageCache.get(imagePath)
         cached.lastAccessed = Date.now()
         return cached.url
-      }
-      
-      // 对于阅读器中的大图，优先使用file://协议
-      if (this.showComicViewer) {
-        const normalizedPath = String(imagePath).replace(/\\/g, '/')
-        const fileUrl = `file:///${normalizedPath}`
-        this.addToCache(imagePath, fileUrl, 0)
-        return fileUrl
       }
       
       // 对于小图（如封面），可以使用DataURL
@@ -2086,6 +2260,23 @@ export default {
        this.isPreloading = false
      },
      
+     // 清理缩略图缓存
+     clearThumbnailCache() {
+       let clearedCount = 0
+       let clearedSize = 0
+       
+       for (const [key, value] of this.imageCache.entries()) {
+         if (key.startsWith('thumb_')) {
+           clearedSize += value.size
+           this.imageCache.delete(key)
+           clearedCount++
+         }
+       }
+       
+       this.imageCacheSize -= clearedSize
+       console.log(`清理缩略图缓存: ${clearedCount}个条目, 释放内存: ${Math.round(clearedSize / 1024)}KB`)
+     },
+     
      // 性能监控
      logPerformanceInfo() {
        console.log('=== 图片性能信息 ===')
@@ -2098,6 +2289,29 @@ export default {
        console.log('图片质量:', this.imageQuality)
        console.log('缩略图启用:', this.enableThumbnails)
        
+       // 统计各种图片类型数量
+       let thumbnailCount = 0
+       let coverCount = 0
+       let fullImageCount = 0
+       let otherCount = 0
+       
+       for (const [key, value] of this.imageCache.entries()) {
+         if (key.startsWith('thumb_')) {
+           thumbnailCount++
+         } else if (key.startsWith('cover_')) {
+           coverCount++
+         } else if (key.startsWith('full_')) {
+           fullImageCount++
+         } else {
+           otherCount++
+         }
+       }
+       
+       console.log('缩略图数量:', thumbnailCount)
+       console.log('封面图数量:', coverCount)
+       console.log('阅读器原图数量:', fullImageCount)
+       console.log('其他图片数量:', otherCount)
+       
        // 内存使用情况（如果可用）
        if (performance.memory) {
          console.log('内存使用:', {
@@ -2105,6 +2319,14 @@ export default {
            total: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) + 'MB',
            limit: Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024) + 'MB'
          })
+       }
+       
+       // 估算内存节省
+       if (this.pages && this.pages.length > 0) {
+         const estimatedOriginalSize = this.pages.length * 3 * 1024 * 1024 // 假设每张3MB
+         const actualCacheSize = this.imageCacheSize
+         const savedMemory = Math.max(0, estimatedOriginalSize - actualCacheSize)
+         console.log('估算内存节省:', Math.round(savedMemory / 1024 / 1024) + 'MB')
        }
      },
      
@@ -3399,6 +3621,33 @@ export default {
   object-fit: cover;
   display: block;
   cursor: pointer;
+  /* 缩略图优化 */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* GPU加速 */
+  will-change: transform;
+  transform: translateZ(0);
+  /* 减少重绘 */
+  contain: layout style paint;
+}
+
+/* 预览图特殊优化 */
+.preview-thumbnail {
+  /* 强制使用GPU渲染 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  /* 优化图片渲染 */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* 减少内存占用 */
+  contain: layout style paint;
+  /* 懒加载优化 */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.preview-thumbnail[src] {
+  opacity: 1;
 }
 
 .page-index {
