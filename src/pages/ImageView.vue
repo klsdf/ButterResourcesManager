@@ -1881,6 +1881,11 @@ export default {
         if (this.zoomLevel <= 1) {
           this.imageOffsetX = 0
           this.imageOffsetY = 0
+        } else {
+          // 缩放后重新约束位置
+          this.$nextTick(() => {
+            this.constrainImagePosition()
+          })
         }
       }
     },
@@ -1892,6 +1897,11 @@ export default {
         if (this.zoomLevel <= 1) {
           this.imageOffsetX = 0
           this.imageOffsetY = 0
+        } else {
+          // 缩放后重新约束位置
+          this.$nextTick(() => {
+            this.constrainImagePosition()
+          })
         }
       }
     },
@@ -1990,10 +2000,8 @@ export default {
         this.imageOffsetX = event.clientX - this.dragStartX
         this.imageOffsetY = event.clientY - this.dragStartY
         
-        // 限制拖动范围，防止图片拖出视野太远
-        const maxOffset = 200
-        this.imageOffsetX = Math.max(-maxOffset, Math.min(maxOffset, this.imageOffsetX))
-        this.imageOffsetY = Math.max(-maxOffset, Math.min(maxOffset, this.imageOffsetY))
+        // 根据图片和容器尺寸动态计算拖动边界
+        this.constrainImagePosition()
       }
     },
     
@@ -2008,6 +2016,67 @@ export default {
         // 移除全局鼠标事件监听
         document.removeEventListener('mousemove', this.onDocumentMouseMove)
         document.removeEventListener('mouseup', this.onDocumentMouseUp)
+      }
+    },
+    
+    // 约束图片位置，防止拖出合理范围
+    constrainImagePosition() {
+      const imageElement = document.querySelector('.comic-image')
+      const containerElement = document.querySelector('.comic-image-container')
+      
+      if (!imageElement || !containerElement) return
+      
+      // 获取容器尺寸
+      const containerRect = containerElement.getBoundingClientRect()
+      const containerWidth = containerRect.width
+      const containerHeight = containerRect.height
+      
+      // 获取图片原始尺寸
+      const imageWidth = imageElement.naturalWidth
+      const imageHeight = imageElement.naturalHeight
+      
+      if (imageWidth === 0 || imageHeight === 0) return
+      
+      // 计算缩放后的图片尺寸
+      const scaledWidth = imageWidth * this.zoomLevel
+      const scaledHeight = imageHeight * this.zoomLevel
+      
+      // 计算图片在容器中的显示尺寸（考虑 object-fit: contain）
+      const containerAspectRatio = containerWidth / containerHeight
+      const imageAspectRatio = imageWidth / imageHeight
+      
+      let displayWidth, displayHeight
+      if (imageAspectRatio > containerAspectRatio) {
+        // 图片更宽，以宽度为准
+        displayWidth = Math.min(scaledWidth, containerWidth)
+        displayHeight = displayWidth / imageAspectRatio
+      } else {
+        // 图片更高，以高度为准
+        displayHeight = Math.min(scaledHeight, containerHeight)
+        displayWidth = displayHeight * imageAspectRatio
+      }
+      
+      // 计算最大允许的偏移量
+      // 当图片放大后超出容器时，允许拖动的距离
+      const maxOffsetX = Math.max(0, (scaledWidth - containerWidth) / 2)
+      const maxOffsetY = Math.max(0, (scaledHeight - containerHeight) / 2)
+      
+      // 限制X轴偏移
+      if (scaledWidth <= containerWidth) {
+        // 图片宽度小于等于容器，不允许水平拖动
+        this.imageOffsetX = 0
+      } else {
+        // 图片宽度大于容器，限制拖动范围
+        this.imageOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, this.imageOffsetX))
+      }
+      
+      // 限制Y轴偏移
+      if (scaledHeight <= containerHeight) {
+        // 图片高度小于等于容器，不允许垂直拖动
+        this.imageOffsetY = 0
+      } else {
+        // 图片高度大于容器，限制拖动范围
+        this.imageOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, this.imageOffsetY))
       }
     },
     
