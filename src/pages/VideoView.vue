@@ -958,7 +958,7 @@ export default {
           this.editVideo(this.selectedVideo)
           break
         case 'remove':
-          this.removeVideo(this.selectedVideo)
+          this.deleteVideo(this.selectedVideo)
           break
       }
     },
