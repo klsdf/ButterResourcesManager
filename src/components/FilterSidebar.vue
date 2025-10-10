@@ -12,7 +12,7 @@
         <button 
           class="btn-clear-filter" 
           @click="clearFilter(filter.key)" 
-          v-if="filter.selected || filter.excluded"
+          v-if="(filter.selected && filter.selected.length > 0) || (filter.excluded && filter.excluded.length > 0)"
         >
           ✕ 清除筛选
         </button>
@@ -23,14 +23,14 @@
           :key="item.name"
           class="filter-item"
           :class="{ 
-            active: filter.selected === item.name,
-            excluded: filter.excluded === item.name
+            active: filter.selected && filter.selected.includes(item.name),
+            excluded: filter.excluded && filter.excluded.includes(item.name)
           }"
           @click="selectFilter(filter.key, item.name)"
           @contextmenu.prevent="excludeFilter(filter.key, item.name)"
         >
-          <span v-if="filter.selected === item.name" class="include-indicator">✓</span>
-          <span v-if="filter.excluded === item.name" class="exclude-indicator">∅</span>
+          <span v-if="filter.selected && filter.selected.includes(item.name)" class="include-indicator">✓</span>
+          <span v-if="filter.excluded && filter.excluded.includes(item.name)" class="exclude-indicator">∅</span>
           <span class="filter-name">{{ item.name }}</span>
           <span class="filter-count">({{ item.count }})</span>
         </div>
@@ -55,8 +55,8 @@ export default {
           filter.key && 
           filter.title && 
           Array.isArray(filter.items) &&
-          (typeof filter.selected === 'string' || filter.selected === null) &&
-          (typeof filter.excluded === 'string' || filter.excluded === null)
+          (Array.isArray(filter.selected) || filter.selected === null) &&
+          (Array.isArray(filter.excluded) || filter.excluded === null)
         )
       }
     }
@@ -64,9 +64,11 @@ export default {
   emits: ['filter-select', 'filter-exclude', 'filter-clear'],
   methods: {
     selectFilter(filterKey, itemName) {
+      console.log('FilterSidebar selectFilter:', filterKey, itemName)
       this.$emit('filter-select', { filterKey, itemName })
     },
     excludeFilter(filterKey, itemName) {
+      console.log('FilterSidebar excludeFilter:', filterKey, itemName)
       this.$emit('filter-exclude', { filterKey, itemName })
     },
     clearFilter(filterKey) {

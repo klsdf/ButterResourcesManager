@@ -187,52 +187,18 @@ export default {
       this.currentFilterData = { ...this.currentFilterData, ...filterData }
     },
     onFilterSelect({ filterKey, itemName }) {
-      // 更新筛选器的选中状态
-      const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
-      if (filter) {
-        // 如果点击的是已选中的项目，则取消选择
-        if (filter.selected === itemName) {
-          filter.selected = null
-        } else {
-          // 如果点击的是已排除的项目，则切换为选中状态
-          if (filter.excluded === itemName) {
-            filter.excluded = null
-            filter.selected = itemName
-          } else {
-            // 否则直接设置为选中状态
-            filter.selected = itemName
-          }
-        }
-      }
+      console.log('App.vue onFilterSelect:', filterKey, itemName)
+      // 直接转发事件到当前页面，不处理筛选器状态
       this.notifyCurrentView('filter-select', { filterKey, itemName })
     },
     onFilterExclude({ filterKey, itemName }) {
-      // 更新筛选器的排除状态
-      const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
-      if (filter) {
-        // 如果右键点击的是已排除的项目，则取消排除
-        if (filter.excluded === itemName) {
-          filter.excluded = null
-        } else {
-          // 如果右键点击的是已选中的项目，则切换为排除状态
-          if (filter.selected === itemName) {
-            filter.selected = null
-            filter.excluded = itemName
-          } else {
-            // 否则直接设置为排除状态
-            filter.excluded = itemName
-          }
-        }
-      }
+      console.log('App.vue onFilterExclude:', filterKey, itemName)
+      // 直接转发事件到当前页面，不处理筛选器状态
       this.notifyCurrentView('filter-exclude', { filterKey, itemName })
     },
     onFilterClear(filterKey) {
-      // 清除筛选器的选中和排除状态
-      const filter = this.currentFilterData.filters.find(f => f.key === filterKey)
-      if (filter) {
-        filter.selected = null
-        filter.excluded = null
-      }
+      console.log('App.vue onFilterClear:', filterKey)
+      // 直接转发事件到当前页面，不处理筛选器状态
       this.notifyCurrentView('filter-clear', filterKey)
     },
     notifyCurrentView(event, data) {

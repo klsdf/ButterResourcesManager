@@ -304,10 +304,10 @@ export default {
       searchQuery: '',
       sortBy: 'name',
       // 筛选器相关数据
-      selectedTag: null,
-      selectedArtist: null,
-      excludedTag: null,
-      excludedArtist: null,
+      selectedTags: [],
+      selectedArtists: [],
+      excludedTags: [],
+      excludedArtists: [],
       allTags: [],
       allArtists: [],
       showAddDialog: false,
@@ -363,26 +363,26 @@ export default {
       let filtered = this.audios
       
       // 标签筛选
-      if (this.selectedTag) {
+      if (this.selectedTags.length > 0) {
         filtered = filtered.filter(audio => 
-          audio.tags && audio.tags.includes(this.selectedTag)
+          audio.tags && this.selectedTags.some(tag => audio.tags.includes(tag))
         )
       }
-      if (this.excludedTag) {
+      if (this.excludedTags.length > 0) {
         filtered = filtered.filter(audio => 
-          !(audio.tags && audio.tags.includes(this.excludedTag))
+          !(audio.tags && this.excludedTags.some(tag => audio.tags.includes(tag)))
         )
       }
       
       // 艺术家筛选
-      if (this.selectedArtist) {
+      if (this.selectedArtists.length > 0) {
         filtered = filtered.filter(audio => 
-          audio.artist === this.selectedArtist
+          this.selectedArtists.includes(audio.artist)
         )
       }
-      if (this.excludedArtist) {
+      if (this.excludedArtists.length > 0) {
         filtered = filtered.filter(audio => 
-          audio.artist !== this.excludedArtist
+          !this.excludedArtists.includes(audio.artist)
         )
       }
       
@@ -457,74 +457,78 @@ export default {
     
     // 筛选方法
     filterByTag(tagName) {
-      if (this.selectedTag === tagName) {
+      console.log('AudioView filterByTag:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
+      if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedTag = null
-      } else if (this.excludedTag === tagName) {
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+      } else if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedTag = null
-        this.selectedTag = tagName
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+        this.selectedTags = [...this.selectedTags, tagName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedTag = tagName
+        this.selectedTags = [...this.selectedTags, tagName]
       }
+      console.log('AudioView filterByTag after:', 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
       this.updateFilterData()
     },
     
     clearTagFilter() {
-      this.selectedTag = null
-      this.excludedTag = null
+      this.selectedTags = []
+      this.excludedTags = []
       this.updateFilterData()
     },
     
     filterByArtist(artistName) {
-      if (this.selectedArtist === artistName) {
+      if (this.selectedArtists.indexOf(artistName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedArtist = null
-      } else if (this.excludedArtist === artistName) {
+        this.selectedArtists = this.selectedArtists.filter(artist => artist !== artistName)
+      } else if (this.excludedArtists.indexOf(artistName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedArtist = null
-        this.selectedArtist = artistName
+        this.excludedArtists = this.excludedArtists.filter(artist => artist !== artistName)
+        this.selectedArtists = [...this.selectedArtists, artistName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedArtist = artistName
+        this.selectedArtists = [...this.selectedArtists, artistName]
       }
       this.updateFilterData()
     },
     
     clearArtistFilter() {
-      this.selectedArtist = null
-      this.excludedArtist = null
+      this.selectedArtists = []
+      this.excludedArtists = []
       this.updateFilterData()
     },
     
     // 排除方法
     excludeByTag(tagName) {
-      if (this.excludedTag === tagName) {
+      console.log('AudioView excludeByTag:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
+      if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedTag = null
-      } else if (this.selectedTag === tagName) {
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+      } else if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedTag = null
-        this.excludedTag = tagName
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+        this.excludedTags = [...this.excludedTags, tagName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedTag = tagName
+        this.excludedTags = [...this.excludedTags, tagName]
       }
+      console.log('AudioView excludeByTag after:', 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
       this.updateFilterData()
     },
     
     excludeByArtist(artistName) {
-      if (this.excludedArtist === artistName) {
+      if (this.excludedArtists.indexOf(artistName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedArtist = null
-      } else if (this.selectedArtist === artistName) {
+        this.excludedArtists = this.excludedArtists.filter(artist => artist !== artistName)
+      } else if (this.selectedArtists.indexOf(artistName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedArtist = null
-        this.excludedArtist = artistName
+        this.selectedArtists = this.selectedArtists.filter(artist => artist !== artistName)
+        this.excludedArtists = [...this.excludedArtists, artistName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedArtist = artistName
+        this.excludedArtists = [...this.excludedArtists, artistName]
       }
       this.updateFilterData()
     },
@@ -549,10 +553,8 @@ export default {
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
-            this.excludedTag = null
           } else if (data === 'artists') {
             this.clearArtistFilter()
-            this.excludedArtist = null
           }
           break
       }
@@ -566,15 +568,15 @@ export default {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag,
-            excluded: this.excludedTag
+            selected: this.selectedTags,
+            excluded: this.excludedTags
           },
           {
             key: 'artists',
             title: '艺术家筛选',
             items: this.allArtists,
-            selected: this.selectedArtist,
-            excluded: this.excludedArtist
+            selected: this.selectedArtists,
+            excluded: this.excludedArtists
           }
         ]
       })

@@ -390,12 +390,12 @@ export default {
       ],
       // 标签筛选相关
       allTags: [],
-      selectedTag: null,
-      excludedTag: null,
+      selectedTags: [],
+      excludedTags: [],
       // 开发商筛选相关
       allDevelopers: [],
-      selectedDeveloper: null,
-      excludedDeveloper: null,
+      selectedDevelopers: [],
+      excludedDevelopers: [],
       // 更新文件夹大小相关
       isUpdatingFolderSize: false
     }
@@ -408,12 +408,12 @@ export default {
                             game.developer.toLowerCase().includes(this.searchQuery.toLowerCase())
         
         // 标签筛选
-        const matchesTag = !this.selectedTag || (game.tags && game.tags.includes(this.selectedTag))
-        const notExcludedTag = !this.excludedTag || !(game.tags && game.tags.includes(this.excludedTag))
+        const matchesTag = this.selectedTags.length === 0 || (game.tags && this.selectedTags.some(tag => game.tags.includes(tag)))
+        const notExcludedTag = this.excludedTags.length === 0 || !(game.tags && this.excludedTags.some(tag => game.tags.includes(tag)))
         
         // 开发商筛选
-        const matchesDeveloper = !this.selectedDeveloper || game.developer === this.selectedDeveloper
-        const notExcludedDeveloper = !this.excludedDeveloper || game.developer !== this.excludedDeveloper
+        const matchesDeveloper = this.selectedDevelopers.length === 0 || this.selectedDevelopers.includes(game.developer)
+        const notExcludedDeveloper = this.excludedDevelopers.length === 0 || !this.excludedDevelopers.includes(game.developer)
         
         return matchesSearch && matchesTag && notExcludedTag && matchesDeveloper && notExcludedDeveloper
       })
@@ -1231,76 +1231,96 @@ export default {
         .sort((a, b) => a.name.localeCompare(b.name))
     },
     filterByTag(tagName) {
-      if (this.selectedTag === tagName) {
+      console.log('GameView filterByTag START:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
+      console.log('selectedTags type:', typeof this.selectedTags, 'isArray:', Array.isArray(this.selectedTags))
+      console.log('selectedTags.indexOf check:', this.selectedTags.indexOf(tagName))
+      console.log('excludedTags.indexOf check:', this.excludedTags.indexOf(tagName))
+      
+      if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedTag = null
-      } else if (this.excludedTag === tagName) {
+        console.log('Removing from selectedTags')
+        console.log('Before filter - selectedTags:', this.selectedTags)
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+        console.log('After filter - selectedTags:', this.selectedTags)
+      } else if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedTag = null
-        this.selectedTag = tagName
+        console.log('Moving from excluded to selected')
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+        this.selectedTags = [...this.selectedTags, tagName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedTag = tagName
+        console.log('Adding to selectedTags')
+        this.selectedTags = [...this.selectedTags, tagName]
       }
+      console.log('GameView filterByTag END:', 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
       this.updateFilterData()
     },
     clearTagFilter() {
-      this.selectedTag = null
-      this.excludedTag = null
+      this.selectedTags = []
+      this.excludedTags = []
       this.updateFilterData()
     },
     filterByDeveloper(developerName) {
-      if (this.selectedDeveloper === developerName) {
+      if (this.selectedDevelopers.indexOf(developerName) !== -1) {
         // 如果当前是选中状态，则取消选择
-        this.selectedDeveloper = null
-      } else if (this.excludedDeveloper === developerName) {
+        this.selectedDevelopers = this.selectedDevelopers.filter(dev => dev !== developerName)
+      } else if (this.excludedDevelopers.indexOf(developerName) !== -1) {
         // 如果当前是排除状态，则切换为选中状态
-        this.excludedDeveloper = null
-        this.selectedDeveloper = developerName
+        this.excludedDevelopers = this.excludedDevelopers.filter(dev => dev !== developerName)
+        this.selectedDevelopers = [...this.selectedDevelopers, developerName]
       } else {
         // 否则直接设置为选中状态
-        this.selectedDeveloper = developerName
+        this.selectedDevelopers = [...this.selectedDevelopers, developerName]
       }
       this.updateFilterData()
     },
     clearDeveloperFilter() {
-      this.selectedDeveloper = null
-      this.excludedDeveloper = null
+      this.selectedDevelopers = []
+      this.excludedDevelopers = []
       this.updateFilterData()
     },
     
     // 排除方法
     excludeByTag(tagName) {
-      if (this.excludedTag === tagName) {
+      console.log('GameView excludeByTag:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
+      console.log('excludedTags.indexOf check:', this.excludedTags.indexOf(tagName))
+      console.log('selectedTags.indexOf check:', this.selectedTags.indexOf(tagName))
+      
+      if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedTag = null
-      } else if (this.selectedTag === tagName) {
+        console.log('Removing from excludedTags')
+        this.excludedTags = this.excludedTags.filter(tag => tag !== tagName)
+      } else if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedTag = null
-        this.excludedTag = tagName
+        console.log('Moving from selected to excluded')
+        this.selectedTags = this.selectedTags.filter(tag => tag !== tagName)
+        this.excludedTags = [...this.excludedTags, tagName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedTag = tagName
+        console.log('Adding to excludedTags')
+        this.excludedTags = [...this.excludedTags, tagName]
       }
+      console.log('GameView excludeByTag after:', 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
       this.updateFilterData()
     },
     
     excludeByDeveloper(developerName) {
-      if (this.excludedDeveloper === developerName) {
+      if (this.excludedDevelopers.indexOf(developerName) !== -1) {
         // 如果已经是排除状态，则取消排除
-        this.excludedDeveloper = null
-      } else if (this.selectedDeveloper === developerName) {
+        this.excludedDevelopers = this.excludedDevelopers.filter(dev => dev !== developerName)
+      } else if (this.selectedDevelopers.indexOf(developerName) !== -1) {
         // 如果当前是选中状态，则切换为排除状态
-        this.selectedDeveloper = null
-        this.excludedDeveloper = developerName
+        this.selectedDevelopers = this.selectedDevelopers.filter(dev => dev !== developerName)
+        this.excludedDevelopers = [...this.excludedDevelopers, developerName]
       } else {
         // 否则直接设置为排除状态
-        this.excludedDeveloper = developerName
+        this.excludedDevelopers = [...this.excludedDevelopers, developerName]
       }
       this.updateFilterData()
     },
     // 处理来自 App.vue 的筛选器事件
     handleFilterEvent(event, data) {
+      console.log('GameView handleFilterEvent:', event, data)
       switch (event) {
         case 'filter-select':
           if (data.filterKey === 'tags') {
@@ -1319,34 +1339,35 @@ export default {
         case 'filter-clear':
           if (data === 'tags') {
             this.clearTagFilter()
-            this.excludedTag = null
           } else if (data === 'developers') {
             this.clearDeveloperFilter()
-            this.excludedDeveloper = null
           }
           break
       }
     },
     // 更新筛选器数据到 App.vue
     updateFilterData() {
+      console.log('GameView updateFilterData START:', this.selectedTags, this.excludedTags, this.selectedDevelopers, this.excludedDevelopers)
+      console.log('selectedTags type in updateFilterData:', typeof this.selectedTags, 'isArray:', Array.isArray(this.selectedTags))
       this.$emit('filter-data-updated', {
         filters: [
           {
             key: 'tags',
             title: '标签筛选',
             items: this.allTags,
-            selected: this.selectedTag,
-            excluded: this.excludedTag
+            selected: this.selectedTags,
+            excluded: this.excludedTags
           },
           {
             key: 'developers',
             title: '开发商筛选',
             items: this.allDevelopers,
-            selected: this.selectedDeveloper,
-            excluded: this.excludedDeveloper
+            selected: this.selectedDevelopers,
+            excluded: this.excludedDevelopers
           }
         ]
       })
+      console.log('GameView updateFilterData END')
     },
     updateGamePlayTime(data) {
       // 根据可执行文件路径找到对应的游戏
