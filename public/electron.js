@@ -477,26 +477,34 @@ ipcMain.handle('select-video-file', async () => {
   }
 })
 
-// 打开本地文件（使用系统默认程序）
-ipcMain.handle('open-external', async (event, filePath) => {
+// 打开外部链接或文件（使用系统默认程序）
+ipcMain.handle('open-external', async (event, urlOrPath) => {
   try {
-    console.log('=== Electron: 开始打开外部文件 ===')
-    console.log('文件路径:', filePath)
+    console.log('=== Electron: 开始打开外部链接/文件 ===')
+    console.log('URL/路径:', urlOrPath)
     
-    if (!filePath) {
-      console.log('❌ 文件路径为空')
-      return { success: false, error: '无效的文件路径' }
+    if (!urlOrPath) {
+      console.log('❌ URL/路径为空')
+      return { success: false, error: '无效的URL或路径' }
     }
     
-    // 检查文件是否存在
+    // 检查是否是URL（以http://或https://开头）
+    if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+      console.log('✅ 检测到URL，正在调用 shell.openExternal...')
+      await shell.openExternal(urlOrPath)
+      console.log('✅ URL打开成功')
+      return { success: true }
+    }
+    
+    // 对于本地文件路径，检查文件是否存在
     const fs = require('fs')
-    if (!fs.existsSync(filePath)) {
-      console.log('❌ 文件不存在:', filePath)
+    if (!fs.existsSync(urlOrPath)) {
+      console.log('❌ 文件不存在:', urlOrPath)
       return { success: false, error: '文件不存在' }
     }
     
     console.log('✅ 文件存在，正在调用 shell.openPath...')
-    const result = await shell.openPath(filePath)
+    const result = await shell.openPath(urlOrPath)
     console.log('shell.openPath 返回结果:', result)
     
     if (result) {

@@ -1,14 +1,29 @@
 <template>
   <div class="website-view">
-    <!-- 工具栏 -->
-    <Toolbar 
-      v-model:searchQuery="searchQuery"
-      v-model:sortBy="sortBy"
-      add-button-text="添加网站"
-      search-placeholder="搜索网站..."
-      :sort-options="websiteSortOptions"
-      @add-item="showAddDialog = true"
+    <!-- 左侧筛选导航栏 -->
+    <FilterSidebar
+      :all-tags="allTags"
+      :all-filters="allCategories"
+      :selected-tag="selectedTag"
+      :selected-filter="selectedCategory"
+      :filter-title="'分类筛选'"
+      @tag-filter="filterByTag"
+      @filter="filterByCategory"
+      @clear-tag-filter="clearTagFilter"
+      @clear-filter="clearCategoryFilter"
     />
+
+    <!-- 主内容区域 -->
+    <div class="website-content">
+      <!-- 工具栏 -->
+      <Toolbar 
+        v-model:searchQuery="searchQuery"
+        v-model:sortBy="sortBy"
+        add-button-text="添加网站"
+        search-placeholder="搜索网站..."
+        :sort-options="websiteSortOptions"
+        @add-item="showAddDialog = true"
+      />
     
     <!-- 额外的操作按钮和过滤器 -->
     <div class="website-actions" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -111,17 +126,13 @@
             placeholder="网站名称（可选）"
           />
           
-          <div class="form-group">
-            <label>网站URL *</label>
-            <input 
-              type="url" 
-              v-model="newWebsite.url" 
-              placeholder="https://example.com"
-              class="form-input"
-              required
-            >
-            <div v-if="urlError" class="error-message">{{ urlError }}</div>
-          </div>
+          <FormField
+            label="网站URL *"
+            type="text"
+            v-model="newWebsite.url"
+            placeholder="https://example.com"
+          />
+          <div v-if="urlError" class="error-message">{{ urlError }}</div>
           
           <FormField
             label="网站描述"
@@ -249,6 +260,90 @@
       </div>
     </div>
 
+    <!-- 编辑网站对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>编辑网站信息</h3>
+          <button class="btn-close" @click="closeEditDialog">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <FormField
+            label="网站名称"
+            type="text"
+            v-model="editWebsiteData.name"
+            placeholder="网站名称"
+          />
+          
+          <FormField
+            label="网站URL *"
+            type="text"
+            v-model="editWebsiteData.url"
+            placeholder="https://example.com"
+          />
+          <div v-if="editUrlError" class="error-message">{{ editUrlError }}</div>
+          
+          <FormField
+            label="网站描述"
+            type="textarea"
+            v-model="editWebsiteData.description"
+            placeholder="网站描述..."
+            :rows="3"
+          />
+          
+          <FormField
+            label="分类"
+            type="select"
+            v-model="editWebsiteData.category"
+            :options="categoryOptions"
+            placeholder="选择分类"
+          />
+          <FormField
+            v-if="editWebsiteData.category === '__new__'"
+            label="新分类名称"
+            type="text"
+            v-model="newCategory"
+            placeholder="输入新分类名称"
+          />
+          
+          <FormField
+            label="网站标签"
+            type="tags"
+            v-model="editWebsiteData.tags"
+            v-model:tagInput="editTagInput"
+            @add-tag="addEditTag"
+            @remove-tag="removeEditTag"
+            tag-placeholder="输入标签后按回车或逗号添加"
+          />
+          
+          <div class="form-checkboxes">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="editWebsiteData.isBookmark">
+              <span class="checkbox-text">设为书签</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="editWebsiteData.isPrivate">
+              <span class="checkbox-text">设为私有</span>
+            </label>
+          </div>
+          
+          <FormField
+            label="备注"
+            type="textarea"
+            v-model="editWebsiteData.notes"
+            placeholder="添加备注信息..."
+            :rows="3"
+          />
+        </div>
+        
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closeEditDialog">取消</button>
+          <button class="btn-confirm" @click="saveWebsiteEdit" :disabled="!isEditFormValid">保存</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 右键菜单 -->
     <ContextMenu
       :visible="contextMenu.visible"
@@ -256,6 +351,7 @@
       :menu-items="websiteContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+    </div>
   </div>
 </template>
 
@@ -264,6 +360,7 @@ import websiteManager from '../utils/WebsiteManager.js'
 import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
+import FilterSidebar from '../components/FilterSidebar.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 
@@ -273,6 +370,7 @@ export default {
     Toolbar,
     EmptyState,
     ContextMenu,
+    FilterSidebar,
     FormField,
     MediaCard
   },
@@ -283,6 +381,7 @@ export default {
       sortBy: 'name',
       filterCategory: '',
       showAddDialog: false,
+      showEditDialog: false,
       selectedWebsite: null,
       contextMenu: {
         visible: false,
@@ -294,9 +393,30 @@ export default {
         url: '',
         description: ''
       },
+      editWebsiteData: {
+        id: '',
+        name: '',
+        url: '',
+        description: '',
+        category: '',
+        tags: [],
+        isBookmark: false,
+        isPrivate: false,
+        notes: ''
+      },
+      newTag: '',
+      newCategory: '',
+      editTagInput: '',
       urlError: '',
+      editUrlError: '',
       isLoading: false,
       isElectronEnvironment: false,
+      // 标签筛选相关
+      allTags: [],
+      selectedTag: null,
+      // 分类筛选相关
+      allCategories: [],
+      selectedCategory: null,
       // 排序选项
       websiteSortOptions: [
         { value: 'name', label: '按名称' },
@@ -336,6 +456,16 @@ export default {
         filtered = filtered.filter(website => website.category === this.filterCategory)
       }
       
+      // 标签筛选
+      if (this.selectedTag) {
+        filtered = filtered.filter(website => website.tags && website.tags.includes(this.selectedTag))
+      }
+      
+      // 分类筛选（新的筛选器）
+      if (this.selectedCategory) {
+        filtered = filtered.filter(website => website.category === this.selectedCategory)
+      }
+      
       // 排序
       switch (this.sortBy) {
         case 'name':
@@ -373,6 +503,22 @@ export default {
       return this.newWebsite.url.trim() && 
              websiteManager.validateUrl(this.newWebsite.url) &&
              !this.urlError
+    },
+    isEditFormValid() {
+      return this.editWebsiteData.url.trim() && 
+             websiteManager.validateUrl(this.editWebsiteData.url) &&
+             !this.editUrlError
+    },
+    categoryOptions() {
+      const options = [
+        { value: '未分类', label: '未分类' },
+        ...this.categories.map(category => ({
+          value: category,
+          label: category
+        })),
+        { value: '__new__', label: '+ 新建分类' }
+      ]
+      return options
     }
   },
   watch: {
@@ -381,6 +527,13 @@ export default {
         this.urlError = '请输入有效的URL格式'
       } else {
         this.urlError = ''
+      }
+    },
+    'editWebsiteData.url'(newUrl) {
+      if (newUrl && !websiteManager.validateUrl(newUrl)) {
+        this.editUrlError = '请输入有效的URL格式'
+      } else {
+        this.editUrlError = ''
       }
     }
   },
@@ -391,12 +544,59 @@ export default {
         console.log('🔄 开始加载网站数据...')
         this.websites = await websiteManager.loadWebsites()
         console.log('✅ 网站数据加载完成:', this.websites.length, '个网站')
+        this.extractAllTagsAndCategories()
       } catch (error) {
         console.error('❌ 加载网站数据失败:', error)
         alert('加载网站数据失败: ' + error.message)
       } finally {
         this.isLoading = false
       }
+    },
+    
+    // 提取所有标签和分类
+    extractAllTagsAndCategories() {
+      const tagCount = {}
+      const categoryCount = {}
+      
+      this.websites.forEach(website => {
+        // 提取标签
+        if (website.tags && Array.isArray(website.tags)) {
+          website.tags.forEach(tag => {
+            tagCount[tag] = (tagCount[tag] || 0) + 1
+          })
+        }
+        
+        // 提取分类
+        if (website.category) {
+          categoryCount[website.category] = (categoryCount[website.category] || 0) + 1
+        }
+      })
+      
+      // 转换为数组并按名称排序
+      this.allTags = Object.entries(tagCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        
+      this.allCategories = Object.entries(categoryCount)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    },
+    
+    // 筛选方法
+    filterByTag(tagName) {
+      this.selectedTag = this.selectedTag === tagName ? null : tagName
+    },
+    
+    clearTagFilter() {
+      this.selectedTag = null
+    },
+    
+    filterByCategory(categoryName) {
+      this.selectedCategory = this.selectedCategory === categoryName ? null : categoryName
+    },
+    
+    clearCategoryFilter() {
+      this.selectedCategory = null
     },
     
     async addWebsite() {
@@ -564,8 +764,108 @@ export default {
     },
     
     editWebsite(website) {
-      // TODO: 实现编辑功能
-      alert('编辑功能待实现')
+      // 如果传入的是格式化后的数据，需要找到原始网站对象
+      let originalWebsite = website
+      if (website.image && website.image !== website.favicon) {
+        // 这是格式化后的数据，需要找到原始网站
+        originalWebsite = this.websites.find(w => w.id === website.id)
+        if (!originalWebsite) {
+          console.error('找不到原始网站数据:', website.id)
+          return
+        }
+      }
+      
+      // 填充编辑数据
+      this.editWebsiteData = {
+        id: originalWebsite.id,
+        name: originalWebsite.name || '',
+        url: originalWebsite.url || '',
+        description: originalWebsite.description || '',
+        category: originalWebsite.category || '未分类',
+        tags: [...(originalWebsite.tags || [])],
+        isBookmark: originalWebsite.isBookmark || false,
+        isPrivate: originalWebsite.isPrivate || false,
+        notes: originalWebsite.notes || ''
+      }
+      
+      this.editTagInput = ''
+      this.newCategory = ''
+      this.editUrlError = ''
+      this.showEditDialog = true
+    },
+    
+    // 标签管理方法
+    addEditTag() {
+      if (this.editTagInput.trim() && !this.editWebsiteData.tags.includes(this.editTagInput.trim())) {
+        this.editWebsiteData.tags.push(this.editTagInput.trim())
+        this.editTagInput = ''
+      }
+    },
+    
+    removeEditTag(index) {
+      this.editWebsiteData.tags.splice(index, 1)
+    },
+    
+    // 关闭编辑对话框
+    closeEditDialog() {
+      this.showEditDialog = false
+      this.editWebsiteData = {
+        id: '',
+        name: '',
+        url: '',
+        description: '',
+        category: '',
+        tags: [],
+        isBookmark: false,
+        isPrivate: false,
+        notes: ''
+      }
+      this.editTagInput = ''
+      this.newCategory = ''
+      this.editUrlError = ''
+    },
+    
+    // 保存网站编辑
+    async saveWebsiteEdit() {
+      try {
+        if (!this.isEditFormValid) {
+          alert('请填写有效的URL')
+          return
+        }
+        
+        // 处理新分类
+        let finalCategory = this.editWebsiteData.category
+        if (this.editWebsiteData.category === '__new__' && this.newCategory.trim()) {
+          finalCategory = this.newCategory.trim()
+        }
+        
+        const updateData = {
+          name: this.editWebsiteData.name.trim() || websiteManager.getDomain(this.editWebsiteData.url),
+          url: this.editWebsiteData.url.trim(),
+          description: this.editWebsiteData.description.trim(),
+          category: finalCategory,
+          tags: this.editWebsiteData.tags,
+          isBookmark: this.editWebsiteData.isBookmark,
+          isPrivate: this.editWebsiteData.isPrivate,
+          notes: this.editWebsiteData.notes.trim()
+        }
+        
+        await websiteManager.updateWebsite(this.editWebsiteData.id, updateData)
+        
+        // 重新加载网站列表以确保数据同步
+        await this.loadWebsites()
+        
+        // 如果当前显示的是这个网站的详情，也要更新
+        if (this.selectedWebsite && this.selectedWebsite.id === this.editWebsiteData.id) {
+          this.selectedWebsite = this.websites.find(w => w.id === this.editWebsiteData.id)
+        }
+        
+        this.closeEditDialog()
+        this.showToastNotification('编辑成功', `已更新网站: ${updateData.name}`)
+      } catch (error) {
+        console.error('编辑网站失败:', error)
+        this.showToastNotification('编辑失败', `无法更新网站: ${error.message}`)
+      }
     },
     
     async importWebsites() {
@@ -773,9 +1073,20 @@ export default {
 
 <style scoped>
 .website-view {
-  padding: 20px;
-  max-width: 1400px;
-  /* margin: 0 auto; */
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 网站主内容区域 */
+.website-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* 工具栏样式 */
@@ -1246,6 +1557,14 @@ export default {
 
 .btn-refresh-favicon:hover {
   background: #7c3aed;
+}
+
+/* 错误消息样式 */
+.error-message {
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 
