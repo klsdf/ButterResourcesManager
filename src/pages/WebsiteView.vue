@@ -64,44 +64,16 @@
 
     <!-- 网站列表 -->
     <div class="websites-grid" v-else-if="filteredWebsites.length > 0">
-      <div 
+      <MediaCard 
         v-for="website in filteredWebsites" 
         :key="website.id"
-        class="website-card"
-        @click="showWebsiteDetail(website)"
-        @contextmenu="showContextMenu($event, website)"
-      >
-        <div class="website-thumbnail">
-          <div class="website-icon" v-if="!website.favicon">
-            🌐
-          </div>
-          <img v-else :src="website.favicon" :alt="website.name" class="favicon-img" @error="handleFaviconError">
-          <div class="website-overlay">
-            <button class="visit-button" @click.stop="visitWebsite(website)">
-              <span class="visit-icon">🔗</span>
-            </button>
-          </div>
-          <div class="website-badges">
-            <span v-if="website.isBookmark" class="badge bookmark">📌</span>
-            <span v-if="website.isPrivate" class="badge private">🔒</span>
-            <span v-if="website.sslStatus === 'secure'" class="badge secure">🔒</span>
-          </div>
-        </div>
-        
-        <div class="website-info">
-          <h3 class="website-title">{{ website.name }}</h3>
-          <p class="website-url">{{ getDomain(website.url) }}</p>
-          <p class="website-description">{{ website.description || '暂无描述' }}</p>
-          <div class="website-meta">
-            <span class="website-category">{{ website.category }}</span>
-            <span class="website-visits">{{ website.visitCount || 0 }} 次访问</span>
-          </div>
-          <div class="website-tags" v-if="website.tags && website.tags.length > 0">
-            <span v-for="tag in website.tags.slice(0, 3)" :key="tag" class="tag">{{ tag }}</span>
-            <span v-if="website.tags.length > 3" class="tag-more">+{{ website.tags.length - 3 }}</span>
-          </div>
-        </div>
-      </div>
+        :item="formatWebsiteForMediaCard(website)"
+        type="image"
+        :is-electron-environment="isElectronEnvironment"
+        @click="showWebsiteDetail"
+        @contextmenu="showContextMenu"
+        @action="(item) => visitWebsite(item)"
+      />
     </div>
 
     <!-- 空状态 -->
@@ -181,7 +153,7 @@
               <div class="website-detail-icon" v-if="!selectedWebsite.favicon">
                 🌐
               </div>
-              <img v-else :src="selectedWebsite.favicon" :alt="selectedWebsite.name" class="detail-favicon">
+              <img v-else :src="selectedWebsite.favicon" :alt="selectedWebsite.name" class="detail-favicon" @error="handleFaviconError" @load="handleFaviconLoad">
               <div class="website-detail-badges">
                 <span v-if="selectedWebsite.isBookmark" class="badge bookmark">📌 书签</span>
                 <span v-if="selectedWebsite.isPrivate" class="badge private">🔒 私有</span>
@@ -264,6 +236,9 @@
           <button type="button" @click="visitWebsite(selectedWebsite)" class="btn-visit">
             🔗 访问网站
           </button>
+          <button type="button" @click="refreshWebsiteFavicon(selectedWebsite)" class="btn-refresh-favicon">
+            🔄 刷新图标
+          </button>
           <button type="button" @click="editWebsite(selectedWebsite)" class="btn-edit">
             编辑
           </button>
@@ -290,6 +265,7 @@ import Toolbar from '../components/Toolbar.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
+import MediaCard from '../components/MediaCard.vue'
 
 export default {
   name: 'WebsiteView',
@@ -297,7 +273,8 @@ export default {
     Toolbar,
     EmptyState,
     ContextMenu,
-    FormField
+    FormField,
+    MediaCard
   },
   data() {
     return {
@@ -319,6 +296,7 @@ export default {
       },
       urlError: '',
       isLoading: false,
+      isElectronEnvironment: false,
       // 排序选项
       websiteSortOptions: [
         { value: 'name', label: '按名称' },
@@ -331,6 +309,7 @@ export default {
       websiteContextMenuItems: [
         { key: 'detail', icon: '👁️', label: '查看详情' },
         { key: 'visit', icon: '🔗', label: '访问网站' },
+        { key: 'refresh-favicon', icon: '🔄', label: '刷新图标' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'delete', icon: '🗑️', label: '删除网站' }
       ]
@@ -433,7 +412,7 @@ export default {
           name: this.newWebsite.name.trim() || websiteManager.getDomain(this.newWebsite.url),
           category: '未分类',
           tags: [],
-          favicon: websiteManager.getFaviconUrl(this.newWebsite.url)
+          favicon: await websiteManager.getBestFaviconUrl(this.newWebsite.url)
         }
         
         const website = await websiteManager.addWebsite(websiteData)
@@ -449,27 +428,38 @@ export default {
     
     async visitWebsite(website) {
       try {
+        // 如果传入的是格式化后的数据，需要找到原始网站对象
+        let originalWebsite = website
+        if (website.image && website.image !== website.favicon) {
+          // 这是格式化后的数据，需要找到原始网站
+          originalWebsite = this.websites.find(w => w.id === website.id)
+          if (!originalWebsite) {
+            console.error('找不到原始网站数据:', website.id)
+            return
+          }
+        }
+        
         // 增加访问次数
-        await websiteManager.incrementVisitCount(website.id)
+        await websiteManager.incrementVisitCount(originalWebsite.id)
         
         // 更新本地数据
-        const index = this.websites.findIndex(w => w.id === website.id)
+        const index = this.websites.findIndex(w => w.id === originalWebsite.id)
         if (index !== -1) {
-          this.websites[index] = await websiteManager.websites.find(w => w.id === website.id)
+          this.websites[index] = await websiteManager.websites.find(w => w.id === originalWebsite.id)
         }
         
         // 打开网站
         if (window.electronAPI && window.electronAPI.openExternal) {
-          const result = await window.electronAPI.openExternal(website.url)
+          const result = await window.electronAPI.openExternal(originalWebsite.url)
           if (result.success) {
-            console.log('网站访问成功:', website.name)
-            this.showNotification('网站已打开', `正在访问: ${website.name}`)
+            console.log('网站访问成功:', originalWebsite.name)
+            this.showNotification('网站已打开', `正在访问: ${originalWebsite.name}`)
           } else {
             alert(`访问失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中打开
-          window.open(website.url, '_blank')
+          window.open(originalWebsite.url, '_blank')
         }
       } catch (error) {
         console.error('访问网站失败:', error)
@@ -498,7 +488,18 @@ export default {
     },
     
     showWebsiteDetail(website) {
-      this.selectedWebsite = website
+      // 如果传入的是格式化后的数据，需要找到原始网站对象
+      let originalWebsite = website
+      if (website.image && website.image !== website.favicon) {
+        // 这是格式化后的数据，需要找到原始网站
+        originalWebsite = this.websites.find(w => w.id === website.id)
+        if (!originalWebsite) {
+          console.error('找不到原始网站数据:', website.id)
+          return
+        }
+      }
+      
+      this.selectedWebsite = originalWebsite
       this.contextMenu.visible = false
     },
     
@@ -518,13 +519,25 @@ export default {
     
     showContextMenu(event, website) {
       event.preventDefault()
+      
+      // 如果传入的是格式化后的数据，需要找到原始网站对象
+      let originalWebsite = website
+      if (website.image && website.image !== website.favicon) {
+        // 这是格式化后的数据，需要找到原始网站
+        originalWebsite = this.websites.find(w => w.id === website.id)
+        if (!originalWebsite) {
+          console.error('找不到原始网站数据:', website.id)
+          return
+        }
+      }
+      
       this.contextMenu = {
         visible: true,
         x: event.clientX,
         y: event.clientY
       }
       // 临时存储选中的网站，用于右键菜单操作
-      this.contextMenu.selectedWebsite = website
+      this.contextMenu.selectedWebsite = originalWebsite
     },
     handleContextMenuClick(item) {
       this.contextMenu.visible = false
@@ -537,6 +550,9 @@ export default {
           break
         case 'visit':
           this.visitWebsite(website)
+          break
+        case 'refresh-favicon':
+          this.refreshWebsiteFavicon(website)
           break
         case 'edit':
           this.editWebsite(website)
@@ -586,9 +602,53 @@ export default {
       return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
     },
     
-    handleFaviconError(event) {
+    async handleFaviconError(event) {
+      console.warn('Favicon 加载失败:', event.target.src)
+      
+      // 隐藏失败的图片
       event.target.style.display = 'none'
-      event.target.nextElementSibling.style.display = 'block'
+      
+      // 尝试使用备用 favicon 服务
+      const website = this.websites.find(w => w.favicon === event.target.src) || 
+                     (this.selectedWebsite && this.selectedWebsite.favicon === event.target.src ? this.selectedWebsite : null)
+      
+      if (website) {
+        try {
+          // 尝试使用 Google 服务作为备用
+          const domain = websiteManager.getDomain(website.url)
+          if (domain) {
+            const backupFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+            
+            // 验证备用 favicon 是否可用
+            const isValid = await websiteManager.validateFaviconUrl(backupFavicon)
+            if (isValid) {
+              // 更新网站数据中的 favicon
+              website.favicon = backupFavicon
+              event.target.src = backupFavicon
+              event.target.style.display = 'block'
+              console.log('使用备用 favicon:', backupFavicon)
+              return
+            }
+          }
+        } catch (error) {
+          console.warn('备用 favicon 获取失败:', error)
+        }
+      }
+      
+      // 如果备用方案也失败，显示默认图标
+      const fallbackIcon = event.target.nextElementSibling
+      if (fallbackIcon) {
+        fallbackIcon.style.display = 'block'
+      }
+    },
+
+    handleFaviconLoad(event) {
+      // favicon 加载成功，隐藏备用图标
+      const fallbackIcon = event.target.nextElementSibling
+      if (fallbackIcon) {
+        fallbackIcon.style.display = 'none'
+      }
+      console.log('Favicon 加载成功:', event.target.src)
     },
     
     showNotification(title, message) {
@@ -627,9 +687,80 @@ export default {
         // 降级到原来的通知方式
         this.showNotification(title, message)
       }
+    },
+
+    // 格式化网站数据以适配 MediaCard
+    formatWebsiteForMediaCard(website) {
+      return {
+        ...website,
+        // 将 favicon 映射为 image 字段，MediaCard 会使用这个字段
+        image: website.favicon,
+        // 图片类型需要的字段
+        author: website.category, // 使用分类作为作者
+        description: website.description,
+        // 访问次数相关
+        viewCount: website.visitCount || 0,
+        lastViewed: website.lastVisited,
+        // 标签
+        tags: website.tags || [],
+        // 其他信息
+        pagesCount: 1, // 网站算作1页
+        // 清理不需要的字段
+        artist: undefined,
+        series: undefined,
+        notes: undefined,
+        playCount: undefined,
+        lastPlayed: undefined,
+        actors: undefined,
+        duration: undefined,
+        totalWords: undefined,
+        folderSize: undefined,
+        readProgress: undefined,
+        readTime: undefined,
+        playTime: undefined,
+        watchCount: undefined,
+        lastWatched: undefined
+      }
+    },
+
+    // 刷新网站 favicon
+    async refreshWebsiteFavicon(website) {
+      try {
+        console.log('正在刷新 favicon:', website.name)
+        
+        // 获取新的 favicon URL
+        const newFavicon = await websiteManager.getBestFaviconUrl(website.url)
+        
+        if (newFavicon && newFavicon !== website.favicon) {
+          // 更新网站数据
+          await websiteManager.updateWebsite(website.id, { favicon: newFavicon })
+          
+          // 更新本地数据
+          const index = this.websites.findIndex(w => w.id === website.id)
+          if (index !== -1) {
+            this.websites[index].favicon = newFavicon
+          }
+          
+          // 如果当前显示的是这个网站的详情，也要更新
+          if (this.selectedWebsite && this.selectedWebsite.id === website.id) {
+            this.selectedWebsite.favicon = newFavicon
+          }
+          
+          this.showToastNotification('Favicon 更新成功', `已为 "${website.name}" 更新图标`)
+          console.log('Favicon 更新成功:', newFavicon)
+        } else {
+          this.showToastNotification('Favicon 更新失败', `无法为 "${website.name}" 获取新图标`)
+        }
+      } catch (error) {
+        console.error('刷新 favicon 失败:', error)
+        this.showToastNotification('Favicon 更新失败', `刷新 "${website.name}" 图标时出错: ${error.message}`)
+      }
     }
   },
   async mounted() {
+    // 检测 Electron 环境
+    this.isElectronEnvironment = !!(window.electronAPI && window.electronAPI.openExternal)
+    
     await this.loadWebsites()
     
     // 点击其他地方关闭右键菜单
@@ -755,186 +886,6 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
-}
-
-.website-card {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
-
-.website-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px var(--shadow-medium);
-}
-
-.website-thumbnail {
-  position: relative;
-  height: 120px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.website-icon {
-  font-size: 3rem;
-  color: white;
-}
-
-.favicon-img {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-}
-
-.website-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.website-card:hover .website-overlay {
-  opacity: 1;
-}
-
-.visit-button {
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.visit-button:hover {
-  background: white;
-  transform: scale(1.1);
-}
-
-.visit-icon {
-  font-size: 1.2rem;
-}
-
-.website-badges {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 4px;
-}
-
-.badge {
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 500;
-}
-
-.badge.bookmark {
-  background: #f59e0b;
-  color: white;
-}
-
-.badge.private {
-  background: #ef4444;
-  color: white;
-}
-
-.badge.secure {
-  background: #10b981;
-  color: white;
-}
-
-.website-info {
-  padding: 15px;
-}
-
-.website-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 5px;
-  line-clamp: 1;
-  -webkit-line-clamp: 1;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.website-url {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  margin-bottom: 5px;
-  font-family: monospace;
-}
-
-.website-description {
-  color: var(--text-tertiary);
-  font-size: 0.9rem;
-  margin-bottom: 8px;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.website-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  margin-bottom: 8px;
-}
-
-.website-category {
-  background: var(--bg-tertiary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 500;
-}
-
-.website-visits {
-  font-weight: 500;
-}
-
-.website-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.tag {
-  background: var(--accent-color);
-  color: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.7rem;
-}
-
-.tag-more {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.7rem;
 }
 
 /* 模态框样式 */
@@ -1130,6 +1081,7 @@ export default {
   width: 64px;
   height: 64px;
   border-radius: 12px;
+  pointer-events: none; /* 确保图片不会阻止点击事件传播 */
 }
 
 .website-detail-badges {
@@ -1279,6 +1231,21 @@ export default {
 
 .btn-delete:hover {
   background: #dc2626;
+}
+
+.btn-refresh-favicon {
+  background: #8b5cf6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.btn-refresh-favicon:hover {
+  background: #7c3aed;
 }
 
 

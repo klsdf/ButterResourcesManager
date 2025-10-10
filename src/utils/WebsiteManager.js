@@ -263,13 +263,78 @@ class WebsiteManager {
     }
   }
 
-  // 获取网站图标URL
+  // 获取网站图标URL - 多种策略
   getFaviconUrl(url) {
     try {
       const urlObj = new URL(url)
-      return `${urlObj.protocol}//${urlObj.hostname}/favicon.ico`
+      const baseUrl = `${urlObj.protocol}//${urlObj.hostname}`
+      
+      // 返回多个可能的 favicon URL，按优先级排序
+      return [
+        `${baseUrl}/favicon.ico`,           // 标准位置
+        `${baseUrl}/apple-touch-icon.png`,  // Apple touch icon
+        `${baseUrl}/apple-touch-icon-precomposed.png`, // 预合成版本
+        `${baseUrl}/favicon-32x32.png`,     // 32x32 版本
+        `${baseUrl}/favicon-16x16.png`,     // 16x16 版本
+        `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`, // Google 服务
+        `https://favicons.githubusercontent.com/${urlObj.hostname}`, // GitHub 服务
+        `https://icons.duckduckgo.com/ip3/${urlObj.hostname}.ico` // DuckDuckGo 服务
+      ]
     } catch {
-      return ''
+      return []
+    }
+  }
+
+  // 获取最佳可用的 favicon URL
+  async getBestFaviconUrl(url) {
+    const faviconUrls = this.getFaviconUrl(url)
+    if (!faviconUrls || faviconUrls.length === 0) {
+      return null
+    }
+
+    // 首先尝试 Google 服务（最可靠）
+    const googleFavicon = faviconUrls.find(url => url.includes('google.com/s2/favicons'))
+    if (googleFavicon) {
+      return googleFavicon
+    }
+
+    // 然后尝试 GitHub 服务
+    const githubFavicon = faviconUrls.find(url => url.includes('favicons.githubusercontent.com'))
+    if (githubFavicon) {
+      return githubFavicon
+    }
+
+    // 最后尝试 DuckDuckGo 服务
+    const duckduckgoFavicon = faviconUrls.find(url => url.includes('icons.duckduckgo.com'))
+    if (duckduckgoFavicon) {
+      return duckduckgoFavicon
+    }
+
+    // 如果第三方服务都不可用，返回第一个（标准 favicon.ico）
+    return faviconUrls[0]
+  }
+
+  // 验证 favicon URL 是否可访问
+  async validateFaviconUrl(faviconUrl) {
+    try {
+      // 使用代理服务来避免跨域问题
+      if (faviconUrl.includes('google.com/s2/favicons') || 
+          faviconUrl.includes('favicons.githubusercontent.com') ||
+          faviconUrl.includes('icons.duckduckgo.com')) {
+        return true // 第三方服务通常可用
+      }
+
+      // 对于直接访问的 favicon，使用 HEAD 请求检查
+      const response = await fetch(faviconUrl, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-cache'
+      })
+      
+      return response.ok || response.type === 'opaque' // opaque 表示跨域成功
+    } catch (error) {
+      console.warn('Favicon 验证失败:', faviconUrl, error.message)
+      return false
     }
   }
 

@@ -23,6 +23,11 @@
           <span class="nav-icon">📢</span>
           <span class="nav-text">信息中心</span>
         </div>
+        <div :class="{ active: currentView === 'help' }" @click="switchView('help')"
+          class="nav-item help-item">
+          <span class="nav-icon">❓</span>
+          <span class="nav-text">帮助</span>
+        </div>
         <div :class="{ active: currentView === 'settings' }" @click="switchView('settings')"
           class="nav-item settings-item">
           <span class="nav-icon">⚙️</span>
@@ -62,6 +67,9 @@
 
         <!-- 设置页面 -->
         <SettingsView v-if="currentView === 'settings'" @theme-changed="onThemeChanged" />
+
+        <!-- 帮助页面 -->
+        <HelpView v-if="currentView === 'help'" />
         
       </div>
       <!-- 全局音频播放器 -->
@@ -83,6 +91,7 @@ import WebsiteView from './pages/WebsiteView.vue'
 import AudioView from './pages/AudioView.vue'
 import SettingsView from './pages/SettingsView.vue'
 import MessageCenterView from './pages/MessageCenterView.vue'
+import HelpView from './pages/HelpView.vue'
 import GlobalAudioPlayer from './components/GlobalAudioPlayer.vue'
 import ToastNotification from './components/ToastNotification.vue'
 
@@ -97,6 +106,7 @@ export default {
     AudioView,
     SettingsView,
     MessageCenterView,
+    HelpView,
     GlobalAudioPlayer,
     ToastNotification
   },
@@ -155,6 +165,9 @@ export default {
       if (this.currentView === 'messages') {
         return '信息中心'
       }
+      if (this.currentView === 'help') {
+        return '帮助'
+      }
       const item = this.navItems.find(item => item.id === this.currentView)
       return item ? item.name : '未知，请配置'
     },
@@ -164,6 +177,9 @@ export default {
       }
       if (this.currentView === 'messages') {
         return '查看系统通知和操作历史'
+      }
+      if (this.currentView === 'help') {
+        return '了解应用功能和使用方法'
       }
       const item = this.navItems.find(item => item.id === this.currentView)
       return item ? item.description : '无描述，请配置'
