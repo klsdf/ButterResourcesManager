@@ -121,13 +121,32 @@
             placeholder="选择游戏可执行文件"
             @browse="browseForExecutable"
           />
-          <FormField
-            label="游戏图片 (可选)"
-            type="file"
-            v-model="newGame.imagePath"
-            placeholder="选择游戏图片"
-            @browse="browseForImage"
-          />
+          <!-- 封面图片选择区域 -->
+          <div class="form-group">
+            <label class="form-label">游戏封面 (可选)</label>
+            <div class="cover-selection-container">
+              <div class="cover-preview" v-if="newGame.imagePath">
+                <img :src="resolveImage(newGame.imagePath)" :alt="'封面预览'" @error="handleImageError">
+                <div class="cover-preview-info">
+                  <span class="cover-filename">{{ getImageFileName(newGame.imagePath) }}</span>
+                </div>
+              </div>
+              <div class="cover-actions">
+                <button type="button" class="btn-cover-action" @click="useScreenshotAsCoverNew" :disabled="!newGame.executablePath">
+                  <span class="btn-icon">📸</span>
+                  使用截图作为封面
+                </button>
+                <button type="button" class="btn-cover-action" @click="browseForImageNew">
+                  <span class="btn-icon">📁</span>
+                  选择自定义封面
+                </button>
+                <button type="button" class="btn-cover-action btn-clear" @click="clearCoverNew" v-if="newGame.imagePath">
+                  <span class="btn-icon">🗑️</span>
+                  清除封面
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeAddGameDialog">取消</button>
@@ -184,13 +203,32 @@
             placeholder="选择游戏可执行文件"
             @browse="browseForExecutableEdit"
           />
-          <FormField
-            label="游戏图片"
-            type="file"
-            v-model="editGameForm.imagePath"
-            placeholder="选择游戏图片"
-            @browse="browseForImageEdit"
-          />
+          <!-- 封面图片选择区域 -->
+          <div class="form-group">
+            <label class="form-label">游戏封面</label>
+            <div class="cover-selection-container">
+              <div class="cover-preview" v-if="editGameForm.imagePath">
+                <img :src="resolveImage(editGameForm.imagePath)" :alt="'封面预览'" @error="handleImageError">
+                <div class="cover-preview-info">
+                  <span class="cover-filename">{{ getImageFileName(editGameForm.imagePath) }}</span>
+                </div>
+              </div>
+              <div class="cover-actions">
+                <button type="button" class="btn-cover-action" @click="useScreenshotAsCover">
+                  <span class="btn-icon">📸</span>
+                  使用截图作为封面
+                </button>
+                <button type="button" class="btn-cover-action" @click="browseForImageEdit">
+                  <span class="btn-icon">📁</span>
+                  选择自定义封面
+                </button>
+                <button type="button" class="btn-cover-action btn-clear" @click="clearCover" v-if="editGameForm.imagePath">
+                  <span class="btn-icon">🗑️</span>
+                  清除封面
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" @click="closeEditGameDialog">取消</button>
@@ -360,6 +398,7 @@ export default {
         { key: 'detail', icon: '👁️', label: '查看详情' },
         { key: 'launch', icon: '▶️', label: '启动游戏' },
         { key: 'folder', icon: '📁', label: '打开文件夹' },
+        { key: 'screenshot-folder', icon: '📸', label: '打开截图文件夹' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'remove', icon: '🗑️', label: '删除游戏' }
       ],
@@ -683,6 +722,9 @@ export default {
         case 'folder':
           this.openGameFolder(this.selectedGame)
           break
+        case 'screenshot-folder':
+          this.openGameScreenshotFolder(this.selectedGame)
+          break
         case 'edit':
           this.editGame(this.selectedGame)
           break
@@ -750,6 +792,144 @@ export default {
         console.error('选择图片文件失败:', error)
         alert(`选择文件失败: ${error.message}`)
       }
+    },
+    async useScreenshotAsCover() {
+      try {
+        if (!this.editGameForm.name) {
+          alert('请先输入游戏名称')
+          return
+        }
+        
+        // 获取用户设置的截图选项
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        
+        // 根据截图位置设置确定基础路径
+        let baseScreenshotsPath = ''
+        if (settings.screenshotLocation === 'default') {
+          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+        } else if (settings.screenshotLocation === 'custom') {
+          baseScreenshotsPath = settings.screenshotsPath || ''
+        } else {
+          baseScreenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+        }
+        
+        if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
+          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+        }
+        
+        // 为每个游戏创建单独的文件夹（与截图功能保持一致）
+        let gameFolderName = 'Screenshots'
+        if (this.editGameForm.name && this.editGameForm.name !== 'Screenshot') {
+          gameFolderName = this.editGameForm.name.replace(/[<>:"/\\|?*]/g, '_').trim()
+          if (!gameFolderName) {
+            gameFolderName = 'Screenshots'
+          }
+        }
+        
+        // 构建完整的游戏截图文件夹路径
+        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`
+        
+        console.log('尝试从截图文件夹选择封面:', gameScreenshotPath)
+        
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
+          // 使用文件选择器，设置默认路径为截图文件夹
+          const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
+          if (filePath) {
+            this.editGameForm.imagePath = filePath
+            this.showNotification('设置成功', '已选择截图作为封面')
+          }
+        } else {
+          alert('当前环境不支持选择图片功能')
+        }
+      } catch (error) {
+        console.error('选择截图作为封面失败:', error)
+        alert(`选择截图失败: ${error.message}`)
+      }
+    },
+    clearCover() {
+      this.editGameForm.imagePath = ''
+    },
+    async browseForImageNew() {
+      try {
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
+          const filePath = await window.electronAPI.selectImageFile()
+          if (filePath) {
+            this.newGame.imagePath = filePath
+          }
+        }
+      } catch (error) {
+        console.error('选择图片文件失败:', error)
+        alert(`选择文件失败: ${error.message}`)
+      }
+    },
+    async useScreenshotAsCoverNew() {
+      try {
+        if (!this.newGame.name && !this.newGame.executablePath) {
+          alert('请先输入游戏名称或选择可执行文件')
+          return
+        }
+        
+        // 获取游戏名称
+        let gameName = this.newGame.name.trim()
+        if (!gameName && this.newGame.executablePath) {
+          gameName = this.extractGameNameFromPath(this.newGame.executablePath)
+        }
+        
+        if (!gameName) {
+          alert('无法确定游戏名称')
+          return
+        }
+        
+        // 获取用户设置的截图选项
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        
+        // 根据截图位置设置确定基础路径
+        let baseScreenshotsPath = ''
+        if (settings.screenshotLocation === 'default') {
+          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+        } else if (settings.screenshotLocation === 'custom') {
+          baseScreenshotsPath = settings.screenshotsPath || ''
+        } else {
+          baseScreenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+        }
+        
+        if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
+          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+        }
+        
+        // 为每个游戏创建单独的文件夹（与截图功能保持一致）
+        let gameFolderName = 'Screenshots'
+        if (gameName && gameName !== 'Screenshot') {
+          gameFolderName = gameName.replace(/[<>:"/\\|?*]/g, '_').trim()
+          if (!gameFolderName) {
+            gameFolderName = 'Screenshots'
+          }
+        }
+        
+        // 构建完整的游戏截图文件夹路径
+        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`
+        
+        console.log('尝试从截图文件夹选择封面:', gameScreenshotPath)
+        
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.selectImageFile) {
+          // 使用文件选择器，设置默认路径为截图文件夹
+          const filePath = await window.electronAPI.selectImageFile(gameScreenshotPath)
+          if (filePath) {
+            this.newGame.imagePath = filePath
+            this.showNotification('设置成功', '已选择截图作为封面')
+          }
+        } else {
+          alert('当前环境不支持选择图片功能')
+        }
+      } catch (error) {
+        console.error('选择截图作为封面失败:', error)
+        alert(`选择截图失败: ${error.message}`)
+      }
+    },
+    clearCoverNew() {
+      this.newGame.imagePath = ''
     },
     async saveEditedGame() {
       try {
@@ -826,6 +1006,12 @@ export default {
     },
     handleImageError(event) {
       event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
+    },
+    getImageFileName(imagePath) {
+      if (!imagePath) return ''
+      // 从完整路径中提取文件名
+      const fileName = imagePath.split(/[\\/]/).pop()
+      return fileName || imagePath
     },
     async saveGames() {
       return await saveManager.saveGames(this.games)
@@ -1317,6 +1503,80 @@ export default {
         alert(`打开文件夹失败: ${error.message}`)
       }
     },
+    async openGameScreenshotFolder(game) {
+      try {
+        if (!game || !game.name) {
+          alert('游戏信息不完整')
+          return
+        }
+        
+        // 获取用户设置的截图选项
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        
+        // 根据截图位置设置确定基础路径
+        let baseScreenshotsPath = ''
+        if (settings.screenshotLocation === 'default') {
+          // 使用默认路径
+          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+        } else if (settings.screenshotLocation === 'custom') {
+          // 使用自定义路径
+          baseScreenshotsPath = settings.screenshotsPath || ''
+        } else {
+          // 兼容旧设置：如果没有screenshotLocation，使用screenshotsPath
+          baseScreenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+        }
+        
+        // 如果自定义路径为空，回退到默认路径
+        if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
+          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+        }
+        
+        // 为每个游戏创建单独的文件夹（与截图功能保持一致）
+        let gameFolderName = 'Screenshots'
+        if (game.name && game.name !== 'Screenshot') {
+          // 清理游戏名称，移除非法字符
+          gameFolderName = game.name.replace(/[<>:"/\\|?*]/g, '_').trim()
+          if (!gameFolderName) {
+            gameFolderName = 'Screenshots'
+          }
+        }
+        
+        // 构建完整的游戏截图文件夹路径
+        const gameScreenshotPath = `${baseScreenshotsPath}/${gameFolderName}`
+        
+        console.log('尝试打开游戏截图文件夹:', gameScreenshotPath)
+        
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.openFolder) {
+          // 确保目录存在
+          try {
+            if (window.electronAPI.ensureDirectory) {
+              const ensureResult = await window.electronAPI.ensureDirectory(gameScreenshotPath)
+              if (ensureResult.success) {
+                console.log('游戏截图目录已确保存在:', gameScreenshotPath)
+              }
+            }
+          } catch (error) {
+            console.warn('创建游戏截图目录失败:', error)
+          }
+          
+          const result = await window.electronAPI.openFolder(gameScreenshotPath)
+          if (result.success) {
+            console.log('游戏截图文件夹已打开:', gameScreenshotPath)
+            this.showNotification('文件夹已打开', `已打开 ${game.name} 的截图文件夹`)
+          } else {
+            console.error('打开游戏截图文件夹失败:', result.error)
+            alert(`打开截图文件夹失败: ${result.error}`)
+          }
+        } else {
+          // 降级处理：在浏览器中显示路径信息
+          alert(`${game.name} 的截图文件夹路径:\n${gameScreenshotPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+        }
+      } catch (error) {
+        console.error('打开游戏截图文件夹失败:', error)
+        alert(`打开截图文件夹失败: ${error.message}`)
+      }
+    },
     // 检查是否在 Electron 环境中
     checkElectronEnvironment() {
       console.log('检查 Electron 环境...')
@@ -1728,6 +1988,91 @@ export default {
 .btn-confirm:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 封面选择区域样式 */
+.cover-selection-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.cover-preview {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.cover-preview img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.cover-preview-info {
+  flex: 1;
+}
+
+.cover-filename {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.cover-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-cover-action {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.btn-cover-action:hover {
+  background: var(--accent-hover);
+}
+
+.btn-cover-action.btn-clear {
+  background: #ef4444;
+}
+
+.btn-cover-action.btn-clear:hover {
+  background: #dc2626;
+}
+
+.btn-cover-action .btn-icon {
+  font-size: 1rem;
+}
+
+.btn-cover-action:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-cover-action:disabled:hover {
+  background: var(--bg-secondary);
 }
 
 

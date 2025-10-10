@@ -324,16 +324,23 @@ ipcMain.handle('select-executable-file', async () => {
   }
 })
 
-ipcMain.handle('select-image-file', async () => {
+ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
   try {
-    const result = await dialog.showOpenDialog(mainWindow, {
+    const dialogOptions = {
       title: '选择游戏图片',
       filters: [
         { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
         { name: '所有文件', extensions: ['*'] }
       ],
       properties: ['openFile']
-    })
+    }
+    
+    // 如果提供了默认路径，设置为默认目录
+    if (defaultPath) {
+      dialogOptions.defaultPath = defaultPath
+    }
+    
+    const result = await dialog.showOpenDialog(mainWindow, dialogOptions)
     
     if (!result.canceled && result.filePaths.length > 0) {
       return result.filePaths[0]
