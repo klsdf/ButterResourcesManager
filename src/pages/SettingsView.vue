@@ -49,22 +49,6 @@
                 </div>
               </div>
               
-              <div class="setting-item">
-                <label class="setting-label">
-                  <span class="setting-title">侧边栏宽度</span>
-                  <span class="setting-desc">调整侧边栏的宽度</span>
-                </label>
-                <div class="setting-control">
-                  <input 
-                    type="range" 
-                    v-model="settings.sidebarWidth" 
-                    min="200" 
-                    max="400" 
-                    class="setting-slider"
-                  >
-                  <span class="setting-value">{{ settings.sidebarWidth }}px</span>
-                </div>
-              </div>
               
               <div class="setting-item">
                 <label class="setting-label">
@@ -623,7 +607,6 @@ export default {
       ],
       settings: {
         theme: 'auto',
-        sidebarWidth: 280,
         autoStart: false,
         minimizeToTray: true,
         showWelcome: true,
@@ -841,7 +824,6 @@ export default {
       if (confirm('确定要重置所有设置吗？')) {
         this.settings = {
           theme: 'auto',
-          sidebarWidth: 280,
           autoStart: false,
           minimizeToTray: true,
           showWelcome: true,

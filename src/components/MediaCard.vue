@@ -279,27 +279,16 @@ export default {
     formatDuration(minutes) {
       if (!minutes || minutes === 0) return '未知时长'
       
-      // 如果传入的是秒数，转换为分钟
-      if (minutes < 1000) {
-        // 假设是秒数，转换为分钟
-        const totalMinutes = Math.floor(minutes / 60)
-        const remainingSeconds = Math.floor(minutes % 60)
-        
-        if (totalMinutes > 0) {
-          return `${totalMinutes}:${remainingSeconds.toString().padStart(2, '0')}`
-        } else {
-          return `${remainingSeconds}秒`
-        }
+      // 将分钟转换为秒，然后格式化为时:分:秒
+      const totalSeconds = Math.floor(minutes * 60)
+      const hours = Math.floor(totalSeconds / 3600)
+      const mins = Math.floor((totalSeconds % 3600) / 60)
+      const secs = totalSeconds % 60
+      
+      if (hours > 0) {
+        return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
       } else {
-        // 假设是分钟数
-        const hours = Math.floor(minutes / 60)
-        const mins = Math.floor(minutes % 60)
-        
-        if (hours > 0) {
-          return `${hours}:${mins.toString().padStart(2, '0')}`
-        } else {
-          return `${mins}分钟`
-        }
+        return `${mins}:${secs.toString().padStart(2, '0')}`
       }
     },
     formatDateTime(date) {

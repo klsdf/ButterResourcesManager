@@ -1,7 +1,14 @@
 <template>
   <div class="game-view">
     <!-- 主内容区域 -->
-    <div class="game-content">
+    <div 
+      class="game-content"
+      @drop="handleDrop"
+      @dragover="handleDragOver"
+      @dragenter="handleDragEnter"
+      @dragleave="handleDragLeave"
+      :class="{ 'drag-over': isDragOver }"
+    >
       <!-- 工具栏 -->
       <GameToolbar 
         v-model:searchQuery="searchQuery"
@@ -46,7 +53,7 @@
       v-else-if="games.length === 0"
       icon="🎮"
       title="你的游戏库是空的"
-      description="点击&quot;添加游戏&quot;按钮来添加你的第一个游戏"
+      description="点击&quot;添加游戏&quot;按钮来添加你的第一个游戏，或直接拖拽 .exe 文件到此处"
       :show-button="true"
       button-text="添加第一个游戏"
       @action="showAddGameDialog"
@@ -397,7 +404,9 @@ export default {
       selectedDevelopers: [],
       excludedDevelopers: [],
       // 更新文件夹大小相关
-      isUpdatingFolderSize: false
+      isUpdatingFolderSize: false,
+      // 拖拽相关
+      isDragOver: false
     }
   },
   computed: {
@@ -1779,6 +1788,142 @@ export default {
         alert(`打开截图文件夹失败: ${error.message}`)
       }
     },
+    // 拖拽处理方法
+    handleDragOver(event) {
+      event.preventDefault()
+      event.dataTransfer.dropEffect = 'copy'
+    },
+    
+    handleDragEnter(event) {
+      event.preventDefault()
+      // 防止子元素触发 dragenter 时重复设置状态
+      if (!this.isDragOver) {
+        this.isDragOver = true
+      }
+    },
+    
+    handleDragLeave(event) {
+      event.preventDefault()
+      // 只有当离开整个拖拽区域时才取消高亮
+      // 检查 relatedTarget 是否存在且不在当前元素内
+      if (!event.relatedTarget || !event.currentTarget.contains(event.relatedTarget)) {
+        this.isDragOver = false
+      }
+    },
+    
+    async handleDrop(event) {
+      event.preventDefault()
+      this.isDragOver = false
+      
+      try {
+        const files = Array.from(event.dataTransfer.files)
+        
+        console.log('=== 拖拽调试信息 ===')
+        console.log('拖拽文件数量:', files.length)
+        console.log('拖拽文件详细信息:', files.map(f => ({
+          name: f.name,
+          path: f.path,
+          type: f.type,
+          size: f.size
+        })))
+        
+        if (files.length === 0) {
+          this.showNotification('拖拽失败', '请拖拽游戏可执行文件到此处')
+          return
+        }
+        
+        // 筛选出可执行文件
+        const executableFiles = files.filter(file => {
+          const fileName = file.name.toLowerCase()
+          return fileName.endsWith('.exe') || fileName.endsWith('.app')
+        })
+        
+        if (executableFiles.length === 0) {
+          this.showNotification('拖拽失败', '没有检测到可执行文件，请拖拽 .exe 或 .app 文件')
+          return
+        }
+        
+        console.log('检测到可执行文件数量:', executableFiles.length)
+        
+        // 批量添加游戏文件
+        let addedCount = 0
+        let failedCount = 0
+        
+        for (const executableFile of executableFiles) {
+          try {
+            // 检查是否已经存在相同的文件
+            const existingGame = this.games.find(game => game.executablePath === executableFile.path)
+            if (existingGame) {
+              console.log(`游戏文件已存在: ${executableFile.name}`)
+              failedCount++
+              continue
+            }
+            
+            // 创建新的游戏对象
+            const game = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              name: this.extractGameNameFromPath(executableFile.name),
+              developer: '未知开发商',
+              publisher: '未知发行商',
+              description: '',
+              tags: [],
+              executablePath: executableFile.path,
+              image: '',
+              folderSize: 0,
+              playTime: 0,
+              playCount: 0,
+              lastPlayed: null,
+              firstPlayed: null,
+              addedDate: new Date().toISOString()
+            }
+            
+            console.log('创建游戏对象:', game)
+            
+            // 获取游戏文件夹大小
+            if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFolderSize) {
+              try {
+                const result = await window.electronAPI.getFolderSize(executableFile.path)
+                if (result.success) {
+                  game.folderSize = result.size
+                  console.log(`游戏 ${game.name} 文件夹大小: ${result.size} 字节`)
+                }
+              } catch (error) {
+                console.error('获取文件夹大小失败:', error)
+              }
+            }
+            
+            // 添加到游戏列表
+            this.games.push(game)
+            addedCount++
+            
+          } catch (error) {
+            console.error(`添加游戏文件失败: ${executableFile.name}`, error)
+            failedCount++
+          }
+        }
+        
+        // 保存游戏数据
+        if (addedCount > 0) {
+          await this.saveGames()
+          this.extractAllTags()
+        }
+        
+        // 显示结果通知
+        if (addedCount > 0) {
+          this.showToastNotification(
+            '添加成功', 
+            `成功添加 ${addedCount} 个游戏${failedCount > 0 ? `，${failedCount} 个文件添加失败` : ''}`
+          )
+        } else {
+          this.showToastNotification('添加失败', '没有成功添加任何游戏文件')
+        }
+        
+      } catch (error) {
+        console.error('拖拽添加游戏失败:', error)
+        this.showToastNotification('添加失败', `添加游戏失败: ${error.message}`)
+      }
+    },
+
     // 检查是否在 Electron 环境中
     checkElectronEnvironment() {
       console.log('检查 Electron 环境...')
@@ -1864,6 +2009,8 @@ export default {
   padding: 0;
   height: 100%;
   overflow-y: auto;
+  position: relative;
+  transition: all 0.3s ease;
 }
 
 /* 更新文件夹大小按钮区域 */
@@ -2575,5 +2722,29 @@ export default {
   .detail-actions {
     flex-direction: column;
   }
+}
+
+/* 拖拽样式 */
+.game-content.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed var(--accent-color);
+  border-radius: 12px;
+}
+
+.game-content.drag-over::before {
+  content: '拖拽游戏可执行文件到这里添加游戏';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-color);
+  color: white;
+  padding: 20px 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
 }
 </style>
