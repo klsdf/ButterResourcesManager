@@ -30,7 +30,7 @@ function createWindow() {
       // 允许在 http(s) 环境下加载 file:// 资源（用于本地视频缩略图生成）
       webSecurity: false
     },
-    icon: path.join(__dirname, 'butter-modern.svg'), // 应用图标
+    icon: path.join(__dirname, 'butter-logo.svg'), // 应用图标
     titleBarStyle: 'default',
     show: false // 先不显示，等加载完成后再显示
   })
@@ -82,7 +82,7 @@ function createWindow() {
         tray.displayBalloon({
           title: 'Butter Manager Vue',
           content: '应用已最小化到系统托盘',
-          icon: nativeImage.createFromPath(path.join(__dirname, 'butter-modern.svg'))
+          icon: nativeImage.createFromPath(path.join(__dirname, 'butter-logo.svg'))
         })
       }
     }
@@ -206,7 +206,7 @@ function createMenu() {
 function createTray() {
   try {
     // 创建托盘图标
-    const iconPath = path.join(__dirname, 'butter-modern.svg')
+    const iconPath = path.join(__dirname, 'butter-logo.svg')
     const trayIcon = nativeImage.createFromPath(iconPath)
     
     // 如果SVG图标创建失败，尝试使用PNG图标
@@ -560,7 +560,7 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
         allowRunningInsecureContent: true, // 允许不安全内容
         preload: path.join(__dirname, 'preload.js')
       },
-      icon: path.join(__dirname, 'butter-modern.svg'),
+      icon: path.join(__dirname, 'butter-logo.svg'),
       show: true
     })
     // 保持全局引用，防止被GC
@@ -1068,7 +1068,7 @@ ipcMain.handle('show-notification', (event, title, body) => {
       const notification = new Notification({
         title: title,
         body: body,
-        icon: path.join(__dirname, 'butter-modern.svg'), // 使用应用图标
+        icon: path.join(__dirname, 'butter-logo.svg'), // 使用应用图标
         silent: false // 允许声音
       })
       

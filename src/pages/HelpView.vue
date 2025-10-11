@@ -4,12 +4,16 @@
     <div class="help-sidebar">
       <div class="sidebar-header">
         <h2>📚 帮助中心</h2>
-        </div>
+      </div>
       <nav class="sidebar-nav">
         <ul class="nav-list">
           <li class="nav-item" :class="{ active: activeSection === 'intro' }" @click="setActiveSection('intro')">
             <span class="nav-icon">🏠</span>
             <span class="nav-text">简介</span>
+          </li>
+          <li class="nav-item" :class="{ active: activeSection === 'general' }" @click="setActiveSection('general')">
+            <span class="nav-icon">🛠️</span>
+            <span class="nav-text">通用管理</span>
           </li>
           <li class="nav-item" :class="{ active: activeSection === 'game' }" @click="setActiveSection('game')">
             <span class="nav-icon">🎮</span>
@@ -61,7 +65,9 @@
         </div>
         <div class="intro-content">
           <DetailCard title="🎯 项目简介">
-            <p>Butter Manager 是一个专为仓鼠症用户设计的绿色多媒体资源管理器。它非常善于帮助您管理大量且类型丰富复杂的媒体文件，包括游戏、图片、视频、小说、网站和音频文件。您不用再依赖于windows本地的原生管理方式，而是可以享受更加自由和便捷的管理体验。</p>
+            <p>Butter Manager
+              是一个专为仓鼠症用户设计的绿色多媒体资源管理器。它非常善于帮助您管理大量且类型丰富复杂的媒体文件，包括游戏、图片、视频、小说、网站和音频文件。您不用再依赖于windows本地的原生管理方式，而是可以享受更加自由和便捷的管理体验。
+            </p>
           </DetailCard>
           <DetailCard title="✨ 核心特性">
             <ul>
@@ -83,25 +89,61 @@
         </div>
       </section>
 
+      <!-- 通用管理详细说明 -->
+      <section v-if="activeSection === 'general'" class="content-section">
+        <div class="section-header">
+          <h1>🛠️ 通用管理模块</h1>
+          <p class="section-subtitle">通用的资源管理解决方案</p>
+        </div>
+        <div class="module-detail">
+          <DetailCard title="🛠️ 通用模块简介">
+            <p>
+              通用管理模块是整个应用所通用的功能和特性。
+            </p>
+          </DetailCard>
+
+          <DetailCard title="🎯 窗口管理">
+            <ul>
+              <li><strong>全屏窗口：</strong>F11</li>
+              <li><strong>最小化窗口：</strong>Ctrl+M</li>
+              <li><strong>关闭窗口：</strong>Ctrl+W</li>
+            </ul>
+          </DetailCard>
+
+          <DetailCard title="🎯 视图管理">
+            <ul>
+              <li><strong>重新加载：</strong>Ctrl+R</li>
+              <li><strong>强制重新加载：</strong>Ctrl+Shift+R</li>
+              <li><strong>开发者工具：</strong>Ctrl+Shift+I</li>
+            </ul>
+          </DetailCard>
+        </div>
+      </section>
 
       <!-- 游戏管理详细说明 -->
       <section v-if="activeSection === 'game'" class="content-section">
+
         <div class="section-header">
           <h1>🎮 游戏管理模块</h1>
           <p class="section-subtitle">专业的游戏资源管理解决方案</p>
-            </div>
+        </div>
         <div class="module-detail">
-            <DetailCard title="🎮 游戏模块简介">
-                <p>游戏管理模块是黄油管理器的核心功能之一。它实现了一套类似steam的软件管理系统。帮助您管理各种类型的游戏文件，并帮您获得游戏的附加信息。游玩时模块会自动记录您游戏的时长、运行次数、最后游玩时间等统计信息。并提供了一个功能强大的截图工具，让您在游戏中可以快速截图。</p>
+          <DetailCard title="🎮 游戏模块简介">
+            <p>
+              游戏管理模块是黄油管理器的核心功能之一。它实现了一套类似steam的软件管理系统。帮助您管理各种类型的游戏文件，并帮您获得游戏的附加信息。游玩时模块会自动记录您游戏的时长、运行次数、最后游玩时间等统计信息。并提供了一个功能强大的截图工具，让您在游戏中可以快速截图。
+            </p>
           </DetailCard>
-          <DetailCard title="🎯 核心功能">
+          <DetailCard title="🎯 添加游戏">
             <ul>
-              <li><strong>游戏添加：</strong>支持选择游戏可执行文件或游戏文件夹，自动提取游戏信息</li>
-              <li><strong>信息管理：</strong>可编辑游戏名称、开发商、发行商、简介和标签</li>
-              <li><strong>封面设置：</strong>支持自定义封面或使用游戏截图作为封面</li>
-              <li><strong>快速启动：</strong>双击游戏卡片即可启动游戏，支持进程监控</li>
-              <li><strong>截图管理：</strong>自动扫描和管理游戏截图，支持截图文件夹操作</li>
-              <li><strong>统计功能：</strong>记录游戏时长、运行次数、最后游玩时间等统计信息</li>
+              <li><strong>用按钮添加游戏：</strong>在游戏页的上方有一个添加游戏的按钮，点击后会弹出添加游戏的对话框，您可以在这里添加游戏。添加游戏时，必须指定一个游戏exe文件。</li>
+              <li><strong>拖动添加游戏：</strong>您可以拖动一个游戏exe文件到游戏页的上方，游戏会自动添加到游戏库中。</li>
+            </ul>
+          </DetailCard>
+
+          <DetailCard title="🎯 删除游戏">
+            <ul>
+              <li><strong>右键菜单删除游戏：</strong>对游戏卡进行右键，可以看到删除的选项。</li>
+              <li><strong>详情页删除游戏：</strong>在游戏的详情页内，可以看到删除游戏的选项。</li>
             </ul>
           </DetailCard>
         </div>
@@ -112,16 +154,16 @@
         <div class="section-header">
           <h1>🖼️ 图片管理模块</h1>
           <p class="section-subtitle">强大的图片收藏和管理工具</p>
-            </div>
+        </div>
         <div class="module-detail">
-          <DetailCard title="🖼️ 图片预览">
-            <p>支持 JPG、PNG、GIF、WebP 等格式的缩略图预览，单击查看大图，双击进入全屏模式。</p>
+          <DetailCard title="🖼️ 图片模块简介">
+            <p>图片管理模块主要用于管理文件夹，比如漫画和套图等资源，不适合管理单一的图片。图片管理器最重要的功能是内置的漫画阅读器，阅读体验远高于windows自带的阅读器。</p>
           </DetailCard>
-          <DetailCard title="📁 批量管理">
-            <p>按住 Ctrl 键选择多张图片，支持批量删除、移动和分类整理。</p>
+          <DetailCard title="📁 图片资源的添加">
+
           </DetailCard>
           <DetailCard title="📤 快速添加">
-            <p>直接拖拽图片文件到界面或点击添加按钮，自动识别图片格式并生成预览。</p>
+
           </DetailCard>
         </div>
       </section>
@@ -131,7 +173,7 @@
         <div class="section-header">
           <h1>🎬 视频管理模块</h1>
           <p class="section-subtitle">专业的视频文件管理解决方案</p>
-            </div>
+        </div>
         <div class="module-detail">
           <DetailCard title="🎬 视频播放">
             <p>内置视频播放器，支持 MP4、AVI、MKV 等格式，双击视频文件即可播放。</p>
@@ -150,7 +192,7 @@
         <div class="section-header">
           <h1>📚 小说管理模块</h1>
           <p class="section-subtitle">专业的电子书阅读和管理工具</p>
-            </div>
+        </div>
         <div class="module-detail">
           <DetailCard title="📖 电子书阅读">
             <p>支持 TXT、EPUB、PDF 等格式，双击文件即可开始阅读，自动记录阅读进度。</p>
@@ -169,7 +211,7 @@
         <div class="section-header">
           <h1>🌐 网站收藏模块</h1>
           <p class="section-subtitle">便捷的网站书签管理工具</p>
-            </div>
+        </div>
         <div class="module-detail">
           <DetailCard title="🔖 网站收藏">
             <p>保存常用网站的链接、标题和描述，支持分类整理和快速访问。</p>
@@ -188,7 +230,7 @@
         <div class="section-header">
           <h1>🎵 音频管理模块</h1>
           <p class="section-subtitle">强大的音频播放和管理工具</p>
-            </div>
+        </div>
         <div class="module-detail">
           <DetailCard title="🎵 音频播放">
             <p>支持 MP3、WAV、FLAC 等格式，双击音频文件即可播放，显示歌曲信息。</p>
@@ -212,16 +254,16 @@
         <div class="faq-content">
           <div class="faq-category">
             <h3>📁 文件管理问题</h3>
-        <div class="faq-list">
-          <div class="faq-item">
-            <h4>Q: 如何添加新的媒体文件？</h4>
+            <div class="faq-list">
+              <div class="faq-item">
+                <h4>Q: 如何添加新的媒体文件？</h4>
                 <p>A: 点击对应页面的"添加"按钮，选择文件或文件夹即可。也支持直接拖拽文件到应用界面。</p>
-          </div>
-          <div class="faq-item">
+              </div>
+              <div class="faq-item">
                 <h4>Q: 支持哪些文件格式？</h4>
                 <p>A: 支持常见的图片格式（JPG、PNG、GIF等）、视频格式（MP4、AVI、MKV等）、音频格式（MP3、WAV、FLAC等）以及文本文件。</p>
-          </div>
-          <div class="faq-item">
+              </div>
+              <div class="faq-item">
                 <h4>Q: 如何批量操作文件？</h4>
                 <p>A: 按住 Ctrl 键选择多个项目，然后使用右键菜单或工具栏进行批量操作。</p>
               </div>
@@ -233,9 +275,9 @@
               <div class="faq-item">
                 <h4>Q: 数据存储在哪里？</h4>
                 <p>A: 所有数据都保存在应用目录的 SaveData 文件夹中，包括配置文件、媒体信息和用户设置。</p>
-          </div>
-          <div class="faq-item">
-            <h4>Q: 如何备份数据？</h4>
+              </div>
+              <div class="faq-item">
+                <h4>Q: 如何备份数据？</h4>
                 <p>A: 可以复制整个 SaveData 文件夹来备份所有数据，或者使用设置中的导出功能。</p>
               </div>
               <div class="faq-item">
@@ -277,7 +319,8 @@
                 <span class="link-icon">🐙</span>
                 <span class="link-text">GitHub 仓库</span>
               </a>
-              <a href="https://github.com/your-username/butter-manager-vue/releases" target="_blank" class="project-link">
+              <a href="https://github.com/your-username/butter-manager-vue/releases" target="_blank"
+                class="project-link">
                 <span class="link-icon">📦</span>
                 <span class="link-text">下载发布版本</span>
               </a>
@@ -454,6 +497,10 @@ export default {
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
+.nav-list li {
+  list-style: none;
 }
 
 .nav-item {
@@ -679,6 +726,11 @@ export default {
   line-height: 1.6;
   margin: 0;
   padding-left: 20px;
+  list-style: none;
+}
+
+.contribution-guide ul li {
+  list-style: none;
 }
 
 .contribution-guide li {
@@ -781,10 +833,25 @@ export default {
   line-height: 1.6;
   margin: 0;
   padding-left: 20px;
+  list-style: none;
+}
+
+.support-options ul li {
+  list-style: none;
 }
 
 .support-options li {
   margin: 8px 0;
+}
+
+/* 移除所有列表的默认样式 */
+.help-view ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.help-view ul li {
+  list-style: none;
 }
 
 /* 响应式设计 */
@@ -793,54 +860,54 @@ export default {
     flex-direction: column;
     height: auto;
   }
-  
+
   .help-sidebar {
     width: 100%;
     height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
   }
-  
+
   .sidebar-nav {
     padding: 0;
   }
-  
+
   .nav-list {
     display: flex;
     overflow-x: auto;
     padding: 10px;
   }
-  
+
   .nav-item {
     flex-shrink: 0;
     white-space: nowrap;
     border-left: none;
     border-bottom: 3px solid transparent;
   }
-  
+
   .nav-item.active {
     border-left: none;
     border-bottom-color: var(--accent-hover);
   }
-  
+
   .help-content {
     padding: 20px;
   }
-  
+
   .section-header h1 {
     font-size: 2rem;
   }
-  
-  
-  
+
+
+
   .project-links {
     flex-direction: column;
   }
-  
+
   .help-options {
     flex-direction: column;
   }
-  
+
   .contact-methods {
     flex-direction: column;
   }

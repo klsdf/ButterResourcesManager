@@ -3,7 +3,7 @@
     <!-- 左侧导航栏 -->
     <nav class="sidebar">
       <div class="sidebar-header">
-        <img src="/butter-modern.svg" alt="Butter Manager" class="sidebar-logo">
+        <img src="/butter-logo.svg" alt="Butter Manager" class="sidebar-logo">
         <h1> Butter Manager</h1>
         <p>万能的资源管理器</p>
         <p class="version">v{{ version }}</p>

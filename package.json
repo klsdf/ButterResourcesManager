@@ -43,8 +43,10 @@
       "dist/**/*",
       "public/electron.js",
       "public/preload.js",
+      "public/butter-logo.svg",
       "node_modules/**/*"
     ],
+    "icon": "public/butter-logo.svg",
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true

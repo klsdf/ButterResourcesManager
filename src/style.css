@@ -206,6 +206,10 @@ body {
   flex: 1;
 }
 
+.nav-menu li {
+  list-style: none;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
