@@ -53,6 +53,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   takeScreenshot: (gameName, directory, format, quality) => ipcRenderer.invoke('take-screenshot', gameName, directory, format, quality),
   getScreenshotsDirectory: () => ipcRenderer.invoke('get-screenshots-directory'),
   setScreenshotsDirectory: () => ipcRenderer.invoke('set-screenshots-directory'),
+  
+  // 存档文件夹功能
+  getSaveDataDirectory: () => ipcRenderer.invoke('get-save-data-directory'),
+  setSaveDataDirectory: () => ipcRenderer.invoke('set-save-data-directory'),
+  
   openFolder: (filePath) => ipcRenderer.invoke('open-folder', filePath),
   getAvailableWindows: () => ipcRenderer.invoke('get-available-windows'),
   getActiveWindow: () => ipcRenderer.invoke('get-active-window'),

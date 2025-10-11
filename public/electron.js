@@ -1248,6 +1248,131 @@ ipcMain.handle('set-screenshots-directory', async () => {
   }
 })
 
+// 获取存档文件夹目录
+ipcMain.handle('get-save-data-directory', () => {
+  return path.join(process.cwd(), 'SaveData')
+})
+
+// 设置存档文件夹目录
+ipcMain.handle('set-save-data-directory', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择存档保存目录',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      const newDirectory = result.filePaths[0]
+      
+      // 复制现有存档数据到新目录
+      const copyResult = await copySaveDataToNewDirectory(newDirectory)
+      if (copyResult.success) {
+        console.log('存档数据复制成功:', copyResult.message)
+        return { 
+          success: true, 
+          directory: newDirectory,
+          message: copyResult.message,
+          copiedFiles: copyResult.copiedFiles || 0
+        }
+      } else {
+        console.error('存档数据复制失败:', copyResult.error)
+        return { 
+          success: false, 
+          error: copyResult.error 
+        }
+      }
+    }
+    return null
+  } catch (error) {
+    console.error('选择存档目录失败:', error)
+    throw error
+  }
+})
+
+// 复制存档数据到新目录的函数
+async function copySaveDataToNewDirectory(newDirectory) {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    console.log('=== 开始复制存档数据 ===')
+    console.log('目标目录:', newDirectory)
+    
+    // 获取当前存档目录
+    const currentSaveDataDir = path.join(process.cwd(), 'SaveData')
+    console.log('当前存档目录:', currentSaveDataDir)
+    
+    // 检查当前存档目录是否存在
+    if (!fs.existsSync(currentSaveDataDir)) {
+      console.log('当前存档目录不存在，无需复制')
+      return { success: true, message: '当前存档目录不存在，无需复制' }
+    }
+    
+    // 创建新的SaveData目录
+    const newSaveDataDir = path.join(newDirectory, 'SaveData')
+    console.log('新存档目录:', newSaveDataDir)
+    
+    // 确保新目录存在
+    if (!fs.existsSync(newSaveDataDir)) {
+      fs.mkdirSync(newSaveDataDir, { recursive: true })
+      console.log('创建新存档目录:', newSaveDataDir)
+    }
+    
+    // 复制文件和文件夹
+    let copiedFiles = 0
+    let copiedFolders = 0
+    
+    const copyRecursive = (src, dest) => {
+      const stats = fs.statSync(src)
+      
+      if (stats.isDirectory()) {
+        // 如果是目录，递归复制
+        if (!fs.existsSync(dest)) {
+          fs.mkdirSync(dest, { recursive: true })
+          copiedFolders++
+          console.log('创建目录:', dest)
+        }
+        
+        const items = fs.readdirSync(src)
+        for (const item of items) {
+          const srcPath = path.join(src, item)
+          const destPath = path.join(dest, item)
+          copyRecursive(srcPath, destPath)
+        }
+      } else {
+        // 如果是文件，直接复制
+        fs.copyFileSync(src, dest)
+        copiedFiles++
+        console.log('复制文件:', src, '->', dest)
+      }
+    }
+    
+    // 开始复制
+    copyRecursive(currentSaveDataDir, newSaveDataDir)
+    
+    console.log('=== 存档数据复制完成 ===')
+    console.log('复制统计:')
+    console.log('  - 复制文件数:', copiedFiles)
+    console.log('  - 复制文件夹数:', copiedFolders)
+    console.log('  - 新存档目录:', newSaveDataDir)
+    
+    return { 
+      success: true, 
+      message: `成功复制 ${copiedFiles} 个文件和 ${copiedFolders} 个文件夹到新存档目录`,
+      copiedFiles: copiedFiles,
+      copiedFolders: copiedFolders,
+      newSaveDataDir: newSaveDataDir
+    }
+    
+  } catch (error) {
+    console.error('复制存档数据失败:', error)
+    return { 
+      success: false, 
+      error: `复制存档数据失败: ${error.message}` 
+    }
+  }
+}
+
 // 打开文件夹
 ipcMain.handle('open-folder', async (event, folderPath) => {
   try {

@@ -121,6 +121,60 @@ class SaveManager {
   }
 
   /**
+   * 设置数据目录（用于自定义存档位置）
+   * @param {string} newDirectory - 新的数据目录路径
+   * @returns {boolean} 设置是否成功
+   */
+  setDataDirectory(newDirectory) {
+    try {
+      console.log('=== 设置新的数据目录 ===')
+      console.log('原目录:', this.dataDirectory)
+      console.log('新目录:', newDirectory)
+      
+      // 更新主目录
+      this.dataDirectory = newDirectory
+      
+      // 重新构建所有路径
+      this.dataDirectories = {
+        games: `${this.dataDirectory}/Game`,
+        images: `${this.dataDirectory}/Image`,
+        videos: `${this.dataDirectory}/Video`,
+        audios: `${this.dataDirectory}/Audio`,
+        websites: `${this.dataDirectory}/Website`,
+        novels: `${this.dataDirectory}/Novel`,
+        settings: `${this.dataDirectory}/Settings`
+      }
+      
+      this.filePaths = {
+        games: `${this.dataDirectories.games}/games.json`,
+        images: `${this.dataDirectories.images}/images.json`,
+        videos: `${this.dataDirectories.videos}/videos.json`,
+        audios: `${this.dataDirectories.audios}/audios.json`,
+        websites: `${this.dataDirectories.websites}/websites.json`,
+        novels: `${this.dataDirectories.novels}/novels.json`,
+        settings: `${this.dataDirectories.settings}/settings.json`,
+        backup: `${this.dataDirectory}/backup.json`
+      }
+      
+      this.thumbnailDirectories = {
+        videos: `${this.dataDirectories.videos}/Covers`,
+        images: `${this.dataDirectories.images}/Covers`,
+        audios: `${this.dataDirectories.audios}/Covers`,
+        games: `${this.dataDirectories.games}/Covers`
+      }
+      
+      console.log('数据目录设置完成')
+      console.log('新的数据目录:', this.dataDirectory)
+      console.log('新的文件路径:', this.filePaths)
+      
+      return true
+    } catch (error) {
+      console.error('设置数据目录失败:', error)
+      return false
+    }
+  }
+
+  /**
    * 通过路径确保目录存在
    * @param {string} dirPath - 目录路径
    * @returns {Promise<boolean>} 目录创建是否成功

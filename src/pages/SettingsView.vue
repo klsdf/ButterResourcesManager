@@ -91,6 +91,38 @@
               
               <div class="setting-item">
                 <label class="setting-label">
+                  <span class="setting-title">存档文件夹位置</span>
+                  <span class="setting-desc">选择存档文件夹的保存位置</span>
+                </label>
+                <div class="setting-control">
+                  <select v-model="settings.saveDataLocation" @change="onSaveDataLocationChange" class="setting-select">
+                    <option value="default">默认目录 (根目录/SaveData)</option>
+                    <option value="custom">自定义目录</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="setting-item" v-if="settings.saveDataLocation === 'custom'">
+                <label class="setting-label">
+                  <span class="setting-title">自定义存档目录</span>
+                  <span class="setting-desc">选择自定义的存档保存目录</span>
+                </label>
+                <div class="setting-control">
+                  <div class="file-input-group">
+                    <input 
+                      type="text" 
+                      v-model="settings.saveDataPath" 
+                      placeholder="选择存档保存目录"
+                      class="setting-input"
+                      readonly
+                    >
+                    <button class="btn-browse" @click="selectSaveDataDirectory">浏览</button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
                   <span class="setting-title">打开存档文件夹</span>
                   <span class="setting-desc">在文件管理器中打开应用存档文件夹</span>
                 </label>
@@ -622,6 +654,9 @@ export default {
         sageMode: false,
         safetyKey: 'Ctrl+Alt+Q',
         safetyAppPath: '',
+        // 存档设置
+        saveDataLocation: 'default',
+        saveDataPath: '',
         // 截图设置
         screenshotKey: 'Ctrl+F12',
         screenshotLocation: 'default',
@@ -757,6 +792,15 @@ export default {
         this.showNotification('截图位置已更新', '已切换到默认截图目录 (SaveData/Game/Screenshots)')
       }
     },
+    
+    onSaveDataLocationChange() {
+      // 当选择默认目录时，清空自定义路径
+      if (this.settings.saveDataLocation === 'default') {
+        this.settings.saveDataPath = ''
+        console.log('已切换到默认存档目录')
+        this.showNotification('存档位置已更新', '已切换到默认存档目录 (根目录/SaveData)')
+      }
+    },
     applyTheme(theme) {
       // 处理跟随系统主题
       let actualTheme = theme
@@ -839,6 +883,9 @@ export default {
           sageMode: false,
           safetyKey: 'Ctrl+Alt+Q',
           safetyAppPath: '',
+          // 存档设置
+          saveDataLocation: 'default',
+          saveDataPath: '',
           // 截图设置
           screenshotKey: 'Ctrl+F12',
           screenshotLocation: 'default',
@@ -869,6 +916,50 @@ export default {
         }
       } catch (error) {
         console.error('选择截图目录失败:', error)
+        alert('选择目录失败: ' + error.message)
+      }
+    },
+    
+    async selectSaveDataDirectory() {
+      try {
+        if (window.electronAPI && window.electronAPI.setSaveDataDirectory) {
+          const result = await window.electronAPI.setSaveDataDirectory()
+          if (result && result.success) {
+            this.settings.saveDataPath = result.directory
+            this.settings.saveDataLocation = 'custom' // 自动设置为自定义模式
+            
+            // 更新SaveManager的数据目录
+            const newSaveDataPath = result.directory + '/SaveData'
+            const saveManagerUpdated = saveManager.setDataDirectory(newSaveDataPath)
+            if (saveManagerUpdated) {
+              console.log('SaveManager数据目录已更新为:', newSaveDataPath)
+            }
+            
+            this.saveSettings()
+            
+            // 显示详细的复制结果
+            const message = result.message || '存档目录已更新'
+            const detailMessage = `已设置自定义存档目录: ${result.directory}\n\n${message}`
+            this.showNotification('存档目录已更新', detailMessage)
+            
+            // 如果有复制文件，显示更详细的信息
+            if (result.copiedFiles > 0) {
+              console.log('存档数据复制完成:', {
+                directory: result.directory,
+                copiedFiles: result.copiedFiles,
+                message: result.message
+              })
+            }
+          } else if (result && !result.success) {
+            // 复制失败的情况
+            this.showNotification('存档目录设置失败', result.error || '未知错误')
+            console.error('设置存档目录失败:', result.error)
+          }
+        } else {
+          alert('当前环境不支持选择目录功能')
+        }
+      } catch (error) {
+        console.error('选择存档目录失败:', error)
         alert('选择目录失败: ' + error.message)
       }
     },
@@ -989,19 +1080,50 @@ export default {
     async openSaveDataFolder() {
       try {
         if (window.electronAPI && window.electronAPI.openFolder) {
-          // 在Electron环境中，直接打开SaveData文件夹
-          // 使用绝对路径，避免相对路径问题
-          const result = await window.electronAPI.openFolder('SaveData')
+          // 获取存档文件夹路径
+          let saveDataPath = ''
+          
+          if (this.settings.saveDataLocation === 'default') {
+            // 使用默认路径
+            saveDataPath = 'SaveData'
+          } else if (this.settings.saveDataLocation === 'custom') {
+            // 使用自定义路径
+            saveDataPath = this.settings.saveDataPath
+          }
+          
+          // 如果自定义路径为空，回退到默认路径
+          if (!saveDataPath || saveDataPath.trim() === '') {
+            saveDataPath = 'SaveData'
+          }
+          
+          console.log('尝试打开存档文件夹:', saveDataPath)
+          
+          // 确保目录存在
+          try {
+            if (window.electronAPI.ensureDirectory) {
+              const ensureResult = await window.electronAPI.ensureDirectory(saveDataPath)
+              if (ensureResult.success) {
+                console.log('存档目录已确保存在:', saveDataPath)
+              }
+            }
+          } catch (error) {
+            console.warn('创建存档目录失败:', error)
+          }
+          
+          const result = await window.electronAPI.openFolder(saveDataPath)
           if (result.success) {
             console.log('存档文件夹已打开')
-            // 显示成功提示
+            this.showNotification('文件夹已打开', `已打开存档文件夹: ${saveDataPath}`)
           } else {
             console.error('打开存档文件夹失败:', result.error)
             alert(`打开存档文件夹失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中显示路径信息
-          alert(`存档文件夹路径: SaveData\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+          const saveDataPath = this.settings.saveDataLocation === 'default' 
+            ? 'SaveData' 
+            : (this.settings.saveDataPath || 'SaveData')
+          alert(`存档文件夹路径: ${saveDataPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
         }
       } catch (error) {
         console.error('打开存档文件夹失败:', error)
@@ -1207,6 +1329,44 @@ export default {
       // 加载设置后立即应用主题
       if (this.settings.theme) {
         this.applyTheme(this.settings.theme)
+      }
+      
+      // 初始化存档设置（如果未设置）
+      if (!this.settings.saveDataLocation) {
+        this.settings.saveDataLocation = 'default'
+      }
+      
+      // 如果使用默认目录，清空自定义路径
+      if (this.settings.saveDataLocation === 'default') {
+        this.settings.saveDataPath = ''
+      } else if (this.settings.saveDataLocation === 'custom' && !this.settings.saveDataPath) {
+        // 如果使用自定义目录但没有设置路径，尝试获取
+        try {
+          if (window.electronAPI && window.electronAPI.getSaveDataDirectory) {
+            this.settings.saveDataPath = await window.electronAPI.getSaveDataDirectory()
+          }
+        } catch (error) {
+          console.error('获取默认存档目录失败:', error)
+        }
+      }
+      
+      // 根据设置更新SaveManager的数据目录
+      try {
+        let saveDataPath = ''
+        if (this.settings.saveDataLocation === 'default') {
+          saveDataPath = 'SaveData' // 默认根目录下的SaveData
+        } else if (this.settings.saveDataLocation === 'custom' && this.settings.saveDataPath) {
+          saveDataPath = this.settings.saveDataPath + '/SaveData' // 自定义目录下的SaveData
+        }
+        
+        if (saveDataPath) {
+          const saveManagerUpdated = saveManager.setDataDirectory(saveDataPath)
+          if (saveManagerUpdated) {
+            console.log('SaveManager数据目录已设置为:', saveDataPath)
+          }
+        }
+      } catch (error) {
+        console.error('设置SaveManager数据目录失败:', error)
       }
       
       // 初始化截图设置（如果未设置）

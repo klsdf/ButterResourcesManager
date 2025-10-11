@@ -1634,7 +1634,7 @@ export default {
       if (this.showComicViewer) {
         const normalizedPath = String(imagePath).replace(/\\/g, '/')
         const fileUrl = `file:///${normalizedPath}`
-        console.log('阅读器resolveImage加载原图:', imagePath)
+        console.log(':', imagePath)
         return fileUrl
       }
       
