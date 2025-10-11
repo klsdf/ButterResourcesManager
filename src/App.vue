@@ -5,7 +5,8 @@
       <div class="sidebar-header">
         <img src="/butter-modern.svg" alt="Butter Manager" class="sidebar-logo">
         <h1> Butter Manager</h1>
-        <p>绿色游戏管理器</p>
+        <p>万能的资源管理器</p>
+        <p class="version">v{{ version }}</p>
       </div>
 
       <ul class="nav-menu">
@@ -125,6 +126,7 @@ export default {
     return {
       currentView: 'games',
       theme: 'light',
+      version: '0.0.0',
       // 筛选器相关数据
       showFilterSidebar: false,
       currentFilterData: {
@@ -275,6 +277,15 @@ export default {
     }
   },
   async mounted() {
+    // 读取版本号
+    try {
+      const packageJson = await import('../package.json')
+      this.version = packageJson.version || '0.0.0'
+    } catch (error) {
+      console.warn('无法读取版本号:', error)
+      this.version = '0.0.0'
+    }
+
     // 初始化筛选器状态
     this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(this.currentView)
 
@@ -357,5 +368,14 @@ export default {
   overflow-y: auto;
   transition: background-color 0.3s ease;
   flex-shrink: 0;
+}
+
+/* 版本号样式 */
+.version {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  opacity: 0.8;
+  font-weight: 400;
 }
 </style>
