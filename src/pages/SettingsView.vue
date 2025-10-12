@@ -811,7 +811,9 @@ export default {
       // 自动保存相关
       autoSaveTimer: null,
       isAutoSaving: false,
-      lastSaveTime: null
+      lastSaveTime: null,
+      // 初始化标志，避免在初始化时触发watcher
+      isInitializing: true
     }
   },
   watch: {
@@ -832,11 +834,17 @@ export default {
     },
     
     'settings.autoStart'(newValue) {
-      this.onAutoStartChange()
+      // 避免在初始化时触发
+      if (!this.isInitializing) {
+        this.onAutoStartChange()
+      }
     },
     
     'settings.minimizeToTray'(newValue) {
-      this.onMinimizeToTrayChange()
+      // 避免在初始化时触发
+      if (!this.isInitializing) {
+        this.onMinimizeToTrayChange()
+      }
     },
     
     'settings.screenshotKey'(newKey) {
@@ -1720,34 +1728,48 @@ export default {
         }
       }
       
-      // 获取当前开机自启状态
-      try {
-        if (window.electronAPI && window.electronAPI.getAutoStart) {
-          const result = await window.electronAPI.getAutoStart()
-          if (result.success) {
-            this.settings.autoStart = result.enabled
-            console.log('当前开机自启状态:', result.enabled)
+      // 获取当前开机自启状态（仅在设置文件中没有值时获取）
+      if (this.settings.autoStart === undefined || this.settings.autoStart === null) {
+        try {
+          if (window.electronAPI && window.electronAPI.getAutoStart) {
+            const result = await window.electronAPI.getAutoStart()
+            if (result.success) {
+              this.settings.autoStart = result.enabled
+              console.log('从系统获取开机自启状态:', result.enabled)
+            }
           }
+        } catch (error) {
+          console.error('获取开机自启状态失败:', error)
+          // 如果获取失败，使用默认值
+          this.settings.autoStart = false
         }
-      } catch (error) {
-        console.error('获取开机自启状态失败:', error)
+      } else {
+        console.log('使用设置文件中的开机自启状态:', this.settings.autoStart)
       }
       
-      // 获取当前最小化到托盘状态
-      try {
-        if (window.electronAPI && window.electronAPI.getMinimizeToTray) {
-          const result = await window.electronAPI.getMinimizeToTray()
-          if (result.success) {
-            this.settings.minimizeToTray = result.enabled
-            console.log('当前最小化到托盘状态:', result.enabled)
+      // 获取当前最小化到托盘状态（仅在设置文件中没有值时获取）
+      if (this.settings.minimizeToTray === undefined || this.settings.minimizeToTray === null) {
+        try {
+          if (window.electronAPI && window.electronAPI.getMinimizeToTray) {
+            const result = await window.electronAPI.getMinimizeToTray()
+            if (result.success) {
+              this.settings.minimizeToTray = result.enabled
+              console.log('从系统获取最小化到托盘状态:', result.enabled)
+            }
           }
+        } catch (error) {
+          console.error('获取最小化到托盘状态失败:', error)
+          // 如果获取失败，使用默认值
+          this.settings.minimizeToTray = true
         }
-      } catch (error) {
-        console.error('获取最小化到托盘状态失败:', error)
+      } else {
+        console.log('使用设置文件中的最小化到托盘状态:', this.settings.minimizeToTray)
       }
       
       // 设置初始保存时间，启用自动保存
       this.lastSaveTime = new Date()
+      // 初始化完成，启用watcher
+      this.isInitializing = false
       console.log('设置页面已加载，自动保存功能已启用')
     } catch (error) {
       console.error('加载设置失败:', error)
