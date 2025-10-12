@@ -187,6 +187,17 @@ export default {
       this.resetFilterData()
       // 设置加载状态
       this.isFilterSidebarLoading = this.showFilterSidebar
+      
+      // 如果是有筛选器的页面，需要手动触发筛选器数据更新
+      if (this.showFilterSidebar) {
+        // 使用 nextTick 确保组件已经渲染
+        this.$nextTick(() => {
+          const currentViewRef = this.getCurrentViewRef()
+          if (currentViewRef && currentViewRef.updateFilterData) {
+            currentViewRef.updateFilterData()
+          }
+        })
+      }
     },
     resetFilterData() {
       this.currentFilterData = {
