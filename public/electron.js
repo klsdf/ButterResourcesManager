@@ -1413,6 +1413,35 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
   }
 })
 
+// 检查文件是否存在
+ipcMain.handle('check-file-exists', async (event, filePath) => {
+  try {
+    console.log('检查文件是否存在:', filePath)
+    
+    // 处理空路径或无效路径
+    if (!filePath || filePath.trim() === '') {
+      return { success: false, error: '无效的文件路径' }
+    }
+    
+    // 如果是相对路径，转换为绝对路径
+    let absolutePath = filePath
+    if (!path.isAbsolute(filePath)) {
+      absolutePath = path.resolve(process.cwd(), filePath)
+    }
+    
+    console.log('解析后的绝对路径:', absolutePath)
+    
+    // 检查文件是否存在
+    const exists = fs.existsSync(absolutePath)
+    console.log('文件存在性检查结果:', exists)
+    
+    return { success: true, exists: exists }
+  } catch (error) {
+    console.error('检查文件存在性失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // 获取文件夹大小
 ipcMain.handle('get-folder-size', async (event, filePath) => {
   try {

@@ -26,6 +26,7 @@
             :item="novel"
             type="novel"
             :isElectronEnvironment="true"
+            :file-exists="novel.fileExists"
             @click="showNovelDetail"
             @contextmenu="showNovelContextMenu"
             @action="handleNovelClick"
@@ -980,6 +981,57 @@ export default {
       await this.updateNovelsWordCount()
       // 提取标签和作者
       this.extractAllTagsAndAuthors()
+      
+      // 检测文件存在性
+      await this.checkFileExistence()
+    },
+    
+    async checkFileExistence() {
+      console.log('🔍 开始检测小说文件存在性...')
+      
+      if (!window.electronAPI || !window.electronAPI.checkFileExists) {
+        console.log('⚠️ Electron API 不可用，跳过文件存在性检测')
+        // 如果API不可用，默认设置为存在
+        this.novels.forEach(novel => {
+          novel.fileExists = true
+        })
+        return
+      }
+      
+      let checkedCount = 0
+      let missingCount = 0
+      
+      for (const novel of this.novels) {
+        if (!novel.filePath) {
+          novel.fileExists = false
+          missingCount++
+          continue
+        }
+        
+        try {
+          const result = await window.electronAPI.checkFileExists(novel.filePath)
+          novel.fileExists = result.exists
+          console.log(`🔍 检测结果: ${novel.name} - fileExists=${novel.fileExists}`)
+          
+          if (!result.exists) {
+            missingCount++
+            console.log(`❌ 小说文件不存在: ${novel.name} - ${novel.filePath}`)
+          } else {
+            console.log(`✅ 小说文件存在: ${novel.name}`)
+          }
+        } catch (error) {
+          console.error(`❌ 检测小说文件存在性失败: ${novel.name}`, error)
+          novel.fileExists = false
+          missingCount++
+        }
+        
+        checkedCount++
+      }
+      
+      console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个小说，${missingCount} 个文件不存在`)
+      
+      // 强制更新视图
+      this.$forceUpdate()
     },
     
     // 提取所有标签和作者

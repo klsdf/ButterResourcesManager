@@ -27,6 +27,7 @@
         :item="album"
         type="image"
         :isElectronEnvironment="true"
+        :file-exists="album.fileExists"
         @click="showAlbumDetail"
         @contextmenu="showAlbumContextMenu"
         @action="openAlbum"
@@ -478,6 +479,57 @@ export default {
     async loadAlbums() {
       this.albums = await saveManager.loadImages()
       this.extractAllTags()
+      
+      // 检测文件存在性
+      await this.checkFileExistence()
+    },
+    
+    async checkFileExistence() {
+      console.log('🔍 开始检测图片文件夹存在性...')
+      
+      if (!window.electronAPI || !window.electronAPI.checkFileExists) {
+        console.log('⚠️ Electron API 不可用，跳过文件存在性检测')
+        // 如果API不可用，默认设置为存在
+        this.albums.forEach(album => {
+          album.fileExists = true
+        })
+        return
+      }
+      
+      let checkedCount = 0
+      let missingCount = 0
+      
+      for (const album of this.albums) {
+        if (!album.folderPath) {
+          album.fileExists = false
+          missingCount++
+          continue
+        }
+        
+        try {
+          const result = await window.electronAPI.checkFileExists(album.folderPath)
+          album.fileExists = result.exists
+          console.log(`🔍 检测结果: ${album.name} - fileExists=${album.fileExists}`)
+          
+          if (!result.exists) {
+            missingCount++
+            console.log(`❌ 图片文件夹不存在: ${album.name} - ${album.folderPath}`)
+          } else {
+            console.log(`✅ 图片文件夹存在: ${album.name}`)
+          }
+        } catch (error) {
+          console.error(`❌ 检测图片文件夹存在性失败: ${album.name}`, error)
+          album.fileExists = false
+          missingCount++
+        }
+        
+        checkedCount++
+      }
+      
+      console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个图片文件夹，${missingCount} 个文件夹不存在`)
+      
+      // 强制更新视图
+      this.$forceUpdate()
     },
     
     // 拖拽处理方法

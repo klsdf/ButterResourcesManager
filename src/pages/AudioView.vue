@@ -20,6 +20,7 @@
         :item="audio"
         type="audio"
         :isElectronEnvironment="true"
+        :file-exists="audio.fileExists"
         @click="showAudioDetail"
         @contextmenu="showContextMenu"
         @action="playAudio"
@@ -370,6 +371,10 @@ export default {
       try {
         this.audios = await audioManager.loadAudios()
         console.log('音频数据加载完成:', this.audios.length, '个音频')
+        
+        // 检测文件存在性
+        await this.checkFileExistence()
+        
         // 更新筛选器数据
         this.updateFilterOptions()
         this.updateFilterData()
@@ -377,6 +382,54 @@ export default {
         console.error('加载音频数据失败:', error)
         alert('加载音频数据失败: ' + error.message)
       }
+    },
+    
+    async checkFileExistence() {
+      console.log('🔍 开始检测音频文件存在性...')
+      
+      if (!window.electronAPI || !window.electronAPI.checkFileExists) {
+        console.log('⚠️ Electron API 不可用，跳过文件存在性检测')
+        // 如果API不可用，默认设置为存在
+        this.audios.forEach(audio => {
+          audio.fileExists = true
+        })
+        return
+      }
+      
+      let checkedCount = 0
+      let missingCount = 0
+      
+      for (const audio of this.audios) {
+        if (!audio.filePath) {
+          audio.fileExists = false
+          missingCount++
+          continue
+        }
+        
+        try {
+          const result = await window.electronAPI.checkFileExists(audio.filePath)
+          audio.fileExists = result.exists
+          console.log(`🔍 检测结果: ${audio.name} - fileExists=${audio.fileExists}`)
+          
+          if (!result.exists) {
+            missingCount++
+            console.log(`❌ 音频文件不存在: ${audio.name} - ${audio.filePath}`)
+          } else {
+            console.log(`✅ 音频文件存在: ${audio.name}`)
+          }
+        } catch (error) {
+          console.error(`❌ 检测音频文件存在性失败: ${audio.name}`, error)
+          audio.fileExists = false
+          missingCount++
+        }
+        
+        checkedCount++
+      }
+      
+      console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个音频，${missingCount} 个文件不存在`)
+      
+      // 强制更新视图
+      this.$forceUpdate()
     },
     
     // 更新筛选器选项

@@ -19,20 +19,22 @@
         @add-item="showAddGameDialog"
       />
       
+      
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="filteredGames.length > 0">
-      <MediaCard 
-        v-for="game in filteredGames" 
-        :key="game.id"
-        :item="game"
-        type="game"
-        :is-running="isGameRunning(game)"
-        :is-electron-environment="isElectronEnvironment"
-        @click="showGameDetail"
-        @contextmenu="showGameContextMenu"
-        @action="launchGame"
-      />
+        <MediaCard 
+          v-for="game in filteredGames" 
+          :key="game.id"
+          :item="game"
+          type="game"
+          :is-running="isGameRunning(game)"
+          :is-electron-environment="isElectronEnvironment"
+          :file-exists="game.fileExists"
+          @click="showGameDetail"
+          @contextmenu="showGameContextMenu"
+          @action="launchGame"
+        />
     </div>
 
     <!-- 空状态 -->
@@ -500,22 +502,23 @@ export default {
         }
       }
       
-      const game = {
-        id: Date.now().toString(),
-        name: gameName,
-        developer: this.newGame.developer.trim() || '未知开发商',
-        publisher: this.newGame.publisher.trim() || '未知发行商',
-        description: this.newGame.description.trim() || '',
-        tags: [...this.newGame.tags], // 复制标签数组
-        executablePath: this.newGame.executablePath.trim(),
-        image: this.newGame.imagePath.trim(),
-        folderSize: folderSize,
-        playTime: 0,
-        playCount: 0,
-        lastPlayed: null,
-        firstPlayed: null,
-        addedDate: new Date().toISOString()
-      }
+        const game = {
+          id: Date.now().toString(),
+          name: gameName,
+          developer: this.newGame.developer.trim() || '未知开发商',
+          publisher: this.newGame.publisher.trim() || '未知发行商',
+          description: this.newGame.description.trim() || '',
+          tags: [...this.newGame.tags], // 复制标签数组
+          executablePath: this.newGame.executablePath.trim(),
+          image: this.newGame.imagePath.trim(),
+          folderSize: folderSize,
+          playTime: 0,
+          playCount: 0,
+          lastPlayed: null,
+          firstPlayed: null,
+          addedDate: new Date().toISOString(),
+          fileExists: true // 新添加的游戏默认文件存在
+        }
       
       this.games.push(game)
       this.saveGames()
@@ -1037,10 +1040,13 @@ export default {
       return await saveManager.saveGames(this.games)
     },
     async loadGames() {
-      this.games = await saveManager.loadGames()
-      this.extractAllTags()
-      
-      // 为现有游戏计算文件夹大小（如果还没有的话）
+        this.games = await saveManager.loadGames()
+        this.extractAllTags()
+        
+        // 检测文件存在性
+        await this.checkFileExistence()
+        
+        // 为现有游戏计算文件夹大小（如果还没有的话）
       await this.updateExistingGamesFolderSize()
     },
     async updateExistingGamesFolderSize() {
@@ -1081,6 +1087,59 @@ export default {
         await this.saveGames()
       }
     },
+    async checkFileExistence() {
+      console.log('🔍 开始检测游戏文件存在性...')
+      
+      if (!this.isElectronEnvironment || !window.electronAPI || !window.electronAPI.checkFileExists) {
+        console.log('⚠️ Electron API 不可用，跳过文件存在性检测')
+        // 如果API不可用，默认设置为存在
+        this.games.forEach(game => {
+          game.fileExists = true
+        })
+        return
+      }
+      
+      let checkedCount = 0
+      let missingCount = 0
+      
+      for (const game of this.games) {
+        if (!game.executablePath) {
+          game.fileExists = false
+          missingCount++
+          continue
+        }
+        
+        try {
+          const result = await window.electronAPI.checkFileExists(game.executablePath)
+          game.fileExists = result.exists
+          console.log(`🔍 检测结果: ${game.name} - fileExists=${game.fileExists}`)
+          
+          if (!result.exists) {
+            missingCount++
+            console.log(`❌ 游戏文件不存在: ${game.name} - ${game.executablePath}`)
+          } else {
+            console.log(`✅ 游戏文件存在: ${game.name}`)
+          }
+        } catch (error) {
+          console.error(`❌ 检测游戏文件存在性失败: ${game.name}`, error)
+          game.fileExists = false
+          missingCount++
+        }
+        
+        checkedCount++
+      }
+      
+      console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个游戏，${missingCount} 个文件不存在`)
+      
+      // 如果有文件不存在，保存更新后的数据
+      if (missingCount > 0) {
+        await this.saveGames()
+      }
+      
+      // 强制更新视图
+      this.$forceUpdate()
+    },
+    
     async updateGameFolderSize(game) {
       if (!game || !game.executablePath) {
         this.showToastNotification('更新失败', '游戏文件路径不存在')
@@ -1789,7 +1848,8 @@ export default {
               playCount: 0,
               lastPlayed: null,
               firstPlayed: null,
-              addedDate: new Date().toISOString()
+              addedDate: new Date().toISOString(),
+              fileExists: true // 拖拽添加的游戏默认文件存在
             }
             
             console.log('创建游戏对象:', game)

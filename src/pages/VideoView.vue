@@ -28,6 +28,7 @@
           :item="video"
           type="video"
           :isElectronEnvironment="true"
+          :file-exists="video.fileExists"
           @click="showVideoDetail"
           @contextmenu="showVideoContextMenu"
           @action="playVideo"
@@ -417,7 +418,58 @@ export default {
         await this.videoManager.loadVideos()
         this.videos = this.videoManager.getVideos()
         this.extractAllFilters()
+        
+        // 检测文件存在性
+        await this.checkFileExistence()
       }
+    },
+
+    async checkFileExistence() {
+      console.log('🔍 开始检测视频文件存在性...')
+      
+      if (!window.electronAPI || !window.electronAPI.checkFileExists) {
+        console.log('⚠️ Electron API 不可用，跳过文件存在性检测')
+        // 如果API不可用，默认设置为存在
+        this.videos.forEach(video => {
+          video.fileExists = true
+        })
+        return
+      }
+      
+      let checkedCount = 0
+      let missingCount = 0
+      
+      for (const video of this.videos) {
+        if (!video.filePath) {
+          video.fileExists = false
+          missingCount++
+          continue
+        }
+        
+        try {
+          const result = await window.electronAPI.checkFileExists(video.filePath)
+          video.fileExists = result.exists
+          console.log(`🔍 检测结果: ${video.name} - fileExists=${video.fileExists}`)
+          
+          if (!result.exists) {
+            missingCount++
+            console.log(`❌ 视频文件不存在: ${video.name} - ${video.filePath}`)
+          } else {
+            console.log(`✅ 视频文件存在: ${video.name}`)
+          }
+        } catch (error) {
+          console.error(`❌ 检测视频文件存在性失败: ${video.name}`, error)
+          video.fileExists = false
+          missingCount++
+        }
+        
+        checkedCount++
+      }
+      
+      console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个视频，${missingCount} 个文件不存在`)
+      
+      // 强制更新视图
+      this.$forceUpdate()
     },
 
     // 拖拽处理方法

@@ -14,6 +14,10 @@
       <div v-if="badgeText" class="media-badge">
         {{ badgeText }}
       </div>
+      <!-- 文件不存在错误图标 -->
+      <div v-if="showFileError" class="file-error-icon" title="本地文件不存在">
+        ⚠️
+      </div>
       <div class="media-overlay">
         <div class="action-button" @click.stop="$emit('action', item)">
           <span class="action-icon">{{ actionIcon }}</span>
@@ -168,6 +172,10 @@ export default {
     isElectronEnvironment: {
       type: Boolean,
       default: false
+    },
+    fileExists: {
+      type: Boolean,
+      default: true
     }
   },
   emits: ['click', 'contextmenu', 'action'],
@@ -197,6 +205,9 @@ export default {
         return this.formatDuration(this.item.duration)
       }
       return ''
+    },
+    showFileError() {
+      return ['game', 'audio', 'image', 'novel', 'video'].includes(this.type) && this.fileExists === false
     }
   },
   methods: {
@@ -635,6 +646,38 @@ export default {
 .running-status {
   color: #059669 !important;
   font-weight: 600;
+}
+
+/* 文件错误图标样式 */
+.file-error-icon {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 [data-theme="dark"] .running-status {

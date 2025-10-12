@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   listImageFiles: (folderPath) => ipcRenderer.invoke('list-image-files', folderPath),
   getFolderSize: (filePath) => ipcRenderer.invoke('get-folder-size', filePath),
+  checkFileExists: (filePath) => ipcRenderer.invoke('check-file-exists', filePath),
   
   // 文件URL处理
   getFileUrl: (filePath) => ipcRenderer.invoke('get-file-url', filePath),
