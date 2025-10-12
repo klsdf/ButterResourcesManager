@@ -21,12 +21,20 @@
         @sort-changed="handleSortChanged"
       />
       
-      
+      <!-- 游戏列表分页导航 -->
+      <PaginationNav
+        :current-page="currentGamePage"
+        :total-pages="totalGamePages"
+        :page-size="gamePageSize"
+        :total-items="filteredGames.length"
+        item-type="游戏"
+        @page-change="handleGamePageChange"
+      />
 
     <!-- 游戏网格 -->
-    <div class="games-grid" v-if="filteredGames.length > 0">
+    <div class="games-grid" v-if="paginatedGames.length > 0">
         <MediaCard 
-          v-for="game in filteredGames" 
+          v-for="game in paginatedGames" 
           :key="game.id"
           :item="game"
           type="game"
@@ -52,10 +60,18 @@
 
     <!-- 无搜索结果 -->
     <EmptyState 
-      v-else
+      v-else-if="filteredGames.length === 0"
       icon="🔍"
       title="没有找到匹配的游戏"
       description="尝试使用不同的搜索词"
+    />
+
+    <!-- 当前页无数据 -->
+    <EmptyState 
+      v-else
+      icon="📄"
+      title="当前页没有游戏"
+      description="请切换到其他页面查看游戏"
     />
 
     <!-- 添加游戏对话框 -->
@@ -267,6 +283,7 @@ import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import PaginationNav from '../components/PaginationNav.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
 export default {
@@ -278,7 +295,8 @@ export default {
     MediaCard,
     FormField,
     DetailPanel,
-    PathUpdateDialog
+    PathUpdateDialog,
+    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -352,7 +370,11 @@ export default {
         existingGame: null,
         newPath: '',
         newFileName: ''
-      }
+      },
+      // 游戏列表分页相关
+      currentGamePage: 1,
+      gamePageSize: 20, // 默认每页显示20个游戏
+      totalGamePages: 0
     }
   },
   computed: {
@@ -390,6 +412,17 @@ export default {
       })
       
       return filtered
+    },
+    // 分页显示的游戏列表
+    paginatedGames() {
+      if (!this.filteredGames || this.filteredGames.length === 0) return []
+      const start = (this.currentGamePage - 1) * this.gamePageSize
+      const end = start + this.gamePageSize
+      return this.filteredGames.slice(start, end)
+    },
+    // 当前游戏页的起始索引
+    currentGamePageStartIndex() {
+      return (this.currentGamePage - 1) * this.gamePageSize
     },
     canAddGame() {
       return this.newGame.executablePath.trim()
@@ -1074,7 +1107,10 @@ export default {
         await this.checkFileExistence()
         
         // 为现有游戏计算文件夹大小（如果还没有的话）
-      await this.updateExistingGamesFolderSize()
+        await this.updateExistingGamesFolderSize()
+        
+        // 计算游戏列表总页数
+        this.updateGamePagination()
     },
     async updateExistingGamesFolderSize() {
       // 为没有folderSize字段的现有游戏计算文件夹大小
@@ -2063,11 +2099,78 @@ export default {
       } catch (error) {
         console.warn('加载排序方式失败:', error)
       }
+    },
+    
+    // 处理分页组件的事件
+    handleGamePageChange(pageNum) {
+      this.currentGamePage = pageNum
+    },
+    
+    // 更新游戏列表分页信息
+    updateGamePagination() {
+      this.totalGamePages = Math.ceil(this.filteredGames.length / this.gamePageSize)
+      // 确保当前页不超过总页数
+      if (this.currentGamePage > this.totalGamePages && this.totalGamePages > 0) {
+        this.currentGamePage = this.totalGamePages
+      }
+      // 如果当前页为0且没有数据，重置为1
+      if (this.currentGamePage === 0 && this.filteredGames.length > 0) {
+        this.currentGamePage = 1
+      }
+    },
+    
+    // 从设置中加载游戏分页配置
+    async loadGamePaginationSettings() {
+      try {
+        const settings = await saveManager.loadSettings()
+        
+        if (settings && settings.game) {
+          const newGamePageSize = parseInt(settings.game.listPageSize) || 20
+          
+          // 更新游戏列表分页大小
+          if (this.gamePageSize !== newGamePageSize) {
+            this.gamePageSize = newGamePageSize
+            
+            // 重新计算游戏列表分页
+            this.updateGamePagination()
+            
+            console.log('游戏列表分页设置已更新:', {
+              listPageSize: this.gamePageSize,
+              totalGamePages: this.totalGamePages,
+              currentGamePage: this.currentGamePage
+            })
+          }
+        }
+      } catch (error) {
+        console.error('加载游戏分页设置失败:', error)
+        // 使用默认值
+        this.gamePageSize = 20
+      }
+    }
+  },
+  watch: {
+    // 监听筛选结果变化，更新分页信息
+    filteredGames: {
+      handler() {
+        this.updateGamePagination()
+      },
+      immediate: false
+    },
+    // 监听搜索查询变化，重置到第一页
+    searchQuery() {
+      this.currentGamePage = 1
+    },
+    // 监听排序变化，重置到第一页
+    sortBy() {
+      this.currentGamePage = 1
     }
   },
   async mounted() {
     this.checkElectronEnvironment()
     await this.loadGames()
+    
+    // 加载游戏分页设置
+    await this.loadGamePaginationSettings()
     
     // 加载排序设置
     await this.loadSortSetting()

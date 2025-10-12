@@ -154,6 +154,24 @@
             <div class="settings-grid">
               <div class="setting-item">
                 <label class="setting-label">
+                  <span class="setting-title">游戏列表每页显示数量</span>
+                  <span class="setting-desc">设置游戏列表中每页显示的游戏数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.game.listPageSize" 
+                    min="5" 
+                    max="50" 
+                    step="1"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.game.listPageSize }} 个</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
                   <span class="setting-title">截图快捷键</span>
                   <span class="setting-desc">设置截图功能的快捷键</span>
                 </label>
@@ -317,6 +335,24 @@
             <div class="settings-grid">
               <div class="setting-item">
                 <label class="setting-label">
+                  <span class="setting-title">图片列表每页显示数量</span>
+                  <span class="setting-desc">设置图片列表中每页显示的图片数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.image.listPageSize" 
+                    min="5" 
+                    max="50" 
+                    step="1"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.image.listPageSize }} 张</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
                   <span class="setting-title">JPEG压缩质量</span>
                   <span class="setting-desc">设置缩略图生成的JPEG压缩质量 (1-100)</span>
                 </label>
@@ -462,6 +498,24 @@
             <div class="settings-grid">
               <div class="setting-item">
                 <label class="setting-label">
+                  <span class="setting-title">视频列表每页显示数量</span>
+                  <span class="setting-desc">设置视频列表中每页显示的视频数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.video.listPageSize" 
+                    min="5" 
+                    max="50" 
+                    step="1"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.video.listPageSize }} 个</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
                   <span class="setting-title">视频播放方式</span>
                   <span class="setting-desc">选择视频的播放方式</span>
                 </label>
@@ -478,11 +532,29 @@
           <!-- 音频设置 -->
           <div v-if="currentCategory === 'audios'" class="settings-section">
             <div class="settings-grid">
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">音频列表每页显示数量</span>
+                  <span class="setting-desc">设置音频列表中每页显示的音频数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.audio.listPageSize" 
+                    min="5" 
+                    max="50" 
+                    step="1"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.audio.listPageSize }} 个</span>
+                </div>
+              </div>
+              
               <!-- 音频相关设置可以在这里添加 -->
               <div class="empty-state">
                 <div class="empty-icon">🎵</div>
-                <h4>音频设置</h4>
-                <p>音频相关的设置选项将在这里显示</p>
+                <h4>更多音频设置</h4>
+                <p>更多音频相关的设置选项将在这里显示</p>
               </div>
             </div>
           </div>
@@ -490,6 +562,24 @@
           <!-- 小说设置 -->
           <div v-if="currentCategory === 'novels'" class="settings-section">
             <div class="settings-grid">
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">小说列表每页显示数量</span>
+                  <span class="setting-desc">设置小说列表中每页显示的小说数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.novel.listPageSize" 
+                    min="5" 
+                    max="50" 
+                    step="1"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.novel.listPageSize }} 本</span>
+                </div>
+              </div>
+              
               <div class="setting-item">
                 <label class="setting-label">
                   <span class="setting-title">默认打开方式</span>
@@ -692,7 +782,31 @@ export default {
         novelBackgroundColor: '#ffffff',
         novelTextColor: '#333333',
         novelWordsPerPage: 1000,
-        novelShowProgress: true
+        novelShowProgress: true,
+        // 分页设置
+        image: {
+          listPageSize: 20,
+          jpegQuality: 80,
+          thumbnailSize: 200,
+          cacheSize: 50,
+          enableThumbnails: true,
+          preloadCount: 3,
+          hardwareAcceleration: true,
+          renderQuality: 'high',
+          detailPageSize: 50
+        },
+        video: {
+          listPageSize: 20
+        },
+        audio: {
+          listPageSize: 20
+        },
+        game: {
+          listPageSize: 20
+        },
+        novel: {
+          listPageSize: 20
+        }
       },
       // 自动保存相关
       autoSaveTimer: null,
@@ -792,6 +906,7 @@ export default {
         
         // 构建image对象
         cleanSettings.image = {
+          listPageSize: parseInt(this.settings.image?.listPageSize) || 20,
           jpegQuality: this.settings.image?.jpegQuality || 80,
           thumbnailSize: this.settings.image?.thumbnailSize || 200,
           cacheSize: this.settings.image?.cacheSize || 50,
@@ -800,6 +915,36 @@ export default {
           hardwareAcceleration: this.settings.image?.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
           renderQuality: this.settings.image?.renderQuality || 'high',
           detailPageSize: parseInt(this.settings.image?.detailPageSize) || 50
+        }
+        
+        // 构建video对象
+        cleanSettings.video = {
+          listPageSize: parseInt(this.settings.video?.listPageSize) || 20
+        }
+        
+        // 构建audio对象
+        cleanSettings.audio = {
+          listPageSize: parseInt(this.settings.audio?.listPageSize) || 20
+        }
+        
+        // 构建game对象
+        cleanSettings.game = {
+          listPageSize: parseInt(this.settings.game?.listPageSize) || 20
+        }
+        
+        // 构建novel对象（包含分页设置）
+        cleanSettings.novel = {
+          listPageSize: parseInt(this.settings.novel?.listPageSize) || 20,
+          defaultOpenMode: this.settings.novelDefaultOpenMode || 'internal',
+          readerSettings: {
+            fontSize: this.settings.novelFontSize || 16,
+            lineHeight: this.settings.novelLineHeight || 1.6,
+            fontFamily: this.settings.novelFontFamily || 'Microsoft YaHei, sans-serif',
+            backgroundColor: this.settings.novelBackgroundColor || '#ffffff',
+            textColor: this.settings.novelTextColor || '#333333',
+            wordsPerPage: this.settings.novelWordsPerPage || 1000,
+            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true
+          }
         }
         
         // 清理单独的字段
@@ -1001,8 +1146,9 @@ export default {
             novelTextColor: '#333333',
             novelWordsPerPage: 1000,
             novelShowProgress: true,
-            // 图片设置
+            // 分页设置
             image: {
+              listPageSize: 20,
               jpegQuality: 80,
               thumbnailSize: 200,
               cacheSize: 50,
@@ -1011,6 +1157,18 @@ export default {
               hardwareAcceleration: true,
               renderQuality: 'high',
               detailPageSize: 50
+            },
+            video: {
+              listPageSize: 20
+            },
+            audio: {
+              listPageSize: 20
+            },
+            game: {
+              listPageSize: 20
+            },
+            novel: {
+              listPageSize: 20
             }
           }
           
@@ -1405,6 +1563,7 @@ export default {
       // 从image对象中读取图片设置到表单字段
       if (this.settings.image) {
         this.settings.image = {
+          listPageSize: parseInt(this.settings.image.listPageSize) || 20,
           jpegQuality: this.settings.image.jpegQuality || 80,
           thumbnailSize: this.settings.image.thumbnailSize || 200,
           cacheSize: this.settings.image.cacheSize || 50,
@@ -1417,6 +1576,7 @@ export default {
       } else {
         // 如果没有image对象，创建默认的
         this.settings.image = {
+          listPageSize: 20,
           jpegQuality: 80,
           thumbnailSize: 200,
           cacheSize: 50,
@@ -1425,6 +1585,50 @@ export default {
           hardwareAcceleration: true,
           renderQuality: 'high',
           detailPageSize: 50
+        }
+      }
+      
+      // 从video对象中读取视频设置到表单字段
+      if (this.settings.video) {
+        this.settings.video = {
+          listPageSize: parseInt(this.settings.video.listPageSize) || 20
+        }
+      } else {
+        this.settings.video = {
+          listPageSize: 20
+        }
+      }
+      
+      // 从audio对象中读取音频设置到表单字段
+      if (this.settings.audio) {
+        this.settings.audio = {
+          listPageSize: parseInt(this.settings.audio.listPageSize) || 20
+        }
+      } else {
+        this.settings.audio = {
+          listPageSize: 20
+        }
+      }
+      
+      // 从game对象中读取游戏设置到表单字段
+      if (this.settings.game) {
+        this.settings.game = {
+          listPageSize: parseInt(this.settings.game.listPageSize) || 20
+        }
+      } else {
+        this.settings.game = {
+          listPageSize: 20
+        }
+      }
+      
+      // 从novel对象中读取小说分页设置到表单字段
+      if (this.settings.novel) {
+        this.settings.novel = {
+          listPageSize: parseInt(this.settings.novel.listPageSize) || 20
+        }
+      } else {
+        this.settings.novel = {
+          listPageSize: 20
         }
       }
       

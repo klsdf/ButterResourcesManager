@@ -21,12 +21,22 @@
         @sort-changed="handleSortChanged"
       />
       
+      <!-- 音频列表分页导航 -->
+      <PaginationNav
+        :current-page="currentAudioPage"
+        :total-pages="totalAudioPages"
+        :page-size="audioPageSize"
+        :total-items="filteredAudios.length"
+        item-type="音频"
+        @page-change="handleAudioPageChange"
+      />
+      
       <!-- 主要内容区域 -->
       <div class="audio-main-content">
         <!-- 音频列表 -->
-        <div class="audios-grid" v-if="filteredAudios.length > 0">
+        <div class="audios-grid" v-if="paginatedAudios.length > 0">
           <MediaCard
-            v-for="audio in filteredAudios" 
+            v-for="audio in paginatedAudios" 
             :key="audio.id"
             :item="audio"
             type="audio"
@@ -51,11 +61,19 @@
 
         <!-- 无搜索结果 -->
         <EmptyState 
+          v-else-if="filteredAudios.length === 0"
+          icon="🔍"
+          title="没有找到匹配的音频"
+          description="尝试使用不同的搜索词"
+        />
+
+        <!-- 当前页无数据 -->
+        <EmptyState 
           v-else
-      icon="🔍"
-      title="没有找到匹配的音频"
-      description="尝试使用不同的搜索词"
-    />
+          icon="📄"
+          title="当前页没有音频"
+          description="请切换到其他页面查看音频"
+        />
 
     <!-- 添加音频对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddDialog">
@@ -244,6 +262,7 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import PaginationNav from '../components/PaginationNav.vue'
 
 export default {
   name: 'AudioView',
@@ -254,7 +273,8 @@ export default {
     FormField,
     MediaCard,
     DetailPanel,
-    PathUpdateDialog
+    PathUpdateDialog,
+    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -278,6 +298,10 @@ export default {
         newPath: '',
         newFileName: ''
       },
+      // 音频列表分页相关
+      currentAudioPage: 1,
+      audioPageSize: 20, // 默认每页显示20个音频
+      totalAudioPages: 0,
       selectedAudio: null,
       contextMenu: {
         visible: false,
@@ -378,6 +402,17 @@ export default {
           return filtered
       }
     },
+    // 分页显示的音频列表
+    paginatedAudios() {
+      if (!this.filteredAudios || this.filteredAudios.length === 0) return []
+      const start = (this.currentAudioPage - 1) * this.audioPageSize
+      const end = start + this.audioPageSize
+      return this.filteredAudios.slice(start, end)
+    },
+    // 当前音频页的起始索引
+    currentAudioPageStartIndex() {
+      return (this.currentAudioPage - 1) * this.audioPageSize
+    },
     audioStats() {
       if (!this.selectedAudio) return []
       
@@ -417,6 +452,9 @@ export default {
         // 更新筛选器数据
         this.updateFilterOptions()
         this.updateFilterData()
+        
+        // 计算音频列表总页数
+        this.updateAudioPagination()
       } catch (error) {
         console.error('加载音频数据失败:', error)
         alert('加载音频数据失败: ' + error.message)
@@ -1442,10 +1480,78 @@ export default {
       } catch (error) {
         console.warn('加载排序方式失败:', error)
       }
+    },
+    
+    // 处理分页组件的事件
+    handleAudioPageChange(pageNum) {
+      this.currentAudioPage = pageNum
+    },
+    
+    // 更新音频列表分页信息
+    updateAudioPagination() {
+      this.totalAudioPages = Math.ceil(this.filteredAudios.length / this.audioPageSize)
+      // 确保当前页不超过总页数
+      if (this.currentAudioPage > this.totalAudioPages && this.totalAudioPages > 0) {
+        this.currentAudioPage = this.totalAudioPages
+      }
+      // 如果当前页为0且没有数据，重置为1
+      if (this.currentAudioPage === 0 && this.filteredAudios.length > 0) {
+        this.currentAudioPage = 1
+      }
+    },
+    
+    // 从设置中加载音频分页配置
+    async loadAudioPaginationSettings() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        
+        if (settings && settings.audio) {
+          const newAudioPageSize = parseInt(settings.audio.listPageSize) || 20
+          
+          // 更新音频列表分页大小
+          if (this.audioPageSize !== newAudioPageSize) {
+            this.audioPageSize = newAudioPageSize
+            
+            // 重新计算音频列表分页
+            this.updateAudioPagination()
+            
+            console.log('音频列表分页设置已更新:', {
+              listPageSize: this.audioPageSize,
+              totalAudioPages: this.totalAudioPages,
+              currentAudioPage: this.currentAudioPage
+            })
+          }
+        }
+      } catch (error) {
+        console.error('加载音频分页设置失败:', error)
+        // 使用默认值
+        this.audioPageSize = 20
+      }
+    }
+  },
+  watch: {
+    // 监听筛选结果变化，更新分页信息
+    filteredAudios: {
+      handler() {
+        this.updateAudioPagination()
+      },
+      immediate: false
+    },
+    // 监听搜索查询变化，重置到第一页
+    searchQuery() {
+      this.currentAudioPage = 1
+    },
+    // 监听排序变化，重置到第一页
+    sortBy() {
+      this.currentAudioPage = 1
     }
   },
   async mounted() {
     await this.loadAudios()
+    
+    // 加载音频分页设置
+    await this.loadAudioPaginationSettings()
     
     // 加载排序设置
     await this.loadSortSetting()

@@ -21,6 +21,15 @@
         @sort-changed="handleSortChanged"
       />
     
+    <!-- 小说列表分页导航 -->
+    <PaginationNav
+      :current-page="currentNovelPage"
+      :total-pages="totalNovelPages"
+      :page-size="novelPageSize"
+      :total-items="filteredNovels.length"
+      item-type="小说"
+      @page-change="handleNovelPageChange"
+    />
     
     <!-- 主要内容区域 -->
     <div class="novel-main-content">
@@ -28,9 +37,9 @@
       <div class="novel-list-section" :class="{ 'with-reader': currentReadingNovel }">
     
         <!-- 小说网格 -->
-        <div class="novels-grid" v-if="filteredNovels.length > 0">
+        <div class="novels-grid" v-if="paginatedNovels.length > 0">
           <MediaCard
-            v-for="novel in filteredNovels" 
+            v-for="novel in paginatedNovels" 
             :key="novel.id"
             :item="novel"
             type="novel"
@@ -55,10 +64,18 @@
 
         <!-- 无搜索结果 -->
         <EmptyState 
-          v-else
+          v-else-if="filteredNovels.length === 0"
           icon="🔍"
           title="没有找到匹配的小说"
           description="尝试使用不同的搜索词"
+        />
+
+        <!-- 当前页无数据 -->
+        <EmptyState 
+          v-else
+          icon="📄"
+          title="当前页没有小说"
+          description="请切换到其他页面查看小说"
         />
       </div>
 
@@ -280,6 +297,7 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import PaginationNav from '../components/PaginationNav.vue'
 
 export default {
   name: 'NovelView',
@@ -290,7 +308,8 @@ export default {
     FormField,
     MediaCard,
     DetailPanel,
-    PathUpdateDialog
+    PathUpdateDialog,
+    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -384,7 +403,11 @@ export default {
         { key: 'folder', icon: '📁', label: '打开文件夹' },
         { key: 'edit', icon: '✏️', label: '编辑信息' },
         { key: 'remove', icon: '🗑️', label: '删除小说' }
-      ]
+      ],
+      // 小说列表分页相关
+      currentNovelPage: 1,
+      novelPageSize: 20, // 默认每页显示20个小说
+      totalNovelPages: 0
     }
   },
   computed: {
@@ -437,6 +460,17 @@ export default {
       })
       
       return filtered
+    },
+    // 分页显示的小说列表
+    paginatedNovels() {
+      if (!this.filteredNovels || this.filteredNovels.length === 0) return []
+      const start = (this.currentNovelPage - 1) * this.novelPageSize
+      const end = start + this.novelPageSize
+      return this.filteredNovels.slice(start, end)
+    },
+    // 当前小说页的起始索引
+    currentNovelPageStartIndex() {
+      return (this.currentNovelPage - 1) * this.novelPageSize
     },
     canAddNovel() {
       return this.newNovel.filePath.trim()
@@ -766,19 +800,21 @@ export default {
       if (!confirm(`确定要删除小说 "${novel.name}" 吗？`)) return
       
       try {
+        // 确保novelManager的novels数组是最新的
+        await novelManager.loadNovels()
+        
+        // 先调用novelManager删除，成功后再从前端数组中移除
+        await novelManager.deleteNovel(novel.id)
+        
+        // 删除成功后，从前端数组中移除
         const index = this.novels.findIndex(n => n.id === novel.id)
         if (index > -1) {
           this.novels.splice(index, 1)
-          await novelManager.deleteNovel(novel.id)
-          
-          // 显示删除成功通知
-          this.showToastNotification('删除成功', `已成功删除小说 "${novel.name}"`)
-          console.log('小说删除成功:', novel.name)
-        } else {
-          // 显示删除失败通知
-          this.showToastNotification('删除失败', `小说 "${novel.name}" 不存在`)
-          console.error('小说不存在:', novel.name)
         }
+        
+        // 显示删除成功通知
+        this.showToastNotification('删除成功', `已成功删除小说 "${novel.name}"`)
+        console.log('小说删除成功:', novel.name)
       } catch (error) {
         // 显示删除失败通知
         this.showToastNotification('删除失败', `无法删除小说 "${novel.name}": ${error.message}`)
@@ -1019,6 +1055,9 @@ export default {
       
       // 检测文件存在性
       await this.checkFileExistence()
+      
+      // 计算小说列表总页数
+      this.updateNovelPagination()
     },
     
     async checkFileExistence() {
@@ -1634,10 +1673,78 @@ export default {
       } catch (error) {
         console.warn('加载排序方式失败:', error)
       }
+    },
+    
+    // 处理分页组件的事件
+    handleNovelPageChange(pageNum) {
+      this.currentNovelPage = pageNum
+    },
+    
+    // 更新小说列表分页信息
+    updateNovelPagination() {
+      this.totalNovelPages = Math.ceil(this.filteredNovels.length / this.novelPageSize)
+      // 确保当前页不超过总页数
+      if (this.currentNovelPage > this.totalNovelPages && this.totalNovelPages > 0) {
+        this.currentNovelPage = this.totalNovelPages
+      }
+      // 如果当前页为0且没有数据，重置为1
+      if (this.currentNovelPage === 0 && this.filteredNovels.length > 0) {
+        this.currentNovelPage = 1
+      }
+    },
+    
+    // 从设置中加载小说分页配置
+    async loadNovelPaginationSettings() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        
+        if (settings && settings.novel) {
+          const newNovelPageSize = parseInt(settings.novel.listPageSize) || 20
+          
+          // 更新小说列表分页大小
+          if (this.novelPageSize !== newNovelPageSize) {
+            this.novelPageSize = newNovelPageSize
+            
+            // 重新计算小说列表分页
+            this.updateNovelPagination()
+            
+            console.log('小说列表分页设置已更新:', {
+              listPageSize: this.novelPageSize,
+              totalNovelPages: this.totalNovelPages,
+              currentNovelPage: this.currentNovelPage
+            })
+          }
+        }
+      } catch (error) {
+        console.error('加载小说分页设置失败:', error)
+        // 使用默认值
+        this.novelPageSize = 20
+      }
+    }
+  },
+  watch: {
+    // 监听筛选结果变化，更新分页信息
+    filteredNovels: {
+      handler() {
+        this.updateNovelPagination()
+      },
+      immediate: false
+    },
+    // 监听搜索查询变化，重置到第一页
+    searchQuery() {
+      this.currentNovelPage = 1
+    },
+    // 监听排序变化，重置到第一页
+    sortBy() {
+      this.currentNovelPage = 1
     }
   },
   async mounted() {
     await this.loadNovels()
+    
+    // 加载小说分页设置
+    await this.loadNovelPaginationSettings()
     
     // 加载排序设置
     await this.loadSortSetting()
