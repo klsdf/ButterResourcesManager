@@ -12,51 +12,7 @@
         @add-item="showAddDialog = true"
       />
     
-    <!-- 额外的操作按钮和过滤器 -->
-    <div class="website-actions" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-      <button class="btn-refresh" @click="loadWebsites" style="padding: 8px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-        <span class="btn-icon">🔄</span>
-        刷新
-      </button>
-      <button class="btn-import" @click="importWebsites" style="padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-        <span class="btn-icon">📥</span>
-        导入
-      </button>
-      <button class="btn-export" @click="exportWebsites" style="padding: 8px 12px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-        <span class="btn-icon">📤</span>
-        导出
-      </button>
-      <select v-model="filterCategory" class="filter-select" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
-        <option value="">所有分类</option>
-        <option v-for="category in categories" :key="category" :value="category">
-          {{ category }}
-        </option>
-      </select>
-    </div>
 
-    <!-- 网站统计 -->
-    <div class="website-stats">
-      <div class="stat-item">
-        <span class="stat-number">{{ filteredWebsites.length }}</span>
-        <span class="stat-label">网站收藏</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ totalVisits }}</span>
-        <span class="stat-label">总访问次数</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ categories.length }}</span>
-        <span class="stat-label">分类数量</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ bookmarks }}</span>
-        <span class="stat-label">书签</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ activeWebsites }}</span>
-        <span class="stat-label">活跃网站</span>
-      </div>
-    </div>
 
     <!-- 加载状态 -->
     <div v-if="isLoading" class="loading-state">
@@ -386,15 +342,6 @@ export default {
     },
     categories() {
       return websiteManager.getCategories()
-    },
-    totalVisits() {
-      return this.websites.reduce((sum, website) => sum + (website.visitCount || 0), 0)
-    },
-    bookmarks() {
-      return this.websites.filter(website => website.isBookmark).length
-    },
-    activeWebsites() {
-      return this.websites.filter(website => website.status === 'active').length
     },
     isFormValid() {
       return this.newWebsite.url.trim() && 
@@ -912,29 +859,6 @@ export default {
       }
     },
     
-    async importWebsites() {
-      // TODO: 实现导入功能
-      alert('导入功能待实现')
-    },
-    
-    async exportWebsites() {
-      try {
-        const data = websiteManager.exportWebsites()
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `websites-${new Date().toISOString().split('T')[0]}.json`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-        this.showNotification('导出成功', '网站数据已导出')
-      } catch (error) {
-        console.error('导出网站数据失败:', error)
-        alert('导出失败: ' + error.message)
-      }
-    },
     
     getDomain(url) {
       return websiteManager.getDomain(url)
@@ -1183,35 +1107,6 @@ export default {
   border-color: var(--accent-color);
 }
 
-/* 统计信息样式 */
-.website-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.stat-item {
-  background: var(--bg-secondary);
-  padding: 20px;
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 2px 4px var(--shadow-light);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-}
-
-.stat-number {
-  display: block;
-  font-size: 1.8rem;
-  font-weight: bold;
-  color: var(--accent-color);
-  margin-bottom: 5px;
-}
-
-.stat-label {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
 
 /* 加载状态样式 */
 .loading-state {

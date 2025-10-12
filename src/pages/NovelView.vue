@@ -12,16 +12,6 @@
         @add-item="showAddNovelDialog"
       />
     
-    <!-- 额外的过滤器 -->
-    <div class="novel-filters" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-      <select v-model="statusFilter" class="filter-select" style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
-        <option value="all">全部状态</option>
-        <option value="unread">未读</option>
-        <option value="reading">阅读中</option>
-        <option value="completed">已读完</option>
-        <option value="paused">暂停</option>
-      </select>
-    </div>
     
     <!-- 主要内容区域 -->
     <div class="novel-main-content">
@@ -220,17 +210,6 @@
             @remove-tag="removeEditTag"
           />
           <FormField
-            label="阅读状态"
-            type="select"
-            v-model="editNovelForm.status"
-            :options="[
-              { value: 'unread', label: '未读' },
-              { value: 'reading', label: '阅读中' },
-              { value: 'completed', label: '已读完' },
-              { value: 'paused', label: '暂停' }
-            ]"
-          />
-          <FormField
             label="阅读进度 (%)"
             type="number"
             v-model="editNovelForm.readProgress"
@@ -291,7 +270,6 @@ export default {
       novels: [],
       searchQuery: '',
       sortBy: 'name',
-      statusFilter: 'all',
       showAddDialog: false,
       showContextMenu: false,
       contextMenuPos: { x: 0, y: 0 },
@@ -325,7 +303,6 @@ export default {
         genre: '',
         description: '',
         tags: [],
-        status: 'unread',
         readProgress: 0
       },
       editTagInput: '',
@@ -361,7 +338,6 @@ export default {
       novelSortOptions: [
         { value: 'name', label: '按名称排序' },
         { value: 'author', label: '按作者排序' },
-        { value: 'lastRead', label: '按最后阅读时间' },
         { value: 'readProgress', label: '按阅读进度' },
         { value: 'added', label: '按添加时间' }
       ],
@@ -378,10 +354,6 @@ export default {
   computed: {
     filteredNovels() {
       let filtered = this.novels.filter(novel => {
-        // 状态过滤
-        if (this.statusFilter !== 'all' && novel.status !== this.statusFilter) {
-          return false
-        }
         
         // 标签筛选 - 必须包含所有选中的标签（AND逻辑）
         if (this.selectedTags.length > 0 && (!novel.tags || !this.selectedTags.every(tag => novel.tags.includes(tag)))) {
@@ -419,11 +391,6 @@ export default {
             return a.name.localeCompare(b.name)
           case 'author':
             return a.author.localeCompare(b.author)
-          case 'lastRead':
-            if (!a.lastRead && !b.lastRead) return 0
-            if (!a.lastRead) return 1
-            if (!b.lastRead) return -1
-            return new Date(b.lastRead) - new Date(a.lastRead)
           case 'readProgress':
             return (b.readProgress || 0) - (a.readProgress || 0)
           case 'added':
@@ -637,7 +604,6 @@ export default {
           tags: [...this.newNovel.tags],
           filePath: this.newNovel.filePath.trim(),
           coverImage: this.newNovel.coverImage.trim(),
-          status: 'unread',
           readProgress: 0,
           readTime: 0,
           addedDate: new Date().toISOString()
@@ -716,7 +682,6 @@ export default {
         genre: novel.genre || '',
         description: novel.description || '',
         tags: Array.isArray(novel.tags) ? [...novel.tags] : [],
-        status: novel.status || 'unread',
         readProgress: novel.readProgress || 0
       }
       this.editTagInput = ''
@@ -749,7 +714,6 @@ export default {
           genre: this.editNovelForm.genre.trim(),
           description: this.editNovelForm.description.trim(),
           tags: [...this.editNovelForm.tags],
-          status: this.editNovelForm.status,
           readProgress: Math.max(0, Math.min(100, this.editNovelForm.readProgress))
         }
         
@@ -881,15 +845,6 @@ export default {
         console.error('打开小说文件夹失败:', error)
         alert(`打开文件夹失败: ${error.message}`)
       }
-    },
-    getStatusText(status) {
-      const statusMap = {
-        unread: '未读',
-        reading: '阅读中',
-        completed: '已读完',
-        paused: '暂停'
-      }
-      return statusMap[status] || '未知'
     },
     formatReadTime(minutes) {
       if (!minutes) return '未阅读'
@@ -1213,16 +1168,11 @@ export default {
           novel.firstRead = new Date().toISOString()
         }
         
-        // 更新阅读状态为"阅读中"（如果当前是未读状态）
-        if (novel.status === 'unread') {
-          novel.status = 'reading'
-        }
         
         // 保存更新后的数据
         await novelManager.updateNovel(novel.id, {
           lastRead: novel.lastRead,
-          firstRead: novel.firstRead,
-          status: novel.status
+          firstRead: novel.firstRead
         })
         
         console.log('阅读统计已更新:', novel.name)

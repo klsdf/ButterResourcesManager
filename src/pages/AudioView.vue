@@ -10,13 +10,6 @@
       @add-item="showAddDialog = true"
     />
     
-    <!-- 刷新按钮 -->
-    <div class="audio-actions" style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-      <button class="btn-refresh" @click="loadAudios" style="padding: 8px 12px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-        <span class="btn-icon">🔄</span>
-        刷新
-      </button>
-    </div>
 
 
     <!-- 音频列表 -->
