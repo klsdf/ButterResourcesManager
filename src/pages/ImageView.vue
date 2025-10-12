@@ -302,6 +302,42 @@
       :menu-items="albumContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+
+    <!-- 路径更新确认对话框 -->
+    <div v-if="showPathUpdateDialog" class="modal-overlay" @click="closePathUpdateDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>更新漫画路径</h3>
+          <button class="modal-close" @click="closePathUpdateDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="path-update-info">
+            <p>发现同名但路径不同的漫画文件夹：</p>
+            <div class="path-comparison">
+              <div class="path-item">
+                <label>漫画名称：</label>
+                <span class="album-name">{{ pathUpdateInfo.existingAlbum?.name }}</span>
+              </div>
+              <div class="path-item">
+                <label>当前路径：</label>
+                <span class="path-old">{{ pathUpdateInfo.existingAlbum?.folderPath }}</span>
+                <span class="status-badge status-missing">文件夹丢失</span>
+              </div>
+              <div class="path-item">
+                <label>新路径：</label>
+                <span class="path-new">{{ pathUpdateInfo.newPath }}</span>
+                <span class="status-badge status-found">文件夹存在</span>
+              </div>
+            </div>
+            <p class="update-question">是否要更新漫画路径？</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closePathUpdateDialog">取消</button>
+          <button class="btn-confirm" @click="confirmPathUpdate">更新路径</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
   
@@ -336,6 +372,13 @@ export default {
       sortBy: 'name',
       showAddDialog: false,
       isDragOver: false,
+      // 路径更新确认对话框
+      showPathUpdateDialog: false,
+      pathUpdateInfo: {
+        existingAlbum: null,
+        newPath: '',
+        newFolderName: ''
+      },
       newAlbum: {
         name: '',
         author: '',
@@ -571,6 +614,12 @@ export default {
           // 检查是否有其他可能的属性
           webkitGetAsEntry: f.webkitGetAsEntry ? 'exists' : 'not exists'
         })))
+        console.log('当前漫画库状态:')
+        this.albums.forEach((album, index) => {
+          console.log(`  ${index + 1}. ${album.name}`)
+          console.log(`     路径: ${album.folderPath}`)
+          console.log(`     文件存在: ${album.fileExists}`)
+        })
         
         if (files.length === 0) {
           console.log('没有拖拽文件，显示错误通知')
@@ -836,18 +885,50 @@ export default {
         })
         
         try {
-          // 检查是否已经存在相同的文件夹
-          const existingAlbum = this.albums.find(album => album.folderPath === folder.path)
-          if (existingAlbum) {
+          // 检查是否已经存在相同的文件夹路径
+          const existingAlbumByPath = this.albums.find(album => album.folderPath === folder.path)
+          if (existingAlbumByPath) {
             console.log('文件夹已存在，跳过:', folder.name)
             results.push({
               success: false,
               folderName: folder.name,
               error: `文件夹 "${folder.name}" 已经存在`,
               folderPath: folder.path,
-              existingAlbumId: existingAlbum.id
+              existingAlbumId: existingAlbumByPath.id
             })
             continue
+          }
+          
+          // 检查是否存在同名但路径不同的丢失文件夹
+          const existingAlbumByName = this.albums.find(album => {
+            const albumFolderName = album.folderPath.split(/[\\/]/).pop().toLowerCase()
+            const newFolderName = folder.name.toLowerCase()
+            const isSameName = albumFolderName === newFolderName
+            const isFolderMissing = !album.fileExists
+            
+            console.log(`检查漫画: ${album.name}`)
+            console.log(`  文件夹名: ${albumFolderName} vs ${newFolderName}`)
+            console.log(`  是否同名: ${isSameName}`)
+            console.log(`  文件夹存在: ${album.fileExists}`)
+            console.log(`  是否丢失: ${isFolderMissing}`)
+            console.log(`  匹配条件: ${isSameName && isFolderMissing}`)
+            
+            return isSameName && isFolderMissing
+          })
+          
+          if (existingAlbumByName) {
+            console.log(`发现同名丢失文件夹: ${folder.name}`)
+            console.log(`现有漫画路径: ${existingAlbumByName.folderPath}`)
+            console.log(`新文件夹路径: ${folder.path}`)
+            // 显示路径更新确认对话框
+            this.pathUpdateInfo = {
+              existingAlbum: existingAlbumByName,
+              newPath: folder.path,
+              newFolderName: folder.name
+            }
+            this.showPathUpdateDialog = true
+            // 暂停处理，等待用户确认
+            return
           }
           
           // 验证文件夹路径
@@ -2273,6 +2354,68 @@ export default {
         // 使用默认值
         this.pageSize = 50
       }
+    },
+    
+    // 路径更新相关方法
+    closePathUpdateDialog() {
+      this.showPathUpdateDialog = false
+      this.pathUpdateInfo = {
+        existingAlbum: null,
+        newPath: '',
+        newFolderName: ''
+      }
+    },
+    
+    async confirmPathUpdate() {
+      try {
+        const { existingAlbum, newPath } = this.pathUpdateInfo
+        
+        if (!existingAlbum || !newPath) {
+          console.error('路径更新信息不完整')
+          return
+        }
+        
+        console.log(`更新漫画 "${existingAlbum.name}" 的路径:`)
+        console.log(`旧路径: ${existingAlbum.folderPath}`)
+        console.log(`新路径: ${newPath}`)
+        
+        // 更新漫画路径
+        existingAlbum.folderPath = newPath
+        existingAlbum.fileExists = true
+        
+        // 重新扫描图片文件
+        if (window.electronAPI && window.electronAPI.listImageFiles) {
+          try {
+            const resp = await window.electronAPI.listImageFiles(newPath)
+            if (resp.success) {
+              const files = resp.files || []
+              existingAlbum.pagesCount = files.length
+              existingAlbum.cover = files[0] || ''
+              console.log(`漫画 ${existingAlbum.name} 重新扫描完成: ${files.length} 页`)
+            }
+          } catch (error) {
+            console.error('重新扫描图片文件失败:', error)
+          }
+        }
+        
+        // 保存更新后的数据
+        await this.saveAlbums()
+        
+        // 关闭对话框
+        this.closePathUpdateDialog()
+        
+        // 显示成功通知
+        this.showToastNotification(
+          '路径更新成功', 
+          `漫画 "${existingAlbum.name}" 的路径已更新`
+        )
+        
+        console.log(`漫画 "${existingAlbum.name}" 路径更新完成`)
+        
+      } catch (error) {
+        console.error('更新漫画路径失败:', error)
+        this.showToastNotification('更新失败', `更新漫画路径失败: ${error.message}`)
+      }
     }
   },
   async mounted() {
@@ -3016,6 +3159,93 @@ export default {
   z-index: 1000;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
   pointer-events: none;
+}
+
+/* 路径更新对话框样式 */
+.path-update-info {
+  padding: 10px 0;
+}
+
+.path-update-info p {
+  color: var(--text-primary);
+  margin-bottom: 15px;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.path-comparison {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  transition: background-color 0.3s ease;
+}
+
+.path-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.path-item:last-child {
+  margin-bottom: 0;
+}
+
+.path-item label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 80px;
+  transition: color 0.3s ease;
+}
+
+.album-name {
+  color: var(--accent-color);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.path-old, .path-new {
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  flex: 1;
+  word-break: break-all;
+  transition: all 0.3s ease;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-missing {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.status-found {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.update-question {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 20px 0 10px 0;
+  transition: color 0.3s ease;
 }
 
 /* 响应式 */

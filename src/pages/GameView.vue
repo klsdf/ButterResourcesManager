@@ -236,6 +236,42 @@
       :menu-items="gameContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+
+    <!-- 路径更新确认对话框 -->
+    <div v-if="showPathUpdateDialog" class="modal-overlay" @click="closePathUpdateDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>更新游戏路径</h3>
+          <button class="modal-close" @click="closePathUpdateDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="path-update-info">
+            <p>发现同名但路径不同的游戏文件：</p>
+            <div class="path-comparison">
+              <div class="path-item">
+                <label>游戏名称：</label>
+                <span class="game-name">{{ pathUpdateInfo.existingGame?.name }}</span>
+              </div>
+              <div class="path-item">
+                <label>当前路径：</label>
+                <span class="path-old">{{ pathUpdateInfo.existingGame?.executablePath }}</span>
+                <span class="status-badge status-missing">文件丢失</span>
+              </div>
+              <div class="path-item">
+                <label>新路径：</label>
+                <span class="path-new">{{ pathUpdateInfo.newPath }}</span>
+                <span class="status-badge status-found">文件存在</span>
+              </div>
+            </div>
+            <p class="update-question">是否要更新游戏路径？</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="closePathUpdateDialog">取消</button>
+          <button class="btn-confirm" @click="confirmPathUpdate">更新路径</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
 </template>
@@ -325,7 +361,14 @@ export default {
       selectedDevelopers: [],
       excludedDevelopers: [],
       // 拖拽相关
-      isDragOver: false
+      isDragOver: false,
+      // 路径更新确认对话框
+      showPathUpdateDialog: false,
+      pathUpdateInfo: {
+        existingGame: null,
+        newPath: '',
+        newFileName: ''
+      }
     }
   },
   computed: {
@@ -1089,6 +1132,7 @@ export default {
     },
     async checkFileExistence() {
       console.log('🔍 开始检测游戏文件存在性...')
+      console.log(`🔍 当前游戏数量: ${this.games.length}`)
       
       if (!this.isElectronEnvironment || !window.electronAPI || !window.electronAPI.checkFileExists) {
         console.log('⚠️ Electron API 不可用，跳过文件存在性检测')
@@ -1800,6 +1844,12 @@ export default {
           type: f.type,
           size: f.size
         })))
+        console.log('当前游戏库状态:')
+        this.games.forEach((game, index) => {
+          console.log(`  ${index + 1}. ${game.name}`)
+          console.log(`     路径: ${game.executablePath}`)
+          console.log(`     文件存在: ${game.fileExists}`)
+        })
         
         if (files.length === 0) {
           this.showNotification('拖拽失败', '请拖拽游戏可执行文件到此处')
@@ -1825,12 +1875,44 @@ export default {
         
         for (const executableFile of executableFiles) {
           try {
-            // 检查是否已经存在相同的文件
-            const existingGame = this.games.find(game => game.executablePath === executableFile.path)
-            if (existingGame) {
+            // 检查是否已经存在相同的文件路径
+            const existingGameByPath = this.games.find(game => game.executablePath === executableFile.path)
+            if (existingGameByPath) {
               console.log(`游戏文件已存在: ${executableFile.name}`)
               failedCount++
               continue
+            }
+            
+            // 检查是否存在同名但路径不同的丢失文件
+            const existingGameByName = this.games.find(game => {
+              const gameFileName = game.executablePath.split(/[\\/]/).pop().toLowerCase()
+              const newFileName = executableFile.name.toLowerCase()
+              const isSameName = gameFileName === newFileName
+              const isFileMissing = !game.fileExists
+              
+              console.log(`检查游戏: ${game.name}`)
+              console.log(`  文件名: ${gameFileName} vs ${newFileName}`)
+              console.log(`  是否同名: ${isSameName}`)
+              console.log(`  文件存在: ${game.fileExists}`)
+              console.log(`  是否丢失: ${isFileMissing}`)
+              console.log(`  匹配条件: ${isSameName && isFileMissing}`)
+              
+              return isSameName && isFileMissing
+            })
+            
+            if (existingGameByName) {
+              console.log(`发现同名丢失文件: ${executableFile.name}`)
+              console.log(`现有游戏路径: ${existingGameByName.executablePath}`)
+              console.log(`新文件路径: ${executableFile.path}`)
+              // 显示路径更新确认对话框
+              this.pathUpdateInfo = {
+                existingGame: existingGameByName,
+                newPath: executableFile.path,
+                newFileName: executableFile.name
+              }
+              this.showPathUpdateDialog = true
+              // 暂停处理，等待用户确认
+              return
             }
             
             // 创建新的游戏对象
@@ -1915,6 +1997,66 @@ export default {
         console.log('- userAgent:', navigator.userAgent)
         console.log('- location:', window.location.href)
         console.log('- process:', typeof process !== 'undefined' ? process.versions : 'undefined')
+      }
+    },
+    
+    // 路径更新相关方法
+    closePathUpdateDialog() {
+      this.showPathUpdateDialog = false
+      this.pathUpdateInfo = {
+        existingGame: null,
+        newPath: '',
+        newFileName: ''
+      }
+    },
+    
+    async confirmPathUpdate() {
+      try {
+        const { existingGame, newPath } = this.pathUpdateInfo
+        
+        if (!existingGame || !newPath) {
+          console.error('路径更新信息不完整')
+          return
+        }
+        
+        console.log(`更新游戏 "${existingGame.name}" 的路径:`)
+        console.log(`旧路径: ${existingGame.executablePath}`)
+        console.log(`新路径: ${newPath}`)
+        
+        // 更新游戏路径
+        existingGame.executablePath = newPath
+        existingGame.fileExists = true
+        
+        // 重新计算文件夹大小
+        if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.getFolderSize) {
+          try {
+            const result = await window.electronAPI.getFolderSize(newPath)
+            if (result.success) {
+              existingGame.folderSize = result.size
+              console.log(`游戏 ${existingGame.name} 文件夹大小: ${result.size} 字节`)
+            }
+          } catch (error) {
+            console.error('获取文件夹大小失败:', error)
+          }
+        }
+        
+        // 保存更新后的数据
+        await this.saveGames()
+        
+        // 关闭对话框
+        this.closePathUpdateDialog()
+        
+        // 显示成功通知
+        this.showToastNotification(
+          '路径更新成功', 
+          `游戏 "${existingGame.name}" 的路径已更新`
+        )
+        
+        console.log(`游戏 "${existingGame.name}" 路径更新完成`)
+        
+      } catch (error) {
+        console.error('更新游戏路径失败:', error)
+        this.showToastNotification('更新失败', `更新游戏路径失败: ${error.message}`)
       }
     }
   },
@@ -2342,7 +2484,92 @@ export default {
   background: var(--bg-secondary);
 }
 
+/* 路径更新对话框样式 */
+.path-update-info {
+  padding: 10px 0;
+}
 
+.path-update-info p {
+  color: var(--text-primary);
+  margin-bottom: 15px;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.path-comparison {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  transition: background-color 0.3s ease;
+}
+
+.path-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 10px;
+}
+
+.path-item:last-child {
+  margin-bottom: 0;
+}
+
+.path-item label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 80px;
+  transition: color 0.3s ease;
+}
+
+.game-name {
+  color: var(--accent-color);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.path-old, .path-new {
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  flex: 1;
+  word-break: break-all;
+  transition: all 0.3s ease;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-missing {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.status-found {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.update-question {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: center;
+  margin: 20px 0 10px 0;
+  transition: color 0.3s ease;
+}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
