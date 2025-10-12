@@ -1119,6 +1119,9 @@ export default {
   async mounted() {
     await this.loadAudios()
     
+    // 初始化筛选器数据
+    this.updateFilterData()
+    
     // 点击其他地方关闭右键菜单
     document.addEventListener('click', () => {
       this.contextMenu.visible = false

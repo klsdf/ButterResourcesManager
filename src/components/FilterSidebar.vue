@@ -1,8 +1,15 @@
 <!-- 页面左侧的筛选栏，支持任意数量的筛选器 -->
 <template>
   <div class="filter-sidebar">
+    <!-- 加载状态 -->
+    <div v-if="isLoading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">正在加载筛选器...</p>
+    </div>
+    
     <!-- 动态筛选器列表 -->
     <div 
+      v-else-if="filters.length > 0"
       v-for="filter in filters" 
       :key="filter.key"
       class="filter-section"
@@ -39,6 +46,12 @@
         </div>
       </div>
     </div>
+    
+    <!-- 空状态 -->
+    <div v-else class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <p class="empty-text">暂无筛选器数据</p>
+    </div>
   </div>
 </template>
 
@@ -59,6 +72,10 @@ export default {
           (Array.isArray(filter.excluded) || filter.excluded === null)
         )
       }
+    },
+    isLoading: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['filter-select', 'filter-exclude', 'filter-clear'],
@@ -208,5 +225,60 @@ export default {
   text-align: center;
   color: var(--text-tertiary);
   font-style: italic;
+}
+
+/* 加载状态样式 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-color);
+  border-top: 3px solid var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin: 0;
+  transition: color 0.3s ease;
+}
+
+/* 空状态样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.empty-text {
+  color: var(--text-tertiary);
+  font-size: 0.9rem;
+  margin: 0;
+  transition: color 0.3s ease;
 }
 </style>

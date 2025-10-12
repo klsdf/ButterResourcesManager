@@ -48,8 +48,13 @@
       <div class="content-body" :class="{ 'with-filter': showFilterSidebar }">
         <!-- 筛选器侧边栏 - 只在需要筛选的页面显示 -->
         <div v-if="showFilterSidebar" class="filter-sidebar-container">
-          <FilterSidebar :filters="currentFilterData.filters" @filter-select="onFilterSelect"
-            @filter-exclude="onFilterExclude" @filter-clear="onFilterClear" />
+          <FilterSidebar 
+            :filters="currentFilterData.filters" 
+            :isLoading="isFilterSidebarLoading"
+            @filter-select="onFilterSelect"
+            @filter-exclude="onFilterExclude" 
+            @filter-clear="onFilterClear" 
+          />
         </div>
 
         <!-- 页面内容区域 -->
@@ -129,6 +134,7 @@ export default {
       version: '0.0.0',
       // 筛选器相关数据
       showFilterSidebar: false,
+      isFilterSidebarLoading: false,
       currentFilterData: {
         filters: []
       },
@@ -179,6 +185,8 @@ export default {
       this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(viewId)
       // 重置筛选器数据
       this.resetFilterData()
+      // 设置加载状态
+      this.isFilterSidebarLoading = this.showFilterSidebar
     },
     resetFilterData() {
       this.currentFilterData = {
@@ -187,6 +195,8 @@ export default {
     },
     updateFilterData(filterData) {
       this.currentFilterData = { ...this.currentFilterData, ...filterData }
+      // 数据更新后取消加载状态
+      this.isFilterSidebarLoading = false
     },
     onFilterSelect({ filterKey, itemName }) {
       console.log('App.vue onFilterSelect:', filterKey, itemName)

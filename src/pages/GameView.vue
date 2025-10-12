@@ -1185,6 +1185,9 @@ export default {
       this.allDevelopers = Object.entries(developerCount)
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => a.name.localeCompare(b.name))
+      
+      // 提取完标签后更新筛选器数据
+      this.updateFilterData()
     },
     filterByTag(tagName) {
       console.log('GameView filterByTag START:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)

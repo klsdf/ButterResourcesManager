@@ -2057,6 +2057,9 @@ export default {
       this.allAuthors = Object.entries(authorCount)
         .map(([name, count]) => ({ name, count }))
         .sort((a, b) => a.name.localeCompare(b.name))
+      
+      // 提取完标签后更新筛选器数据
+      this.updateFilterData()
     },
     
     // 筛选方法
