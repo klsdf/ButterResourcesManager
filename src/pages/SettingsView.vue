@@ -414,6 +414,24 @@
               
               <div class="setting-item">
                 <label class="setting-label">
+                  <span class="setting-title">详情页显示图片数量</span>
+                  <span class="setting-desc">设置详情页中每页显示的图片数量</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="range" 
+                    v-model="settings.image.detailPageSize" 
+                    min="10" 
+                    max="100" 
+                    step="5"
+                    class="setting-slider"
+                  >
+                  <span class="setting-value">{{ settings.image.detailPageSize }} 张</span>
+                </div>
+              </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
                   <span class="setting-title">测试图片设置</span>
                   <span class="setting-desc">测试当前图片设置是否正确保存</span>
                 </label>
@@ -844,7 +862,8 @@ export default {
           enableThumbnails: this.settings.image?.enableThumbnails !== undefined ? this.settings.image.enableThumbnails : true,
           preloadCount: this.settings.image?.preloadCount || 3,
           hardwareAcceleration: this.settings.image?.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
-          renderQuality: this.settings.image?.renderQuality || 'high'
+          renderQuality: this.settings.image?.renderQuality || 'high',
+          detailPageSize: parseInt(this.settings.image?.detailPageSize) || 50
         }
         
         // 清理单独的字段，只保留novel对象
@@ -1226,7 +1245,8 @@ export default {
           enableThumbnails: this.settings.image.enableThumbnails,
           preloadCount: this.settings.image.preloadCount,
           hardwareAcceleration: this.settings.image.hardwareAcceleration,
-          renderQuality: this.settings.image.renderQuality
+          renderQuality: this.settings.image.renderQuality,
+          detailPageSize: parseInt(this.settings.image.detailPageSize)
         })
         
         // 保存设置
@@ -1243,7 +1263,8 @@ export default {
             enableThumbnails: reloadedSettings.image?.enableThumbnails,
             preloadCount: reloadedSettings.image?.preloadCount,
             hardwareAcceleration: reloadedSettings.image?.hardwareAcceleration,
-            renderQuality: reloadedSettings.image?.renderQuality
+            renderQuality: reloadedSettings.image?.renderQuality,
+            detailPageSize: reloadedSettings.image?.detailPageSize
           })
           
           this.showToastNotification('图片设置测试完成', '图片设置已保存并验证，请查看控制台输出')
@@ -1285,7 +1306,8 @@ export default {
           enableThumbnails: this.settings.image.enableThumbnails !== undefined ? this.settings.image.enableThumbnails : true,
           preloadCount: this.settings.image.preloadCount || 3,
           hardwareAcceleration: this.settings.image.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
-          renderQuality: this.settings.image.renderQuality || 'high'
+          renderQuality: this.settings.image.renderQuality || 'high',
+          detailPageSize: parseInt(this.settings.image.detailPageSize) || 50
         }
       } else {
         // 如果没有image对象，创建默认的
@@ -1296,7 +1318,8 @@ export default {
           enableThumbnails: true,
           preloadCount: 3,
           hardwareAcceleration: true,
-          renderQuality: 'high'
+          renderQuality: 'high',
+          detailPageSize: 50
         }
       }
       

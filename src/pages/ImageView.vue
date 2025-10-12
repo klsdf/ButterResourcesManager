@@ -399,7 +399,7 @@ export default {
       currentPageIndex: 0,
       // 分页相关
       currentPage: 1,
-      pageSize: 50,
+      pageSize: 50, // 默认值，将从设置中加载
       totalPages: 0,
       jumpToPageGroup: 1,
       // 标签筛选相关
@@ -1118,6 +1118,10 @@ export default {
         this.showDetailModal = true
         this.pages = []
         this.currentPage = 1 // 重置到第一页
+        
+        // 确保pageSize已从设置中加载
+        await this.loadImageSettings()
+        
         let files = []
         if (window.electronAPI && window.electronAPI.listImageFiles) {
           const resp = await window.electronAPI.listImageFiles(album.folderPath)
@@ -1881,6 +1885,9 @@ export default {
        })
        
        try {
+         // 确保pageSize已从设置中加载
+         await this.loadImageSettings()
+         
          let files = []
          
          if (window.electronAPI && window.electronAPI.listImageFiles) {
@@ -2173,10 +2180,51 @@ export default {
           }
         ]
       })
+    },
+
+    // 从设置中加载图片配置
+    async loadImageSettings() {
+      try {
+        // 动态导入SaveManager以避免循环依赖
+        const saveManager = await import('../utils/SaveManager.js')
+        const settings = await saveManager.default.loadSettings()
+        
+        if (settings && settings.image) {
+          // 从image对象中更新图片相关配置，确保转换为数字
+          const newPageSize = parseInt(settings.image.detailPageSize) || 50
+          
+          // 只有当pageSize发生变化时才更新
+          if (this.pageSize !== newPageSize) {
+            this.pageSize = newPageSize
+            
+            // 如果已经有页面数据，需要重新计算totalPages
+            if (this.pages && this.pages.length > 0) {
+              this.totalPages = Math.ceil(this.pages.length / this.pageSize)
+              // 确保当前页不超过总页数
+              if (this.currentPage > this.totalPages) {
+                this.currentPage = this.totalPages
+              }
+            }
+            
+            console.log('图片设置已更新:', {
+              detailPageSize: this.pageSize,
+              totalPages: this.totalPages,
+              currentPage: this.currentPage
+            })
+          }
+        }
+      } catch (error) {
+        console.error('加载图片设置失败:', error)
+        // 使用默认值
+        this.pageSize = 50
+      }
     }
   },
   async mounted() {
     await this.loadAlbums()
+    
+    // 加载图片设置
+    await this.loadImageSettings()
     
     // 初始化筛选器数据
     this.updateFilterData()
