@@ -232,84 +232,13 @@
     </div>
 
     <!-- 游戏详情页面 -->
-    <div v-if="showDetailModal" class="game-detail-overlay" @click="closeGameDetail">
-      <div class="game-detail-content" @click.stop>
-        <div class="detail-header">
-          <button class="detail-close" @click="closeGameDetail">✕</button>
-        </div>
-        <div class="detail-body" v-if="currentGame">
-          <div class="detail-image">
-            <img 
-              :src="resolveImage(currentGame.image)" 
-              :alt="currentGame.name"
-              @error="handleImageError"
-            >
-          </div>
-          <div class="detail-info">
-            <h2 class="detail-title">{{ currentGame.name }}</h2>
-            <p class="detail-developer">{{ currentGame.developer }}</p>
-            <p class="detail-publisher" v-if="currentGame.publisher && currentGame.publisher !== '未知发行商'">{{ currentGame.publisher }}</p>
-            <div class="detail-description" v-if="currentGame.description">
-              <h4 class="description-title">游戏简介</h4>
-              <p class="description-content">{{ currentGame.description }}</p>
-            </div>
-            
-            <div class="detail-tags" v-if="currentGame.tags && currentGame.tags.length > 0">
-              <h4 class="tags-title">游戏标签</h4>
-              <div class="tags-container">
-                <span 
-                  v-for="tag in currentGame.tags" 
-                  :key="tag" 
-                  class="detail-tag"
-                >{{ tag }}</span>
-              </div>
-            </div>
-            
-            <div class="detail-stats">
-              <div class="stat-item">
-                <span class="stat-label">总游戏时长</span>
-                <span class="stat-value">{{ formatPlayTime(currentGame.playTime) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">运行次数</span>
-                <span class="stat-value">{{ currentGame.playCount || 0 }} 次</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">最后游玩</span>
-                <span class="stat-value">{{ formatLastPlayed(currentGame.lastPlayed) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">第一次游玩</span>
-                <span class="stat-value">{{ formatFirstPlayed(currentGame.firstPlayed) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">添加时间</span>
-                <span class="stat-value">{{ formatDate(currentGame.addedDate) }}</span>
-              </div>
-            </div>
-            
-            <div class="detail-actions">
-              <button class="btn-play-game" @click="launchGame(currentGame)">
-                <span class="btn-icon">▶️</span>
-                开始游戏
-              </button>
-              <button class="btn-open-folder" @click="openGameFolder(currentGame)">
-                <span class="btn-icon">📁</span>
-                打开文件夹
-              </button>
-              <button class="btn-edit-game" @click="editGame(currentGame)">
-                <span class="btn-icon">✏️</span>
-                编辑信息
-              </button>
-              <button class="btn-remove-game" @click="removeGame(currentGame)">
-                <span class="btn-icon">🗑️</span>
-                删除游戏
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <DetailPanel
+      :visible="showDetailModal"
+      :item="currentGame"
+      type="game"
+      @close="closeGameDetail"
+      @action="handleDetailAction"
+    />
 
     <!-- 右键菜单 -->
     <ContextMenu
@@ -329,6 +258,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
+import DetailPanel from '../components/DetailPanel.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
 export default {
@@ -338,7 +268,8 @@ export default {
     EmptyState,
     ContextMenu,
     MediaCard,
-    FormField
+    FormField,
+    DetailPanel
   },
   emits: ['filter-data-updated'],
   data() {
@@ -714,6 +645,22 @@ export default {
     closeGameDetail() {
       this.showDetailModal = false
       this.currentGame = null
+    },
+    handleDetailAction(actionKey, game) {
+      switch (actionKey) {
+        case 'launch':
+          this.launchGame(game)
+          break
+        case 'folder':
+          this.openGameFolder(game)
+          break
+        case 'edit':
+          this.editGame(game)
+          break
+        case 'remove':
+          this.removeGame(game)
+          break
+      }
     },
     showGameContextMenu(event, game) {
       event.preventDefault()
@@ -2428,270 +2375,6 @@ export default {
 }
 
 
-/* 游戏详情页面样式 */
-.game-detail-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.game-detail-content {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  width: 800px;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px var(--shadow-medium);
-  transition: background-color 0.3s ease;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.detail-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: color 0.3s ease;
-}
-
-.detail-close:hover {
-  color: var(--text-primary);
-}
-
-.detail-body {
-  display: flex;
-  gap: 30px;
-  padding: 30px;
-}
-
-.detail-image {
-  flex-shrink: 0;
-  width: 300px;
-  height: 400px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 8px 25px var(--shadow-medium);
-}
-
-.detail-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.detail-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.detail-title {
-  color: var(--text-primary);
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0;
-  transition: color 0.3s ease;
-}
-
-.detail-developer {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
-  margin: 0 0 8px 0;
-  transition: color 0.3s ease;
-}
-
-.detail-publisher {
-  color: var(--text-tertiary);
-  font-size: 1rem;
-  margin: 0 0 15px 0;
-  font-style: italic;
-  transition: color 0.3s ease;
-}
-
-.detail-description {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border-left: 4px solid var(--accent-color);
-  transition: background-color 0.3s ease;
-}
-
-.description-title {
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 8px 0;
-  transition: color 0.3s ease;
-}
-
-.description-content {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  margin: 0;
-  white-space: pre-wrap;
-  transition: color 0.3s ease;
-}
-
-.detail-tags {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border-left: 4px solid var(--accent-color);
-  transition: background-color 0.3s ease;
-}
-
-.tags-title {
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 10px 0;
-  transition: color 0.3s ease;
-}
-
-.tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.detail-tag {
-  background: var(--accent-color);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.detail-tag:hover {
-  background: var(--accent-hover);
-}
-
-.detail-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  padding: 20px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  transition: background-color 0.3s ease;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.stat-label {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.stat-value {
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-  transition: color 0.3s ease;
-}
-
-.detail-actions {
-  display: flex;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.btn-play-game {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: background 0.3s ease;
-  flex: 1;
-  justify-content: center;
-}
-
-.btn-play-game:hover {
-  background: var(--accent-hover);
-}
-
-.btn-edit-game, .btn-remove-game {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.btn-edit-game:hover {
-  background: var(--bg-secondary);
-}
-
-.btn-remove-game {
-  background: #fee2e2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.btn-remove-game:hover {
-  background: #fecaca;
-}
-
-.btn-open-folder {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.btn-open-folder:hover {
-  background: var(--bg-secondary);
-}
-
-.btn-icon {
-  font-size: 1rem;
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

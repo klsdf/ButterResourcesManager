@@ -44,21 +44,25 @@
       "public/electron.js",
       "public/preload.js",
       "public/butter-logo.svg",
+      "public/butter-logo.ico",
+      "public/butter-logo.png",
       "node_modules/**/*"
     ],
-    "icon": "public/butter-logo.svg",
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "public/butter-logo.png"
     },
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "public/butter-logo.png"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "icon": "public/butter-logo.png"
     }
   }
 }

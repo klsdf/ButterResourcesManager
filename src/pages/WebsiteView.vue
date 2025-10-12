@@ -138,114 +138,15 @@
     </div>
 
     <!-- 网站详情对话框 -->
-    <div v-if="selectedWebsite" class="modal-overlay" @click="closeWebsiteDetail">
-      <div class="modal-content website-detail-modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ selectedWebsite.name }}</h3>
-          <button class="btn-close" @click="closeWebsiteDetail">×</button>
-        </div>
-        
-        <div class="modal-body">
-          <div class="website-detail-content">
-            <div class="website-detail-thumbnail">
-              <div class="website-detail-icon" v-if="!selectedWebsite.favicon">
-                🌐
-              </div>
-              <img v-else :src="selectedWebsite.favicon" :alt="selectedWebsite.name" class="detail-favicon" @error="handleFaviconError" @load="handleFaviconLoad">
-              <div class="website-detail-badges">
-                <span v-if="selectedWebsite.isBookmark" class="badge bookmark">📌 书签</span>
-                <span v-if="selectedWebsite.isPrivate" class="badge private">🔒 私有</span>
-                <span v-if="selectedWebsite.sslStatus === 'secure'" class="badge secure">🔒 安全</span>
-              </div>
-            </div>
-            
-            <div class="website-detail-info">
-              <div class="detail-section">
-                <h4>基本信息</h4>
-                <div class="detail-grid">
-                  <div class="detail-item">
-                    <span class="detail-label">URL:</span>
-                    <span class="detail-value">
-                      <a :href="selectedWebsite.url" target="_blank" class="website-link">
-                        {{ selectedWebsite.url }}
-                      </a>
-                    </span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">分类:</span>
-                    <span class="detail-value">{{ selectedWebsite.category }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">语言:</span>
-                    <span class="detail-value">{{ selectedWebsite.language || '未知' }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">访问次数:</span>
-                    <span class="detail-value">{{ selectedWebsite.visitCount || 0 }} 次</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">最后访问:</span>
-                    <span class="detail-value">{{ formatDate(selectedWebsite.lastVisited) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">添加时间:</span>
-                    <span class="detail-value">{{ formatDate(selectedWebsite.addedDate) }}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedWebsite.description">
-                <h4>描述</h4>
-                <p class="description-text">{{ selectedWebsite.description }}</p>
-              </div>
-              
-              <div class="detail-section" v-if="selectedWebsite.tags && selectedWebsite.tags.length > 0">
-                <h4>标签</h4>
-                <div class="tags-list">
-                  <span v-for="tag in selectedWebsite.tags" :key="tag" class="tag">{{ tag }}</span>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedWebsite.username || selectedWebsite.loginUrl">
-                <h4>登录信息</h4>
-                <div class="login-info">
-                  <div v-if="selectedWebsite.username" class="login-item">
-                    <span class="login-label">用户名:</span>
-                    <span class="login-value">{{ selectedWebsite.username }}</span>
-                  </div>
-                  <div v-if="selectedWebsite.loginUrl" class="login-item">
-                    <span class="login-label">登录URL:</span>
-                    <a :href="selectedWebsite.loginUrl" target="_blank" class="login-link">
-                      {{ selectedWebsite.loginUrl }}
-                    </a>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedWebsite.notes">
-                <h4>备注</h4>
-                <p class="notes-text">{{ selectedWebsite.notes }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="modal-footer">
-          <button type="button" @click="visitWebsite(selectedWebsite)" class="btn-visit">
-            🔗 访问网站
-          </button>
-          <button type="button" @click="refreshWebsiteFavicon(selectedWebsite)" class="btn-refresh-favicon">
-            🔄 刷新图标
-          </button>
-          <button type="button" @click="editWebsite(selectedWebsite)" class="btn-edit">
-            编辑
-          </button>
-          <button type="button" @click="deleteWebsite(selectedWebsite)" class="btn-delete">
-            删除
-          </button>
-        </div>
-      </div>
-    </div>
+    <DetailPanel
+      :visible="!!selectedWebsite"
+      :item="selectedWebsite"
+      type="website"
+      :stats="websiteStats"
+      :actions="websiteActions"
+      @close="closeWebsiteDetail"
+      @action="handleDetailAction"
+    />
 
     <!-- 编辑网站对话框 -->
     <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
@@ -349,6 +250,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
+import DetailPanel from '../components/DetailPanel.vue'
 
 export default {
   name: 'WebsiteView',
@@ -357,7 +259,8 @@ export default {
     EmptyState,
     ContextMenu,
     FormField,
-    MediaCard
+    MediaCard,
+    DetailPanel
   },
   emits: ['filter-data-updated'],
   data() {
@@ -513,6 +416,28 @@ export default {
         { value: '__new__', label: '+ 新建分类' }
       ]
       return options
+    },
+    websiteStats() {
+      if (!this.selectedWebsite) return []
+      
+      return [
+        { label: 'URL', value: this.selectedWebsite.url },
+        { label: '分类', value: this.selectedWebsite.category || '未分类' },
+        { label: '语言', value: this.selectedWebsite.language || '未知' },
+        { label: '访问次数', value: `${this.selectedWebsite.visitCount || 0} 次` },
+        { label: '最后访问', value: this.formatDate(this.selectedWebsite.lastVisited) },
+        { label: '添加时间', value: this.formatDate(this.selectedWebsite.addedDate) }
+      ]
+    },
+    websiteActions() {
+      const actions = [
+        { key: 'visit', icon: '🔗', label: '访问网站', class: 'btn-visit' },
+        { key: 'refreshFavicon', icon: '🔄', label: '刷新图标', class: 'btn-refresh-favicon' },
+        { key: 'edit', icon: '✏️', label: '编辑信息', class: 'btn-edit' },
+        { key: 'remove', icon: '🗑️', label: '删除网站', class: 'btn-delete' }
+      ]
+      
+      return actions
     }
   },
   watch: {
@@ -805,6 +730,22 @@ export default {
     
     closeWebsiteDetail() {
       this.selectedWebsite = null
+    },
+    handleDetailAction(actionKey, website) {
+      switch (actionKey) {
+        case 'visit':
+          this.visitWebsite(website)
+          break
+        case 'refreshFavicon':
+          this.refreshWebsiteFavicon(website)
+          break
+        case 'edit':
+          this.editWebsite(website)
+          break
+        case 'remove':
+          this.deleteWebsite(website)
+          break
+      }
     },
     
     closeAddDialog() {

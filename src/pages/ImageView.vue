@@ -132,79 +132,16 @@
       </div>
     </div>
 
-    <!-- 专辑详情 -->
-    <div v-if="showDetailModal" class="album-detail-overlay" @click="closeAlbumDetail">
-      <div class="album-detail-content" @click.stop>
-        <div class="detail-header">
-          <button class="detail-close" @click="closeAlbumDetail">✕</button>
-        </div>
-        <div class="detail-body" v-if="currentAlbum">
-          <div class="detail-cover">
-            <img 
-              :src="resolveCoverImage(currentAlbum.cover)" 
-              :alt="currentAlbum.name"
-              @error="handleImageError"
-            >
-          </div>
-          <div class="detail-info">
-            <h2 class="detail-title">{{ currentAlbum.name }}</h2>
-            <p class="detail-author" v-if="currentAlbum.author">{{ currentAlbum.author }}</p>
-            <p class="detail-folder" :title="currentAlbum.folderPath">{{ currentAlbum.folderPath }}</p>
-            
-            <div class="detail-description" v-if="currentAlbum.description">
-              <h4 class="description-title">漫画简介</h4>
-              <p class="description-content">{{ currentAlbum.description }}</p>
-            </div>
-            
-            <div class="detail-tags" v-if="currentAlbum.tags && currentAlbum.tags.length > 0">
-              <h4 class="tags-title">漫画标签</h4>
-              <div class="tags-container">
-                <span 
-                  v-for="tag in currentAlbum.tags" 
-                  :key="tag" 
-                  class="detail-tag"
-                >{{ tag }}</span>
-              </div>
-            </div>
-            
-            <div class="detail-stats">
-              <div class="stat-item">
-                <span class="stat-label">总页数</span>
-                <span class="stat-value">{{ pages.length }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">浏览次数</span>
-                <span class="stat-value">{{ currentAlbum.viewCount || 0 }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">添加时间</span>
-                <span class="stat-value">{{ formatDate(currentAlbum.addedDate) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">最后查看</span>
-                <span class="stat-value">{{ formatDate(currentAlbum.lastViewed) }}</span>
-              </div>
-            </div>
-             <div class="detail-actions">
-               <button class="btn-start-reading" @click="openAlbum(currentAlbum)">
-                 <span class="btn-icon">📖</span>
-                 开始阅读
-               </button>
-               <button class="btn-open-folder" @click="openAlbumFolder(currentAlbum)">
-                 <span class="btn-icon">📁</span>
-                 打开文件夹
-               </button>
-               <button class="btn-edit-album" @click="editAlbum(currentAlbum)">
-                 <span class="btn-icon">✏️</span>
-                 编辑信息
-               </button>
-               <button class="btn-remove-album" @click="removeAlbum(currentAlbum)">
-                 <span class="btn-icon">🗑️</span>
-                 删除漫画
-               </button>
-             </div>
-          </div>
-        </div>
+    <!-- 漫画专辑详情 -->
+    <DetailPanel
+      :visible="showDetailModal"
+      :item="currentAlbum"
+      type="album"
+      :stats="albumStats"
+      @close="closeAlbumDetail"
+      @action="handleDetailAction"
+    >
+      <template #extra>
         <div class="pages-section" v-if="pages.length > 0">
           <!-- 分页导航 -->
           <div class="pagination-nav" v-if="totalPages > 1">
@@ -263,8 +200,8 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </template>
+    </DetailPanel>
 
     <!-- 编辑漫画对话框 -->
     <div v-if="showEditDialog" class="modal-overlay" @click="closeEditAlbumDialog">
@@ -473,6 +410,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
+import DetailPanel from '../components/DetailPanel.vue'
 
 export default {
   name: 'ImageView',
@@ -481,7 +419,8 @@ export default {
     EmptyState,
     ContextMenu,
     FormField,
-    MediaCard
+    MediaCard,
+    DetailPanel
   },
   emits: ['filter-data-updated'],
   data() {
@@ -619,6 +558,16 @@ export default {
     },
     canAddAlbum() {
       return this.newAlbum.folderPath && this.newAlbum.folderPath.trim()
+    },
+    albumStats() {
+      if (!this.currentAlbum) return []
+      
+      return [
+        { label: '总页数', value: this.pages.length },
+        { label: '浏览次数', value: this.currentAlbum.viewCount || 0 },
+        { label: '添加时间', value: this.formatDate(this.currentAlbum.addedDate) },
+        { label: '最后查看', value: this.formatDate(this.currentAlbum.lastViewed) }
+      ]
     },
     // 分页显示的图片
     paginatedPages() {
@@ -1305,6 +1254,22 @@ export default {
       this.pages = []
       this.currentPage = 1
       this.totalPages = 0
+    },
+    handleDetailAction(actionKey, album) {
+      switch (actionKey) {
+        case 'open':
+          this.openAlbum(album)
+          break
+        case 'folder':
+          this.openAlbumFolder(album)
+          break
+        case 'edit':
+          this.editAlbum(album)
+          break
+        case 'remove':
+          this.removeAlbum(album)
+          break
+      }
     },
     showAlbumContextMenu(event, album) {
       event.preventDefault()
@@ -3332,243 +3297,6 @@ export default {
   cursor: not-allowed;
 }
 
-/* 详情 */
-.album-detail-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.album-detail-content {
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  width: 1000px;
-  max-width: 95vw;
-  max-height: 95vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px var(--shadow-medium);
-  transition: background-color 0.3s ease;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.detail-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-  transition: color 0.3s ease;
-}
-
-.detail-close:hover {
-  color: var(--text-primary);
-}
-
-.detail-body {
-  display: flex;
-  gap: 30px;
-  padding: 30px;
-}
-
-.detail-cover {
-  flex-shrink: 0;
-  width: 300px;
-  height: 400px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 8px 25px var(--shadow-medium);
-}
-
-.detail-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.detail-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.detail-title {
-  color: var(--text-primary);
-  font-size: 2rem;
-  font-weight: 700;
-  margin: 0 0 15px 0;
-  transition: color 0.3s ease;
-}
-
-.detail-author {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
-  margin: 0 0 8px 0;
-  transition: color 0.3s ease;
-}
-
-
-.detail-folder {
-  color: var(--text-tertiary);
-  font-size: 0.9rem;
-  margin: 0 0 20px 0;
-  word-break: break-all;
-  transition: color 0.3s ease;
-}
-
-.detail-description {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border-left: 4px solid var(--accent-color);
-  transition: background-color 0.3s ease;
-}
-
-.description-title {
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 8px 0;
-  transition: color 0.3s ease;
-}
-
-.description-content {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  margin: 0;
-  white-space: pre-wrap;
-  transition: color 0.3s ease;
-}
-
-.detail-tags {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border-left: 4px solid var(--accent-color);
-  transition: background-color 0.3s ease;
-}
-
-.tags-title {
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 10px 0;
-  transition: color 0.3s ease;
-}
-
-.tags-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.detail-tag {
-  background: var(--accent-color);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.detail-tag:hover {
-  background: var(--accent-hover);
-}
-
-.detail-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  padding: 20px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.stat-label {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.stat-value {
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.detail-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
- .btn-start-reading {
-   background: var(--accent-color);
-   color: white;
-   border: none;
-   padding: 12px 24px;
-   border-radius: 8px;
-   cursor: pointer;
-   font-weight: 600;
-   display: flex;
-   align-items: center;
-   gap: 8px;
-   transition: background 0.3s ease;
-   flex: 1;
-   justify-content: center;
- }
-
- .btn-start-reading:hover {
-   background: var(--accent-hover);
- }
-
- .btn-open-folder, .btn-edit-album, .btn-remove-album {
-   background: var(--bg-tertiary);
-   color: var(--text-primary);
-   border: 1px solid var(--border-color);
-   padding: 12px 20px;
-   border-radius: 8px;
-   cursor: pointer;
-   font-weight: 500;
-   display: flex;
-   align-items: center;
-   gap: 8px;
-   transition: all 0.3s ease;
- }
-
- .btn-open-folder:hover,
- .btn-edit-album:hover {
-   background: var(--bg-secondary);
- }
-
- .btn-remove-album {
-   background: #fee2e2;
-   color: #dc2626;
-   border-color: #fecaca;
- }
 
 .pages-section {
   padding: 0 30px 30px 30px;

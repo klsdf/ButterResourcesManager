@@ -245,88 +245,15 @@
     </div>
 
     <!-- 小说详情页面 -->
-    <div v-if="showDetailModal" class="novel-detail-overlay" @click="closeNovelDetail">
-      <div class="novel-detail-content" @click.stop>
-        <div class="detail-header">
-          <button class="detail-close" @click="closeNovelDetail">✕</button>
-        </div>
-        <div class="detail-body" v-if="currentNovel">
-          <div class="detail-cover">
-            <img 
-              :src="resolveCoverImage(currentNovel.coverImage)" 
-              :alt="currentNovel.name"
-              @error="handleImageError"
-            >
-          </div>
-          <div class="detail-info">
-            <h2 class="detail-title">{{ currentNovel.name }}</h2>
-            <p class="detail-author">{{ currentNovel.author }}</p>
-            <p class="detail-genre" v-if="currentNovel.genre">{{ currentNovel.genre }}</p>
-            <div class="detail-description" v-if="currentNovel.description">
-              <h4 class="description-title">小说简介</h4>
-              <p class="description-content">{{ currentNovel.description }}</p>
-            </div>
-            
-            <div class="detail-tags" v-if="currentNovel.tags && currentNovel.tags.length > 0">
-              <h4 class="tags-title">小说标签</h4>
-              <div class="tags-container">
-                <span 
-                  v-for="tag in currentNovel.tags" 
-                  :key="tag" 
-                  class="detail-tag"
-                >{{ tag }}</span>
-              </div>
-            </div>
-            
-            <div class="detail-stats">
-              <div class="stat-item">
-                <span class="stat-label">阅读进度</span>
-                <span class="stat-value">{{ currentNovel.readProgress || 0 }}%</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">总字数</span>
-                <span class="stat-value">{{ formatNumber(currentNovel.totalWords) }} 字</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">阅读时长</span>
-                <span class="stat-value">{{ formatReadTime(currentNovel.readTime) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">最后阅读</span>
-                <span class="stat-value">{{ formatLastRead(currentNovel.lastRead) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">添加时间</span>
-                <span class="stat-value">{{ formatDate(currentNovel.addedDate) }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">文件大小</span>
-                <span class="stat-value">{{ formatFileSize(currentNovel.fileSize) }}</span>
-              </div>
-            </div>
-            
-            <div class="detail-actions">
-              <button class="btn-read-novel" @click="openNovelReader(currentNovel)">
-                <span class="btn-icon">📖</span>
-                开始阅读
-              </button>
-              <button class="btn-open-folder" @click="openNovelFolder(currentNovel)">
-                <span class="btn-icon">📁</span>
-                打开文件夹
-              </button>
-              <button class="btn-edit-novel" @click="editNovel(currentNovel)">
-                <span class="btn-icon">✏️</span>
-                编辑信息
-              </button>
-              <button class="btn-remove-novel" @click="removeNovel(currentNovel)">
-                <span class="btn-icon">🗑️</span>
-                删除小说
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <DetailPanel
+      :visible="showDetailModal"
+      :item="currentNovel"
+      type="novel"
+      :stats="novelStats"
+      :actions="novelActions"
+      @close="closeNovelDetail"
+      @action="handleDetailAction"
+    />
     
     <!-- 右键菜单 -->
     <ContextMenu
@@ -346,6 +273,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
+import DetailPanel from '../components/DetailPanel.vue'
 
 export default {
   name: 'NovelView',
@@ -354,7 +282,8 @@ export default {
     EmptyState,
     ContextMenu,
     FormField,
-    MediaCard
+    MediaCard,
+    DetailPanel
   },
   emits: ['filter-data-updated'],
   data() {
@@ -545,6 +474,26 @@ export default {
         lineHeight: this.globalSettings.novelLineHeight,
         fontFamily: this.globalSettings.novelFontFamily
       }
+    },
+    novelStats() {
+      if (!this.currentNovel) return []
+      
+      return [
+        { label: '阅读进度', value: `${this.currentNovel.readProgress || 0}%` },
+        { label: '总字数', value: `${this.formatNumber(this.currentNovel.totalWords)} 字` },
+        { label: '阅读时长', value: this.formatReadTime(this.currentNovel.readTime) },
+        { label: '最后阅读', value: this.formatLastRead(this.currentNovel.lastRead) },
+        { label: '添加时间', value: this.formatDate(this.currentNovel.addedDate) },
+        { label: '文件大小', value: this.formatFileSize(this.currentNovel.fileSize) }
+      ]
+    },
+    novelActions() {
+      return [
+        { key: 'read', icon: '📖', label: '开始阅读', class: 'btn-read-novel' },
+        { key: 'folder', icon: '📁', label: '打开文件夹', class: 'btn-open-folder' },
+        { key: 'edit', icon: '✏️', label: '编辑信息', class: 'btn-edit-novel' },
+        { key: 'remove', icon: '🗑️', label: '删除小说', class: 'btn-remove-novel' }
+      ]
     }
   },
   methods: {
@@ -711,6 +660,22 @@ export default {
     closeNovelDetail() {
       this.showDetailModal = false
       this.currentNovel = null
+    },
+    handleDetailAction(actionKey, novel) {
+      switch (actionKey) {
+        case 'read':
+          this.openNovelReader(novel)
+          break
+        case 'folder':
+          this.openNovelFolder(novel)
+          break
+        case 'edit':
+          this.editNovel(novel)
+          break
+        case 'remove':
+          this.removeNovel(novel)
+          break
+      }
     },
     showNovelContextMenu(event, novel) {
       event.preventDefault()

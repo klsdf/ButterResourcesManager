@@ -114,83 +114,15 @@
     </div>
 
     <!-- 音频详情对话框 -->
-    <div v-if="selectedAudio" class="modal-overlay" @click="closeAudioDetail">
-      <div class="modal-content audio-detail-modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ selectedAudio.name }}</h3>
-          <button class="btn-close" @click="closeAudioDetail">×</button>
-        </div>
-        
-        <div class="modal-body">
-          <div class="audio-detail-content">
-            <div class="audio-detail-thumbnail">
-              <img v-if="selectedAudio.thumbnailPath" :src="getThumbnailUrl(selectedAudio.thumbnailPath)" :alt="selectedAudio.name" class="audio-detail-img">
-              <div v-else class="audio-detail-icon">🎵</div>
-            </div>
-            
-            <div class="audio-detail-info">
-              <div class="detail-section">
-                <h4>基本信息</h4>
-                <div class="detail-grid">
-                  <div class="detail-item">
-                    <span class="detail-label">艺术家:</span>
-                    <span class="detail-value">{{ selectedAudio.artist || '未知' }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">时长:</span>
-                    <span class="detail-value">{{ formatDuration(selectedAudio.duration) }}</span>
-                  </div>
-                  <div class="detail-item">
-                    <span class="detail-label">播放次数:</span>
-                    <span class="detail-value">{{ selectedAudio.playCount || 0 }} 次</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedAudio.actors && selectedAudio.actors.length > 0">
-                <h4>演员</h4>
-                <div class="tags-list">
-                  <span v-for="actor in selectedAudio.actors" :key="actor" class="tag actor-tag">{{ actor }}</span>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedAudio.tags && selectedAudio.tags.length > 0">
-                <h4>标签</h4>
-                <div class="tags-list">
-                  <span v-for="tag in selectedAudio.tags" :key="tag" class="tag">{{ tag }}</span>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedAudio.notes">
-                <h4>备注</h4>
-                <p class="notes-text">{{ selectedAudio.notes }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="modal-footer">
-          <button type="button" @click="playAudio(selectedAudio)" class="btn-play">
-            ▶️ 播放
-          </button>
-          <button type="button" @click="addToPlaylist(selectedAudio)" class="btn-add-to-playlist">
-            ➕ 添加到播放列表
-          </button>
-          <button type="button" @click="updateAudioDuration(selectedAudio)" class="btn-update-duration" v-if="!selectedAudio.duration || selectedAudio.duration === 0">
-            ⏱️ 更新时长
-          </button>
-          <button type="button" @click="openAudioFolder(selectedAudio)" class="btn-open-folder">
-            📁 打开文件夹
-          </button>
-          <button type="button" @click="editAudio(selectedAudio)" class="btn-edit">
-            编辑
-          </button>
-          <button type="button" @click="deleteAudio(selectedAudio)" class="btn-delete">
-            删除
-          </button>
-        </div>
-      </div>
-    </div>
+    <DetailPanel
+      :visible="!!selectedAudio"
+      :item="selectedAudio"
+      type="audio"
+      :stats="audioStats"
+      :actions="audioActions"
+      @close="closeAudioDetail"
+      @action="handleDetailAction"
+    />
 
     <!-- 编辑音频对话框 -->
     <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
@@ -287,6 +219,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
+import DetailPanel from '../components/DetailPanel.vue'
 
 export default {
   name: 'AudioView',
@@ -295,7 +228,8 @@ export default {
     EmptyState,
     ContextMenu,
     FormField,
-    MediaCard
+    MediaCard,
+    DetailPanel
   },
   emits: ['filter-data-updated'],
   data() {
@@ -411,6 +345,32 @@ export default {
           return filtered
       }
     },
+    audioStats() {
+      if (!this.selectedAudio) return []
+      
+      return [
+        { label: '艺术家', value: this.selectedAudio.artist || '未知' },
+        { label: '时长', value: this.formatDuration(this.selectedAudio.duration) },
+        { label: '播放次数', value: `${this.selectedAudio.playCount || 0} 次` },
+        { label: '添加时间', value: this.formatDate(this.selectedAudio.addedDate) }
+      ]
+    },
+    audioActions() {
+      const actions = [
+        { key: 'play', icon: '▶️', label: '播放', class: 'btn-play-game' },
+        { key: 'addToPlaylist', icon: '➕', label: '添加到播放列表', class: 'btn-add-to-playlist' },
+        { key: 'folder', icon: '📁', label: '打开文件夹', class: 'btn-open-folder' },
+        { key: 'edit', icon: '✏️', label: '编辑信息', class: 'btn-edit-game' },
+        { key: 'remove', icon: '🗑️', label: '删除音频', class: 'btn-remove-game' }
+      ]
+      
+      // 如果没有时长，添加更新时长按钮
+      if (!this.selectedAudio?.duration || this.selectedAudio.duration === 0) {
+        actions.splice(2, 0, { key: 'updateDuration', icon: '⏱️', label: '更新时长', class: 'btn-update-duration' })
+      }
+      
+      return actions
+    }
   },
   methods: {
     async loadAudios() {
@@ -708,6 +668,28 @@ export default {
     closeAudioDetail() {
       this.selectedAudio = null
     },
+    handleDetailAction(actionKey, audio) {
+      switch (actionKey) {
+        case 'play':
+          this.playAudio(audio)
+          break
+        case 'addToPlaylist':
+          this.addToPlaylist(audio)
+          break
+        case 'updateDuration':
+          this.updateAudioDuration(audio)
+          break
+        case 'folder':
+          this.openAudioFolder(audio)
+          break
+        case 'edit':
+          this.editAudio(audio)
+          break
+        case 'remove':
+          this.deleteAudio(audio)
+          break
+      }
+    },
     
     closeAddDialog() {
       this.showAddDialog = false
@@ -913,6 +895,14 @@ export default {
         return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
       }
       return `${mins}:${secs.toString().padStart(2, '0')}`
+    },
+    formatDate(dateString) {
+      if (!dateString) return '未知'
+      try {
+        return new Date(dateString).toLocaleDateString('zh-CN')
+      } catch {
+        return '未知'
+      }
     },
 
     // 更新音频时长

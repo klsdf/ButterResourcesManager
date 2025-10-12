@@ -161,73 +161,15 @@
     </div>
 
     <!-- 视频详情对话框 -->
-    <div v-if="showDetailDialog && selectedVideo" class="modal-overlay" @click="closeVideoDetail">
-      <div class="modal-content video-detail-modal" @click.stop>
-        <div class="modal-header">
-          <h3>{{ selectedVideo.name }}</h3>
-          <button class="modal-close" @click="closeVideoDetail">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="video-detail-content">
-            <div class="video-detail-thumbnail">
-              <img :src="getThumbnailUrl(selectedVideo.thumbnail)" :alt="selectedVideo.name">
-            </div>
-            <div class="video-detail-info">
-              <div class="detail-section">
-                <h4>基本信息</h4>
-                <p><strong>名称:</strong> {{ selectedVideo.name }}</p>
-                <p v-if="selectedVideo.series"><strong>系列:</strong> {{ selectedVideo.series }}</p>
-                <p v-if="selectedVideo.duration"><strong>时长:</strong> {{ formatDuration(selectedVideo.duration) }}</p>
-              </div>
-              
-              <div class="detail-section" v-if="selectedVideo.actors && selectedVideo.actors.length > 0">
-                <h4>演员</h4>
-                <p>{{ selectedVideo.actors.join(', ') }}</p>
-              </div>
-              
-              <div class="detail-section" v-if="selectedVideo.tags && selectedVideo.tags.length > 0">
-                <h4>标签</h4>
-                <div class="tags-list">
-                  <span v-for="tag in selectedVideo.tags" :key="tag" class="tag">{{ tag }}</span>
-                </div>
-              </div>
-              
-              <div class="detail-section" v-if="selectedVideo.description">
-                <h4>描述</h4>
-                <p>{{ selectedVideo.description }}</p>
-              </div>
-              
-              <div class="detail-section">
-                <h4>观看统计</h4>
-                <p><strong>观看次数:</strong> {{ selectedVideo.watchCount }}</p>
-                <p><strong>观看进度:</strong> {{ selectedVideo.watchProgress }}%</p>
-                <p v-if="selectedVideo.duration"><strong>视频时长:</strong> {{ formatDuration(selectedVideo.duration) }}</p>
-                <p v-if="selectedVideo.addedDate"><strong>添加时间:</strong> {{ formatAddedDate(selectedVideo.addedDate) }}</p>
-                <p v-if="selectedVideo.firstWatched"><strong>首次观看:</strong> {{ formatFirstWatched(selectedVideo.firstWatched) }}</p>
-                <p v-if="selectedVideo.lastWatched"><strong>最后观看:</strong> {{ formatLastWatched(selectedVideo.lastWatched) }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" @click="playVideo(selectedVideo)" class="btn-play">
-            ▶️ 播放
-          </button>
-          <button type="button" @click="updateVideoDuration(selectedVideo)" class="btn-update-duration" v-if="!selectedVideo.duration || selectedVideo.duration === 0">
-            ⏱️ 更新时长
-          </button>
-          <button type="button" @click="openVideoFolder(selectedVideo)" class="btn-open-folder">
-            📁 打开文件夹
-          </button>
-          <button type="button" @click="editVideo(selectedVideo)" class="btn-edit">
-            编辑
-          </button>
-          <button type="button" @click="deleteVideo(selectedVideo)" class="btn-delete">
-            删除
-          </button>
-        </div>
-      </div>
-    </div>
+    <DetailPanel
+      :visible="showDetailDialog && !!selectedVideo"
+      :item="selectedVideo"
+      type="video"
+      :stats="videoStats"
+      :actions="videoActions"
+      @close="closeVideoDetail"
+      @action="handleDetailAction"
+    />
   </div>
 
   <!-- 编辑视频对话框 -->
@@ -323,6 +265,7 @@ import EmptyState from '../components/EmptyState.vue'
 import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
+import DetailPanel from '../components/DetailPanel.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -332,7 +275,8 @@ export default {
     EmptyState,
     ContextMenu,
     FormField,
-    MediaCard
+    MediaCard,
+    DetailPanel
   },
   emits: ['filter-data-updated'],
   data() {
@@ -449,6 +393,34 @@ export default {
       })
 
       return filtered
+    },
+    videoStats() {
+      if (!this.selectedVideo) return []
+      
+      return [
+        { label: '系列', value: this.selectedVideo.series || '未知' },
+        { label: '时长', value: this.formatDuration(this.selectedVideo.duration) },
+        { label: '观看次数', value: `${this.selectedVideo.watchCount || 0} 次` },
+        { label: '观看进度', value: `${this.selectedVideo.watchProgress || 0}%` },
+        { label: '添加时间', value: this.formatAddedDate(this.selectedVideo.addedDate) },
+        { label: '首次观看', value: this.formatFirstWatched(this.selectedVideo.firstWatched) },
+        { label: '最后观看', value: this.formatLastWatched(this.selectedVideo.lastWatched) }
+      ]
+    },
+    videoActions() {
+      const actions = [
+        { key: 'play', icon: '▶️', label: '播放', class: 'btn-play-game' },
+        { key: 'folder', icon: '📁', label: '打开文件夹', class: 'btn-open-folder' },
+        { key: 'edit', icon: '✏️', label: '编辑信息', class: 'btn-edit-game' },
+        { key: 'remove', icon: '🗑️', label: '删除视频', class: 'btn-remove-game' }
+      ]
+      
+      // 如果没有时长，添加更新时长按钮
+      if (!this.selectedVideo?.duration || this.selectedVideo.duration === 0) {
+        actions.splice(1, 0, { key: 'updateDuration', icon: '⏱️', label: '更新时长', class: 'btn-update-duration' })
+      }
+      
+      return actions
     }
   },
   async mounted() {
@@ -733,6 +705,25 @@ export default {
     closeVideoDetail() {
       this.showDetailDialog = false
       this.selectedVideo = null
+    },
+    handleDetailAction(actionKey, video) {
+      switch (actionKey) {
+        case 'play':
+          this.playVideo(video)
+          break
+        case 'updateDuration':
+          this.updateVideoDuration(video)
+          break
+        case 'folder':
+          this.openVideoFolder(video)
+          break
+        case 'edit':
+          this.editVideo(video)
+          break
+        case 'remove':
+          this.deleteVideo(video)
+          break
+      }
     },
 
     async playVideo(video) {
