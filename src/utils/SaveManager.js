@@ -60,7 +60,17 @@ class SaveManager {
         screenshotNotification: true,
         autoOpenScreenshotFolder: false,
         smartWindowDetection: true,
-        videoPlayMode: 'external'
+        videoPlayMode: 'external',
+        lastView: 'games', // 记录最后访问的页面
+        // 各页面的排序方式设置
+        sortSettings: {
+          games: 'name',
+          images: 'name', 
+          videos: 'name',
+          novels: 'name',
+          websites: 'name',
+          audio: 'name'
+        }
       }
     }
   }
@@ -1183,6 +1193,52 @@ class SaveManager {
     })
     
     return slots.sort((a, b) => new Date(b.date) - new Date(a.date))
+  }
+
+  /**
+   * 保存页面排序方式
+   * @param {string} pageType - 页面类型 ('games', 'images', 'videos', 'novels', 'websites', 'audio')
+   * @param {string} sortBy - 排序方式
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveSortSetting(pageType, sortBy) {
+    try {
+      const settings = await this.loadSettings()
+      if (settings) {
+        if (!settings.sortSettings) {
+          settings.sortSettings = {}
+        }
+        settings.sortSettings[pageType] = sortBy
+        const success = await this.saveSettings(settings)
+        if (success) {
+          console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
+        }
+        return success
+      }
+      return false
+    } catch (error) {
+      console.error(`保存${pageType}页面排序方式失败:`, error)
+      return false
+    }
+  }
+
+  /**
+   * 获取页面排序方式
+   * @param {string} pageType - 页面类型 ('games', 'images', 'videos', 'novels', 'websites', 'audio')
+   * @returns {Promise<string>} 排序方式
+   */
+  async getSortSetting(pageType) {
+    try {
+      const settings = await this.loadSettings()
+      if (settings && settings.sortSettings && settings.sortSettings[pageType]) {
+        console.log(`✅ 加载${pageType}页面排序方式:`, settings.sortSettings[pageType])
+        return settings.sortSettings[pageType]
+      }
+      return 'name' // 默认按名称排序
+    } catch (error) {
+      console.error(`获取${pageType}页面排序方式失败:`, error)
+      return 'name'
+    }
   }
 }
 

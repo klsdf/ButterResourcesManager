@@ -129,7 +129,7 @@ export default {
   },
   data() {
     return {
-      currentView: 'games',
+      currentView: 'games', // 默认页面，稍后会被设置覆盖
       theme: 'light',
       version: '0.0.0',
       // 筛选器相关数据
@@ -181,6 +181,8 @@ export default {
   methods: {
     switchView(viewId) {
       this.currentView = viewId
+      // 保存当前页面到设置中
+      this.saveCurrentView(viewId)
       // 根据页面类型决定是否显示筛选器
       this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(viewId)
       // 重置筛选器数据
@@ -295,6 +297,36 @@ export default {
     onPlaylistEnded() {
       console.log('🏁 播放列表播放完毕')
       // 可以在这里添加播放列表结束后的逻辑
+    },
+    async saveCurrentView(viewId) {
+      try {
+        const saveManager = (await import('./utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        if (settings) {
+          settings.lastView = viewId
+          await saveManager.saveSettings(settings)
+          console.log('✅ 已保存最后访问页面:', viewId)
+        }
+      } catch (error) {
+        console.warn('保存最后访问页面失败:', error)
+      }
+    },
+    async loadLastView() {
+      try {
+        const saveManager = (await import('./utils/SaveManager.js')).default
+        const settings = await saveManager.loadSettings()
+        if (settings && settings.lastView) {
+          // 验证页面ID是否有效
+          const validViews = ['games', 'images', 'videos', 'novels', 'websites', 'audio', 'messages', 'help', 'settings']
+          if (validViews.includes(settings.lastView)) {
+            console.log('✅ 加载最后访问页面:', settings.lastView)
+            return settings.lastView
+          }
+        }
+      } catch (error) {
+        console.warn('加载最后访问页面失败:', error)
+      }
+      return 'games' // 默认返回游戏页面
     }
   },
   async mounted() {
@@ -305,18 +337,6 @@ export default {
     } catch (error) {
       console.warn('无法读取版本号:', error)
       this.version = '0.0.0'
-    }
-
-    // 初始化筛选器状态
-    this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(this.currentView)
-
-    // 初始化通知服务
-    try {
-      const notificationService = (await import('./utils/NotificationService.js')).default
-      notificationService.init(this.$refs.toastNotification)
-      console.log('✅ 通知服务初始化成功')
-    } catch (error) {
-      console.error('通知服务初始化失败:', error)
     }
 
     // 首先初始化存档系统
@@ -331,6 +351,28 @@ export default {
       }
     } catch (error) {
       console.error('存档系统初始化出错:', error)
+    }
+
+    // 加载最后访问的页面
+    try {
+      const lastView = await this.loadLastView()
+      this.currentView = lastView
+      console.log('🎯 已设置当前页面为:', lastView)
+    } catch (error) {
+      console.warn('加载最后访问页面失败，使用默认页面:', error)
+      this.currentView = 'games'
+    }
+
+    // 初始化筛选器状态
+    this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(this.currentView)
+
+    // 初始化通知服务
+    try {
+      const notificationService = (await import('./utils/NotificationService.js')).default
+      notificationService.init(this.$refs.toastNotification)
+      console.log('✅ 通知服务初始化成功')
+    } catch (error) {
+      console.error('通知服务初始化失败:', error)
     }
 
     // 然后从 SaveManager 加载设置

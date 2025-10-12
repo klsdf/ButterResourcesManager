@@ -16,7 +16,9 @@
         add-button-text="添加视频"
         search-placeholder="搜索视频..."
         :sort-options="videoSortOptions"
+        page-type="videos"
         @add-item="showAddVideoDialog"
+        @sort-changed="handleSortChanged"
       />
       
 
@@ -428,6 +430,9 @@ export default {
   async mounted() {
     this.videoManager = new VideoManager()
     await this.loadVideos()
+    
+    // 加载排序设置
+    await this.loadSortSetting()
     
     // 初始化筛选器数据
     this.updateFilterData()
@@ -2111,6 +2116,27 @@ export default {
           }
         ]
       })
+    },
+    async handleSortChanged({ pageType, sortBy }) {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        await saveManager.saveSortSetting(pageType, sortBy)
+        console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
+      } catch (error) {
+        console.warn('保存排序方式失败:', error)
+      }
+    },
+    async loadSortSetting() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const savedSortBy = await saveManager.getSortSetting('videos')
+        if (savedSortBy && savedSortBy !== this.sortBy) {
+          this.sortBy = savedSortBy
+          console.log('✅ 已加载视频页面排序方式:', savedSortBy)
+        }
+      } catch (error) {
+        console.warn('加载排序方式失败:', error)
+      }
     }
   }
 }

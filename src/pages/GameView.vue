@@ -16,7 +16,9 @@
         add-button-text="添加游戏"
         search-placeholder="搜索游戏..."
         :sort-options="gameSortOptions"
+        page-type="games"
         @add-item="showAddGameDialog"
+        @sort-changed="handleSortChanged"
       />
       
       
@@ -2040,11 +2042,35 @@ export default {
         console.error('更新游戏路径失败:', error)
         this.showToastNotification('更新失败', `更新游戏路径失败: ${error.message}`)
       }
+    },
+    async handleSortChanged({ pageType, sortBy }) {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        await saveManager.saveSortSetting(pageType, sortBy)
+        console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
+      } catch (error) {
+        console.warn('保存排序方式失败:', error)
+      }
+    },
+    async loadSortSetting() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const savedSortBy = await saveManager.getSortSetting('games')
+        if (savedSortBy && savedSortBy !== this.sortBy) {
+          this.sortBy = savedSortBy
+          console.log('✅ 已加载游戏页面排序方式:', savedSortBy)
+        }
+      } catch (error) {
+        console.warn('加载排序方式失败:', error)
+      }
     }
   },
   async mounted() {
     this.checkElectronEnvironment()
     await this.loadGames()
+    
+    // 加载排序设置
+    await this.loadSortSetting()
     
     // 初始化筛选器数据
     this.updateFilterData()

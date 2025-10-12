@@ -16,7 +16,9 @@
         add-button-text="添加漫画"
         search-placeholder="搜索漫画..."
         :sort-options="imageSortOptions"
+        page-type="images"
         @add-item="showAddAlbumDialog"
+        @sort-changed="handleSortChanged"
       />
 
     <!-- 专辑网格 -->

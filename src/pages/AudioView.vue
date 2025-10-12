@@ -16,7 +16,9 @@
         add-button-text="添加音频"
         search-placeholder="搜索音频..."
         :sort-options="audioSortOptions"
+        page-type="audio"
         @add-item="showAddDialog = true"
+        @sort-changed="handleSortChanged"
       />
       
       <!-- 主要内容区域 -->
@@ -1419,10 +1421,34 @@ export default {
         console.error('更新音频路径失败:', error)
         this.showToastNotification('更新失败', `更新音频路径失败: ${error.message}`)
       }
+    },
+    async handleSortChanged({ pageType, sortBy }) {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        await saveManager.saveSortSetting(pageType, sortBy)
+        console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
+      } catch (error) {
+        console.warn('保存排序方式失败:', error)
+      }
+    },
+    async loadSortSetting() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const savedSortBy = await saveManager.getSortSetting('audio')
+        if (savedSortBy && savedSortBy !== this.sortBy) {
+          this.sortBy = savedSortBy
+          console.log('✅ 已加载音频页面排序方式:', savedSortBy)
+        }
+      } catch (error) {
+        console.warn('加载排序方式失败:', error)
+      }
     }
   },
   async mounted() {
     await this.loadAudios()
+    
+    // 加载排序设置
+    await this.loadSortSetting()
     
     // 初始化筛选器数据
     this.updateFilterData()

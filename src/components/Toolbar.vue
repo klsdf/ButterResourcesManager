@@ -18,7 +18,7 @@
     </div>
     
     <div class="toolbar-right">
-      <select :value="sortBy" @change="$emit('update:sortBy', $event.target.value)" class="sort-select">
+      <select :value="sortBy" @change="handleSortChange" class="sort-select">
         <option 
           v-for="option in sortOptions" 
           :key="option.value" 
@@ -60,12 +60,24 @@ export default {
         { value: 'added', label: '按添加时间' }
       ]
     },
+    pageType: {
+      type: String,
+      default: 'games'
+    }
   },
   emits: [
     'add-item',
     'update:searchQuery',
-    'update:sortBy'
-  ]
+    'update:sortBy',
+    'sort-changed'
+  ],
+  methods: {
+    handleSortChange(event) {
+      const newSortBy = event.target.value
+      this.$emit('update:sortBy', newSortBy)
+      this.$emit('sort-changed', { pageType: this.pageType, sortBy: newSortBy })
+    }
+  }
 }
 </script>
 
