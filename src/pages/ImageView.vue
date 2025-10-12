@@ -22,42 +22,14 @@
       />
 
     <!-- 漫画列表分页导航 -->
-    <div class="album-pagination-nav" v-if="totalAlbumPages > 1 && filteredAlbums.length > 0">
-      <div class="pagination-info">
-        <span>第 {{ currentAlbumPage }} 页，共 {{ totalAlbumPages }} 页</span>
-        <span class="page-range">
-          显示第 {{ currentAlbumPageStartIndex + 1 }} - {{ Math.min(currentAlbumPageStartIndex + albumPageSize, filteredAlbums.length) }} 个，共 {{ filteredAlbums.length }} 个漫画
-        </span>
-      </div>
-      <div class="pagination-controls">
-        <button 
-          class="btn-pagination" 
-          @click="previousAlbumPage" 
-          :disabled="currentAlbumPage <= 1"
-        >
-          ◀ 上一页
-        </button>
-        <div class="page-jump-group">
-          <input 
-            type="number" 
-            v-model.number="jumpToAlbumPage" 
-            :min="1" 
-            :max="totalAlbumPages"
-            @keyup.enter="jumpToAlbumPage(jumpToAlbumPage)"
-            class="page-input-group"
-            placeholder="页码"
-          >
-          <button class="btn-jump-group" @click="jumpToAlbumPage(jumpToAlbumPage)">跳转</button>
-        </div>
-        <button 
-          class="btn-pagination" 
-          @click="nextAlbumPage" 
-          :disabled="currentAlbumPage >= totalAlbumPages"
-        >
-          下一页 ▶
-        </button>
-      </div>
-    </div>
+    <PaginationNav
+      :current-page="currentAlbumPage"
+      :total-pages="totalAlbumPages"
+      :page-size="albumPageSize"
+      :total-items="filteredAlbums.length"
+      item-type="漫画"
+      @page-change="handleAlbumPageChange"
+    />
 
     <!-- 专辑网格 -->
     <div class="albums-grid" v-if="paginatedAlbums.length > 0">
@@ -381,6 +353,7 @@ import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import ComicViewer from '../components/ComicViewer.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import PaginationNav from '../components/PaginationNav.vue'
 
 export default {
   name: 'ImageView',
@@ -392,7 +365,8 @@ export default {
     MediaCard,
     DetailPanel,
     ComicViewer,
-    PathUpdateDialog
+    PathUpdateDialog,
+    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -480,7 +454,6 @@ export default {
       currentAlbumPage: 1,
       albumPageSize: 20, // 默认每页显示20个漫画
       totalAlbumPages: 0,
-      jumpToAlbumPage: 1,
       // 标签筛选相关
       allTags: [],
       selectedTags: [],
@@ -2226,23 +2199,9 @@ export default {
       }
     },
     
-    // 漫画列表分页导航方法
-    nextAlbumPage() {
-      if (this.currentAlbumPage < this.totalAlbumPages) {
-        this.currentAlbumPage++
-      }
-    },
-    
-    previousAlbumPage() {
-      if (this.currentAlbumPage > 1) {
-        this.currentAlbumPage--
-      }
-    },
-    
-    jumpToAlbumPage(pageNum) {
-      if (pageNum >= 1 && pageNum <= this.totalAlbumPages) {
-        this.currentAlbumPage = pageNum
-      }
+    // 处理分页组件的事件
+    handleAlbumPageChange(pageNum) {
+      this.currentAlbumPage = pageNum
     },
     
     // 更新漫画列表分页信息
@@ -3133,14 +3092,6 @@ export default {
   border: 1px solid var(--border-color);
 }
 
-/* 漫画列表分页导航样式 */
-.album-pagination-nav {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
 
 .pagination-info {
   display: flex;

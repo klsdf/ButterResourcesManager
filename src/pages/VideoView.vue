@@ -22,42 +22,14 @@
       />
       
       <!-- 视频列表分页导航 -->
-      <div class="video-pagination-nav" v-if="totalVideoPages > 1 && filteredVideos.length > 0">
-        <div class="pagination-info">
-          <span>第 {{ currentVideoPage }} 页，共 {{ totalVideoPages }} 页</span>
-          <span class="page-range">
-            显示第 {{ currentVideoPageStartIndex + 1 }} - {{ Math.min(currentVideoPageStartIndex + videoPageSize, filteredVideos.length) }} 个，共 {{ filteredVideos.length }} 个视频
-          </span>
-        </div>
-        <div class="pagination-controls">
-          <button 
-            class="btn-pagination" 
-            @click="previousVideoPage" 
-            :disabled="currentVideoPage <= 1"
-          >
-            ◀ 上一页
-          </button>
-          <div class="page-jump-group">
-            <input 
-              type="number" 
-              v-model.number="jumpToVideoPage" 
-              :min="1" 
-              :max="totalVideoPages"
-              @keyup.enter="jumpToVideoPage(jumpToVideoPage)"
-              class="page-input-group"
-              placeholder="页码"
-            >
-            <button class="btn-jump-group" @click="jumpToVideoPage(jumpToVideoPage)">跳转</button>
-          </div>
-          <button 
-            class="btn-pagination" 
-            @click="nextVideoPage" 
-            :disabled="currentVideoPage >= totalVideoPages"
-          >
-            下一页 ▶
-          </button>
-        </div>
-      </div>
+      <PaginationNav
+        :current-page="currentVideoPage"
+        :total-pages="totalVideoPages"
+        :page-size="videoPageSize"
+        :total-items="filteredVideos.length"
+        item-type="视频"
+        @page-change="handleVideoPageChange"
+      />
 
       <!-- 视频网格 -->
       <div class="videos-grid" v-if="paginatedVideos.length > 0">
@@ -307,6 +279,7 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import PaginationNav from '../components/PaginationNav.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -318,7 +291,8 @@ export default {
     FormField,
     MediaCard,
     DetailPanel,
-    PathUpdateDialog
+    PathUpdateDialog,
+    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -400,7 +374,6 @@ export default {
       currentVideoPage: 1,
       videoPageSize: 20, // 默认每页显示20个视频
       totalVideoPages: 0,
-      jumpToVideoPage: 1
     }
   },
   computed: {
@@ -2223,23 +2196,9 @@ export default {
       }
     },
     
-    // 视频列表分页导航方法
-    nextVideoPage() {
-      if (this.currentVideoPage < this.totalVideoPages) {
-        this.currentVideoPage++
-      }
-    },
-    
-    previousVideoPage() {
-      if (this.currentVideoPage > 1) {
-        this.currentVideoPage--
-      }
-    },
-    
-    jumpToVideoPage(pageNum) {
-      if (pageNum >= 1 && pageNum <= this.totalVideoPages) {
-        this.currentVideoPage = pageNum
-      }
+    // 处理分页组件的事件
+    handleVideoPageChange(pageNum) {
+      this.currentVideoPage = pageNum
     },
     
     // 更新视频列表分页信息
@@ -3031,90 +2990,6 @@ export default {
   }
 }
 
-/* 视频列表分页导航样式 */
-.video-pagination-nav {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.pagination-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.page-range {
-  color: var(--text-tertiary);
-  font-size: 0.8rem;
-}
-
-.pagination-controls {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-}
-
-.btn-pagination {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.btn-pagination:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.btn-pagination:disabled {
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-}
-
-.page-jump-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.page-input-group {
-  width: 80px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-.btn-jump-group {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s ease;
-}
-
-.btn-jump-group:hover {
-  background: var(--accent-color);
-  color: white;
-  border-color: var(--accent-color);
-}
 
 /* 拖拽样式 */
 .video-content {
