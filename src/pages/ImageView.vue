@@ -2400,6 +2400,27 @@ export default {
         console.error('更新漫画路径失败:', error)
         this.showToastNotification('更新失败', `更新漫画路径失败: ${error.message}`)
       }
+    },
+    async handleSortChanged({ pageType, sortBy }) {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        await saveManager.saveSortSetting(pageType, sortBy)
+        console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
+      } catch (error) {
+        console.warn('保存排序方式失败:', error)
+      }
+    },
+    async loadSortSetting() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const savedSortBy = await saveManager.getSortSetting('images')
+        if (savedSortBy && savedSortBy !== this.sortBy) {
+          this.sortBy = savedSortBy
+          console.log('✅ 已加载图片页面排序方式:', savedSortBy)
+        }
+      } catch (error) {
+        console.warn('加载排序方式失败:', error)
+      }
     }
   },
   async mounted() {
@@ -2407,6 +2428,9 @@ export default {
     
     // 加载图片设置
     await this.loadImageSettings()
+    
+    // 加载排序设置
+    await this.loadSortSetting()
     
     // 初始化筛选器数据
     this.updateFilterData()
