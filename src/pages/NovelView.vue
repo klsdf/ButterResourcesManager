@@ -1,7 +1,14 @@
 <template>
   <div class="novel-view">
     <!-- 主内容区域 -->
-    <div class="novel-content">
+    <div 
+      class="novel-content"
+      @drop="handleDrop"
+      @dragover="handleDragOver"
+      @dragenter="handleDragEnter"
+      @dragleave="handleDragLeave"
+      :class="{ 'drag-over': isDragOver }"
+    >
       <!-- 工具栏 -->
       <Toolbar 
         v-model:searchQuery="searchQuery"
@@ -242,6 +249,22 @@
       :menu-items="novelContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+
+    <!-- 路径更新确认对话框 -->
+    <PathUpdateDialog
+      :visible="showPathUpdateDialog"
+      title="更新小说路径"
+      description="发现同名但路径不同的小说文件："
+      item-name-label="小说名称"
+      :item-name="pathUpdateInfo.existingNovel?.name || ''"
+      :old-path="pathUpdateInfo.existingNovel?.filePath || ''"
+      :new-path="pathUpdateInfo.newPath || ''"
+      missing-label="文件丢失"
+      found-label="文件存在"
+      question="是否要更新小说路径？"
+      @confirm="confirmPathUpdate"
+      @cancel="closePathUpdateDialog"
+    />
     </div>
   </div>
 </template>
@@ -254,6 +277,7 @@ import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
+import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
 export default {
   name: 'NovelView',
@@ -263,7 +287,8 @@ export default {
     ContextMenu,
     FormField,
     MediaCard,
-    DetailPanel
+    DetailPanel,
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -272,6 +297,14 @@ export default {
       searchQuery: '',
       sortBy: 'name',
       showAddDialog: false,
+      isDragOver: false,
+      // 路径更新确认对话框
+      showPathUpdateDialog: false,
+      pathUpdateInfo: {
+        existingNovel: null,
+        newPath: '',
+        newFileName: ''
+      },
       showContextMenu: false,
       contextMenuPos: { x: 0, y: 0 },
       selectedNovel: null,
@@ -1371,6 +1404,214 @@ export default {
         }
       }
     },
+
+    // 拖拽处理方法
+    handleDragOver(event) {
+      event.preventDefault()
+    },
+    
+    handleDragEnter(event) {
+      event.preventDefault()
+      this.isDragOver = true
+    },
+    
+    handleDragLeave(event) {
+      event.preventDefault()
+      this.isDragOver = false
+    },
+    
+    async handleDrop(event) {
+      event.preventDefault()
+      this.isDragOver = false
+      
+      try {
+        const files = Array.from(event.dataTransfer.files)
+        
+        console.log('=== 拖拽调试信息 ===')
+        console.log('拖拽文件数量:', files.length)
+        console.log('拖拽文件详细信息:', files.map(f => ({
+          name: f.name,
+          path: f.path,
+          type: f.type,
+          size: f.size
+        })))
+        console.log('当前小说库状态:')
+        this.novels.forEach((novel, index) => {
+          console.log(`  ${index + 1}. ${novel.name}`)
+          console.log(`     路径: ${novel.filePath}`)
+          console.log(`     文件存在: ${novel.fileExists}`)
+        })
+        
+        if (files.length === 0) {
+          this.showToastNotification('拖拽失败', '请拖拽小说文件到此处')
+          return
+        }
+        
+        // 过滤出支持的小说文件
+        const supportedExtensions = ['.txt', '.epub', '.mobi']
+        const novelFiles = files.filter(file => {
+          const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
+          return supportedExtensions.includes(ext)
+        })
+        
+        if (novelFiles.length === 0) {
+          this.showToastNotification('文件类型不支持', '请拖拽 .txt、.epub 或 .mobi 文件')
+          return
+        }
+        
+        console.log('检测到小说文件数量:', novelFiles.length)
+        
+        let addedCount = 0
+        let failedCount = 0
+        let failedReasons = []
+        
+        for (const novelFile of novelFiles) {
+          try {
+            // 检查是否已经存在相同的文件路径
+            const existingNovelByPath = this.novels.find(novel => novel.filePath === novelFile.path)
+            if (existingNovelByPath) {
+              console.log(`小说文件已存在: ${novelFile.name}`)
+              failedReasons.push(`"${novelFile.name}" 已存在于库中`)
+              failedCount++
+              continue
+            }
+            
+            // 检查是否存在同名但路径不同的丢失文件
+            const existingNovelByName = this.novels.find(novel => {
+              const novelFileName = novel.filePath.split(/[\\/]/).pop().toLowerCase()
+              const newFileName = novelFile.name.toLowerCase()
+              const isSameName = novelFileName === newFileName
+              const isFileMissing = !novel.fileExists
+              
+              console.log(`检查小说: ${novel.name}`)
+              console.log(`  文件名: ${novelFileName} vs ${newFileName}`)
+              console.log(`  是否同名: ${isSameName}`)
+              console.log(`  文件存在: ${novel.fileExists}`)
+              console.log(`  是否丢失: ${isFileMissing}`)
+              console.log(`  匹配条件: ${isSameName && isFileMissing}`)
+              
+              return isSameName && isFileMissing
+            })
+            
+            if (existingNovelByName) {
+              console.log(`发现同名丢失文件: ${novelFile.name}`)
+              console.log(`现有小说路径: ${existingNovelByName.filePath}`)
+              console.log(`新文件路径: ${novelFile.path}`)
+              // 显示路径更新确认对话框
+              this.pathUpdateInfo = {
+                existingNovel: existingNovelByName,
+                newPath: novelFile.path,
+                newFileName: novelFile.name
+              }
+              this.showPathUpdateDialog = true
+              // 暂停处理，等待用户确认
+              return
+            }
+            
+            // 创建新的小说对象
+            const novelData = {
+              name: this.extractNovelNameFromPath(novelFile.name),
+              author: '未知作者',
+              genre: '',
+              description: '',
+              tags: [],
+              filePath: novelFile.path,
+              coverImage: '',
+              readProgress: 0,
+              readTime: 0,
+              addedDate: new Date().toISOString()
+            }
+            
+            console.log('创建小说对象:', novelData)
+            
+            // 添加到小说管理器
+            const novel = await novelManager.addNovel(novelData)
+            this.novels.push(novel)
+            addedCount++
+            
+          } catch (error) {
+            console.error(`添加小说文件失败: ${novelFile.name}`, error)
+            failedReasons.push(`"${novelFile.name}" 添加失败: ${error.message}`)
+            failedCount++
+          }
+        }
+        
+        // 重新加载小说列表
+        await this.loadNovels()
+        
+        // 显示结果通知
+        if (addedCount > 0 && failedCount === 0) {
+          this.showToastNotification('添加成功', `成功添加 ${addedCount} 本小说`)
+        } else if (addedCount > 0 && failedCount > 0) {
+          this.showToastNotification('部分成功', `成功添加 ${addedCount} 本小说，${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+        } else if (addedCount === 0 && failedCount > 0) {
+          this.showToastNotification('添加失败', `${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+        }
+        
+        console.log(`拖拽处理完成: 成功 ${addedCount} 个，失败 ${failedCount} 个`)
+        
+      } catch (error) {
+        console.error('处理拖拽文件失败:', error)
+        this.showToastNotification('处理失败', `处理拖拽文件失败: ${error.message}`)
+      }
+    },
+
+    // 路径更新相关方法
+    closePathUpdateDialog() {
+      this.showPathUpdateDialog = false
+      this.pathUpdateInfo = {
+        existingNovel: null,
+        newPath: '',
+        newFileName: ''
+      }
+    },
+    
+    async confirmPathUpdate() {
+      try {
+        const { existingNovel, newPath } = this.pathUpdateInfo
+        
+        if (!existingNovel || !newPath) {
+          console.error('路径更新信息不完整')
+          this.showToastNotification('更新失败', '路径更新信息不完整')
+          return
+        }
+        
+        console.log(`更新小说 "${existingNovel.name}" 的路径:`)
+        console.log(`旧路径: ${existingNovel.filePath}`)
+        console.log(`新路径: ${newPath}`)
+        
+        // 更新小说路径
+        existingNovel.filePath = newPath
+        existingNovel.fileExists = true
+        
+        // 重新分析文件信息
+        await this.analyzeNovelFile(newPath)
+        
+        // 保存更新后的数据
+        await novelManager.updateNovel(existingNovel.id, {
+          filePath: newPath,
+          fileExists: true,
+          totalWords: this.newNovel.totalWords,
+          fileSize: this.newNovel.fileSize,
+          encoding: this.newNovel.encoding
+        })
+        
+        // 关闭对话框
+        this.closePathUpdateDialog()
+        
+        // 显示成功通知
+        this.showToastNotification(
+          '路径更新成功', 
+          `小说 "${existingNovel.name}" 的路径已更新`
+        )
+        
+        console.log(`小说 "${existingNovel.name}" 路径更新完成`)
+        
+      } catch (error) {
+        console.error('更新小说路径失败:', error)
+        this.showToastNotification('更新失败', `更新小说路径失败: ${error.message}`)
+      }
+    }
   },
   async mounted() {
     await this.loadNovels()
@@ -2233,6 +2474,35 @@ export default {
   background: var(--bg-secondary);
 }
 
+
+/* 拖拽样式 */
+.novel-content {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.novel-content.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed var(--accent-color);
+  border-radius: 12px;
+}
+
+.novel-content.drag-over::before {
+  content: '拖拽小说文件到这里添加小说（支持多选）';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-color);
+  color: white;
+  padding: 20px 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

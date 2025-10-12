@@ -235,40 +235,20 @@
     />
 
     <!-- 路径更新确认对话框 -->
-    <div v-if="showPathUpdateDialog" class="modal-overlay" @click="closePathUpdateDialog">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>更新视频路径</h3>
-          <button class="modal-close" @click="closePathUpdateDialog">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="path-update-info">
-            <p>发现同名但路径不同的视频文件：</p>
-            <div class="path-comparison">
-              <div class="path-item">
-                <label>视频名称：</label>
-                <span class="video-name">{{ pathUpdateInfo.existingVideo?.name }}</span>
-              </div>
-              <div class="path-item">
-                <label>当前路径：</label>
-                <span class="path-old">{{ pathUpdateInfo.existingVideo?.filePath }}</span>
-                <span class="status-badge status-missing">文件丢失</span>
-              </div>
-              <div class="path-item">
-                <label>新路径：</label>
-                <span class="path-new">{{ pathUpdateInfo.newPath }}</span>
-                <span class="status-badge status-found">文件存在</span>
-              </div>
-            </div>
-            <p class="update-question">是否要更新视频路径？</p>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="closePathUpdateDialog">取消</button>
-          <button class="btn-confirm" @click="confirmPathUpdate">更新路径</button>
-        </div>
-      </div>
-    </div>
+    <PathUpdateDialog
+      :visible="showPathUpdateDialog"
+      title="更新视频路径"
+      description="发现同名但路径不同的视频文件："
+      item-name-label="视频名称"
+      :item-name="pathUpdateInfo.existingVideo?.name || ''"
+      :old-path="pathUpdateInfo.existingVideo?.filePath || ''"
+      :new-path="pathUpdateInfo.newPath || ''"
+      missing-label="文件丢失"
+      found-label="文件存在"
+      question="是否要更新视频路径？"
+      @confirm="confirmPathUpdate"
+      @cancel="closePathUpdateDialog"
+    />
 </template>
 
 <script>
@@ -279,6 +259,7 @@ import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
+import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -289,7 +270,8 @@ export default {
     ContextMenu,
     FormField,
     MediaCard,
-    DetailPanel
+    DetailPanel,
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -2907,80 +2889,4 @@ export default {
   pointer-events: none;
 }
 
-/* 路径更新对话框样式 */
-.path-update-info {
-  padding: 20px 0;
-}
-
-.path-comparison {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 20px;
-  margin: 20px 0;
-}
-
-.path-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 15px;
-  gap: 10px;
-}
-
-.path-item:last-child {
-  margin-bottom: 0;
-}
-
-.path-item label {
-  min-width: 80px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.video-name {
-  font-weight: 600;
-  color: var(--accent-color);
-  font-size: 16px;
-}
-
-.path-old,
-.path-new {
-  flex: 1;
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
-  color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  padding: 8px 12px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  word-break: break-all;
-}
-
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.status-missing {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-}
-
-.status-found {
-  background: #dcfce7;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
-
-.update-question {
-  text-align: center;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--text-primary);
-  margin: 20px 0 0 0;
-}
 </style>

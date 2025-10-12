@@ -1,46 +1,55 @@
 <template>
-  <div class="audio-view">
-    <!-- 工具栏 -->
-    <Toolbar 
-      v-model:searchQuery="searchQuery"
-      v-model:sortBy="sortBy"
-      add-button-text="添加音频"
-      search-placeholder="搜索音频..."
-      :sort-options="audioSortOptions"
-      @add-item="showAddDialog = true"
-    />
-    
-
-
-    <!-- 音频列表 -->
-    <div class="audios-grid" v-if="filteredAudios.length > 0">
-      <MediaCard
-        v-for="audio in filteredAudios" 
-        :key="audio.id"
-        :item="audio"
-        type="audio"
-        :isElectronEnvironment="true"
-        :file-exists="audio.fileExists"
-        @click="showAudioDetail"
-        @contextmenu="showContextMenu"
-        @action="playAudio"
+  <div 
+    class="audio-view"
+    @drop="handleDrop"
+    @dragover="handleDragOver"
+    @dragenter="handleDragEnter"
+    @dragleave="handleDragLeave"
+    :class="{ 'drag-over': isDragOver }"
+  >
+    <!-- 音频主内容区域 -->
+    <div class="audio-content">
+      <!-- 工具栏 -->
+      <Toolbar 
+        v-model:searchQuery="searchQuery"
+        v-model:sortBy="sortBy"
+        add-button-text="添加音频"
+        search-placeholder="搜索音频..."
+        :sort-options="audioSortOptions"
+        @add-item="showAddDialog = true"
       />
-    </div>
+      
+      <!-- 主要内容区域 -->
+      <div class="audio-main-content">
+        <!-- 音频列表 -->
+        <div class="audios-grid" v-if="filteredAudios.length > 0">
+          <MediaCard
+            v-for="audio in filteredAudios" 
+            :key="audio.id"
+            :item="audio"
+            type="audio"
+            :isElectronEnvironment="true"
+            :file-exists="audio.fileExists"
+            @click="showAudioDetail"
+            @contextmenu="showContextMenu"
+            @action="playAudio"
+          />
+        </div>
 
-    <!-- 空状态 -->
-    <EmptyState 
-      v-else-if="audios.length === 0"
-      icon="🎵"
-      title="你的音频库是空的"
-      description="点击&quot;添加音频&quot;按钮来添加你的第一个音频"
-      :show-button="true"
-      button-text="添加第一个音频"
-      @action="showAddDialog = true"
-    />
+        <!-- 空状态 -->
+        <EmptyState 
+          v-else-if="audios.length === 0"
+          icon="🎵"
+          title="你的音频库是空的"
+          description="点击&quot;添加音频&quot;按钮来添加你的第一个音频"
+          :show-button="true"
+          button-text="添加第一个音频"
+          @action="showAddDialog = true"
+        />
 
-    <!-- 无搜索结果 -->
-    <EmptyState 
-      v-else
+        <!-- 无搜索结果 -->
+        <EmptyState 
+          v-else
       icon="🔍"
       title="没有找到匹配的音频"
       description="尝试使用不同的搜索词"
@@ -203,6 +212,24 @@
       :menu-items="audioContextMenuItems"
       @item-click="handleContextMenuClick"
     />
+
+    <!-- 路径更新确认对话框 -->
+    <PathUpdateDialog
+      :visible="showPathUpdateDialog"
+      title="更新音频路径"
+      description="发现同名但路径不同的音频文件："
+      item-name-label="音频名称"
+      :item-name="pathUpdateInfo.existingAudio?.name || ''"
+      :old-path="pathUpdateInfo.existingAudio?.filePath || ''"
+      :new-path="pathUpdateInfo.newPath || ''"
+      missing-label="文件丢失"
+      found-label="文件存在"
+      question="是否要更新音频路径？"
+      @confirm="confirmPathUpdate"
+      @cancel="closePathUpdateDialog"
+    />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -214,6 +241,7 @@ import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
+import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
 export default {
   name: 'AudioView',
@@ -223,7 +251,8 @@ export default {
     ContextMenu,
     FormField,
     MediaCard,
-    DetailPanel
+    DetailPanel,
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -239,6 +268,14 @@ export default {
       allTags: [],
       allArtists: [],
       showAddDialog: false,
+      isDragOver: false,
+      // 路径更新确认对话框
+      showPathUpdateDialog: false,
+      pathUpdateInfo: {
+        existingAudio: null,
+        newPath: '',
+        newFileName: ''
+      },
       selectedAudio: null,
       contextMenu: {
         visible: false,
@@ -801,6 +838,9 @@ export default {
       this.editTagInput = ''
       this.showEditDialog = true
       this.contextMenu.visible = false
+      
+      // 关闭详情页面
+      this.closeAudioDetail()
     },
     
     closeEditDialog() {
@@ -1160,6 +1200,225 @@ export default {
         // 降级到原来的通知方式
         this.showNotification(title, message)
       }
+    },
+
+    // 拖拽处理方法
+    handleDragOver(event) {
+      event.preventDefault()
+    },
+    
+    handleDragEnter(event) {
+      event.preventDefault()
+      this.isDragOver = true
+    },
+    
+    handleDragLeave(event) {
+      event.preventDefault()
+      this.isDragOver = false
+    },
+    
+    async handleDrop(event) {
+      event.preventDefault()
+      this.isDragOver = false
+      
+      try {
+        const files = Array.from(event.dataTransfer.files)
+        
+        console.log('=== 拖拽调试信息 ===')
+        console.log('拖拽文件数量:', files.length)
+        console.log('拖拽文件详细信息:', files.map(f => ({
+          name: f.name,
+          path: f.path,
+          type: f.type,
+          size: f.size
+        })))
+        console.log('当前音频库状态:')
+        this.audios.forEach((audio, index) => {
+          console.log(`  ${index + 1}. ${audio.name}`)
+          console.log(`     路径: ${audio.filePath}`)
+          console.log(`     文件存在: ${audio.fileExists}`)
+        })
+        
+        if (files.length === 0) {
+          this.showToastNotification('拖拽失败', '请拖拽音频文件到此处')
+          return
+        }
+        
+        // 过滤出支持的音频文件
+        const supportedExtensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma']
+        const audioFiles = files.filter(file => {
+          const ext = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
+          return supportedExtensions.includes(ext)
+        })
+        
+        if (audioFiles.length === 0) {
+          this.showToastNotification('文件类型不支持', '请拖拽音频文件（.mp3、.wav、.flac等）')
+          return
+        }
+        
+        console.log('检测到音频文件数量:', audioFiles.length)
+        
+        let addedCount = 0
+        let failedCount = 0
+        let failedReasons = []
+        
+        for (const audioFile of audioFiles) {
+          try {
+            // 检查是否已经存在相同的文件路径
+            const existingAudioByPath = this.audios.find(audio => audio.filePath === audioFile.path)
+            if (existingAudioByPath) {
+              console.log(`音频文件已存在: ${audioFile.name}`)
+              failedReasons.push(`"${audioFile.name}" 已存在于库中`)
+              failedCount++
+              continue
+            }
+            
+            // 检查是否存在同名但路径不同的丢失文件
+            const existingAudioByName = this.audios.find(audio => {
+              const audioFileName = audio.filePath.split(/[\\/]/).pop().toLowerCase()
+              const newFileName = audioFile.name.toLowerCase()
+              const isSameName = audioFileName === newFileName
+              const isFileMissing = !audio.fileExists
+              
+              console.log(`检查音频: ${audio.name}`)
+              console.log(`  文件名: ${audioFileName} vs ${newFileName}`)
+              console.log(`  是否同名: ${isSameName}`)
+              console.log(`  文件存在: ${audio.fileExists}`)
+              console.log(`  是否丢失: ${isFileMissing}`)
+              console.log(`  匹配条件: ${isSameName && isFileMissing}`)
+              
+              return isSameName && isFileMissing
+            })
+            
+            if (existingAudioByName) {
+              console.log(`发现同名丢失文件: ${audioFile.name}`)
+              console.log(`现有音频路径: ${existingAudioByName.filePath}`)
+              console.log(`新文件路径: ${audioFile.path}`)
+              // 显示路径更新确认对话框
+              this.pathUpdateInfo = {
+                existingAudio: existingAudioByName,
+                newPath: audioFile.path,
+                newFileName: audioFile.name
+              }
+              this.showPathUpdateDialog = true
+              // 暂停处理，等待用户确认
+              return
+            }
+            
+            // 创建新的音频对象
+            const audioData = {
+              name: this.extractNameFromPath(audioFile.name),
+              artist: '未知艺术家',
+              filePath: audioFile.path,
+              thumbnailPath: '',
+              actors: [],
+              tags: [],
+              notes: '',
+              duration: 0,
+              addedDate: new Date().toISOString()
+            }
+            
+            console.log('创建音频对象:', audioData)
+            
+            // 添加到音频管理器
+            const audio = await audioManager.addAudio(audioData)
+            this.audios.push(audio)
+            addedCount++
+            
+          } catch (error) {
+            console.error(`添加音频文件失败: ${audioFile.name}`, error)
+            failedReasons.push(`"${audioFile.name}" 添加失败: ${error.message}`)
+            failedCount++
+          }
+        }
+        
+        // 重新加载音频列表
+        await this.loadAudios()
+        
+        // 显示结果通知
+        if (addedCount > 0 && failedCount === 0) {
+          this.showToastNotification('添加成功', `成功添加 ${addedCount} 个音频`)
+        } else if (addedCount > 0 && failedCount > 0) {
+          this.showToastNotification('部分成功', `成功添加 ${addedCount} 个音频，${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+        } else if (addedCount === 0 && failedCount > 0) {
+          this.showToastNotification('添加失败', `${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+        }
+        
+        console.log(`拖拽处理完成: 成功 ${addedCount} 个，失败 ${failedCount} 个`)
+        
+      } catch (error) {
+        console.error('处理拖拽文件失败:', error)
+        this.showToastNotification('处理失败', `处理拖拽文件失败: ${error.message}`)
+      }
+    },
+
+    // 路径更新相关方法
+    closePathUpdateDialog() {
+      this.showPathUpdateDialog = false
+      this.pathUpdateInfo = {
+        existingAudio: null,
+        newPath: '',
+        newFileName: ''
+      }
+    },
+    
+    async confirmPathUpdate() {
+      try {
+        const { existingAudio, newPath } = this.pathUpdateInfo
+        
+        if (!existingAudio || !newPath) {
+          console.error('路径更新信息不完整')
+          this.showToastNotification('更新失败', '路径更新信息不完整')
+          return
+        }
+        
+        console.log(`更新音频 "${existingAudio.name}" 的路径:`)
+        console.log(`旧路径: ${existingAudio.filePath}`)
+        console.log(`新路径: ${newPath}`)
+        
+        // 更新音频路径
+        existingAudio.filePath = newPath
+        existingAudio.fileExists = true
+        
+        // 重新获取音频时长（如果之前没有）
+        if (!existingAudio.duration || existingAudio.duration === 0) {
+          try {
+            console.log('🔄 重新获取音频时长...')
+            const duration = await this.getAudioDuration(newPath)
+            if (duration > 0) {
+              existingAudio.duration = duration
+              console.log('✅ 音频时长更新成功:', duration, '秒')
+            }
+          } catch (e) {
+            console.warn('获取音频时长失败:', e)
+          }
+        }
+        
+        // 保存更新后的数据
+        await audioManager.updateAudio(existingAudio.id, {
+          filePath: newPath,
+          fileExists: true,
+          duration: existingAudio.duration
+        })
+        
+        // 重新加载音频列表
+        await this.loadAudios()
+        
+        // 关闭对话框
+        this.closePathUpdateDialog()
+        
+        // 显示成功通知
+        this.showToastNotification(
+          '路径更新成功', 
+          `音频 "${existingAudio.name}" 的路径已更新`
+        )
+        
+        console.log(`音频 "${existingAudio.name}" 路径更新完成`)
+        
+      } catch (error) {
+        console.error('更新音频路径失败:', error)
+        this.showToastNotification('更新失败', `更新音频路径失败: ${error.message}`)
+      }
     }
   },
   async mounted() {
@@ -1178,9 +1437,44 @@ export default {
 
 <style scoped>
 .audio-view {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 音频主内容区域 */
+.audio-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* 主要内容区域 */
+.audio-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: calc(100vh - 120px);
   padding: 20px;
-  max-width: 1400px;
-  /* margin: 0 auto; */
+  box-sizing: border-box;
+}
+
+/* 音频网格样式 */
+.audios-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+/* 拖拽状态样式 */
+.audio-view.drag-over {
+  background-color: rgba(102, 192, 244, 0.1);
+  border: 2px dashed var(--accent-color);
 }
 
 /* 工具栏样式 */
@@ -1686,6 +1980,35 @@ export default {
 
 .preview-image:hover {
   transform: scale(1.05);
+}
+
+/* 拖拽样式 */
+.audio-view {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.audio-view.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed var(--accent-color);
+  border-radius: 12px;
+}
+
+.audio-view.drag-over::before {
+  content: '拖拽音频文件到这里添加音频（支持多选）';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-color);
+  color: white;
+  padding: 20px 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
 }
 
 /* 响应式设计 */

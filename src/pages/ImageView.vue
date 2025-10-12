@@ -304,40 +304,20 @@
     />
 
     <!-- 路径更新确认对话框 -->
-    <div v-if="showPathUpdateDialog" class="modal-overlay" @click="closePathUpdateDialog">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>更新漫画路径</h3>
-          <button class="modal-close" @click="closePathUpdateDialog">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="path-update-info">
-            <p>发现同名但路径不同的漫画文件夹：</p>
-            <div class="path-comparison">
-              <div class="path-item">
-                <label>漫画名称：</label>
-                <span class="album-name">{{ pathUpdateInfo.existingAlbum?.name }}</span>
-              </div>
-              <div class="path-item">
-                <label>当前路径：</label>
-                <span class="path-old">{{ pathUpdateInfo.existingAlbum?.folderPath }}</span>
-                <span class="status-badge status-missing">文件夹丢失</span>
-              </div>
-              <div class="path-item">
-                <label>新路径：</label>
-                <span class="path-new">{{ pathUpdateInfo.newPath }}</span>
-                <span class="status-badge status-found">文件夹存在</span>
-              </div>
-            </div>
-            <p class="update-question">是否要更新漫画路径？</p>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="closePathUpdateDialog">取消</button>
-          <button class="btn-confirm" @click="confirmPathUpdate">更新路径</button>
-        </div>
-      </div>
-    </div>
+    <PathUpdateDialog
+      :visible="showPathUpdateDialog"
+      title="更新漫画路径"
+      description="发现同名但路径不同的漫画文件夹："
+      item-name-label="漫画名称"
+      :item-name="pathUpdateInfo.existingAlbum?.name || ''"
+      :old-path="pathUpdateInfo.existingAlbum?.folderPath || ''"
+      :new-path="pathUpdateInfo.newPath || ''"
+      missing-label="文件夹丢失"
+      found-label="文件夹存在"
+      question="是否要更新漫画路径？"
+      @confirm="confirmPathUpdate"
+      @cancel="closePathUpdateDialog"
+    />
     </div>
   </div>
   
@@ -352,6 +332,7 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import ComicViewer from '../components/ComicViewer.vue'
+import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
 export default {
   name: 'ImageView',
@@ -362,7 +343,8 @@ export default {
     FormField,
     MediaCard,
     DetailPanel,
-    ComicViewer
+    ComicViewer,
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -3161,92 +3143,6 @@ export default {
   pointer-events: none;
 }
 
-/* 路径更新对话框样式 */
-.path-update-info {
-  padding: 10px 0;
-}
-
-.path-update-info p {
-  color: var(--text-primary);
-  margin-bottom: 15px;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.path-comparison {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 15px;
-  transition: background-color 0.3s ease;
-}
-
-.path-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-  gap: 10px;
-}
-
-.path-item:last-child {
-  margin-bottom: 0;
-}
-
-.path-item label {
-  color: var(--text-secondary);
-  font-weight: 600;
-  min-width: 80px;
-  transition: color 0.3s ease;
-}
-
-.album-name {
-  color: var(--accent-color);
-  font-weight: 600;
-  font-size: 1.1rem;
-}
-
-.path-old, .path-new {
-  color: var(--text-primary);
-  font-family: 'Courier New', monospace;
-  font-size: 0.9rem;
-  background: var(--bg-secondary);
-  padding: 4px 8px;
-  border-radius: 4px;
-  flex: 1;
-  word-break: break-all;
-  transition: all 0.3s ease;
-}
-
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-missing {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-}
-
-.status-found {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
-
-.update-question {
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 600;
-  text-align: center;
-  margin: 20px 0 10px 0;
-  transition: color 0.3s ease;
-}
 
 /* 响应式 */
 @media (max-width: 768px) {
