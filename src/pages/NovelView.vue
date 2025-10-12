@@ -1407,6 +1407,8 @@ export default {
   display: flex;
   gap: 20px;
   height: calc(100vh - 120px);
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 /* 小说列表区域 */

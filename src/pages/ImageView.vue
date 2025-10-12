@@ -2250,9 +2250,10 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0;
+  padding: 20px;
   height: 100%;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 

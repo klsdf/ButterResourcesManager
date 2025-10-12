@@ -1953,11 +1953,12 @@ export default {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0;
+  padding: 20px;
   height: 100%;
   overflow-y: auto;
   position: relative;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 /* 更新文件夹大小按钮区域 */

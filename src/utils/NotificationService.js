@@ -168,6 +168,32 @@ class NotificationService {
     return this.show(success ? 'success' : 'error', title, message)
   }
 
+  // 自动保存设置通知
+  autoSaveSettings(success, error = null) {
+    if (!this.checkInitialized()) return null
+    
+    if (success) {
+      return this.show('success', '设置已自动保存', '配置已成功更新', {
+        duration: 2000,
+        silent: true // 静默通知，不显示在消息中心
+      })
+    } else {
+      return this.show('error', '设置保存失败', `自动保存失败${error ? ': ' + error : ''}，请手动保存`, {
+        duration: 4000
+      })
+    }
+  }
+
+  // 手动保存设置通知
+  manualSaveSettings(success, error = null) {
+    if (!this.checkInitialized()) return null
+    
+    const title = success ? '设置保存成功' : '设置保存失败'
+    const message = success ? '所有设置已成功保存' : `设置保存失败${error ? ': ' + error : ''}，请重试`
+
+    return this.show(success ? 'success' : 'error', title, message)
+  }
+
   // 测试通知（用于演示信息中心功能）
   testNotifications() {
     if (!this.checkInitialized()) return null
@@ -204,5 +230,7 @@ export const notify = {
   file: (operation, fileName, success, error) => notificationService.fileOperation(operation, fileName, success, error),
   network: (url, success, error) => notificationService.networkRequest(url, success, error),
   drag: (operation, count, success, error) => notificationService.dragDrop(operation, count, success, error),
-  settings: (operation, success, error) => notificationService.settings(operation, success, error)
+  settings: (operation, success, error) => notificationService.settings(operation, success, error),
+  autoSaveSettings: (success, error) => notificationService.autoSaveSettings(success, error),
+  manualSaveSettings: (success, error) => notificationService.manualSaveSettings(success, error)
 }

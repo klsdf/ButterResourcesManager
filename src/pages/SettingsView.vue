@@ -133,6 +133,19 @@
                   </button>
                 </div>
               </div>
+              
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">重置所有设置</span>
+                  <span class="setting-desc">将所有设置恢复为默认值，此操作不可撤销</span>
+                </label>
+                <div class="setting-control">
+                  <button class="btn-reset-settings" @click="resetSettings">
+                    <span class="btn-icon">🔄</span>
+                    重置设置
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -627,21 +640,6 @@
           </div>
         </div>
         
-        <!-- 操作按钮 -->
-        <div class="settings-actions">
-          <button class="btn-primary" @click="saveSettings">
-            <span class="btn-icon">💾</span>
-            保存设置
-          </button>
-          <button class="btn-secondary" @click="resetSettings">
-            <span class="btn-icon">🔄</span>
-            重置设置
-          </button>
-          <button class="btn-danger" @click="exportSettings">
-            <span class="btn-icon">📤</span>
-            导出设置
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -695,7 +693,48 @@ export default {
         novelTextColor: '#333333',
         novelWordsPerPage: 1000,
         novelShowProgress: true
-      }
+      },
+      // 自动保存相关
+      autoSaveTimer: null,
+      isAutoSaving: false,
+      lastSaveTime: null
+    }
+  },
+  watch: {
+    // 监听所有设置变化，实现自动保存
+    settings: {
+      handler(newSettings, oldSettings) {
+        // 避免初始化时触发自动保存
+        if (oldSettings && this.lastSaveTime) {
+          this.scheduleAutoSave()
+        }
+      },
+      deep: true
+    },
+    
+    // 监听特定设置项的变化，立即应用某些设置
+    'settings.theme'(newTheme) {
+      this.applyTheme(newTheme)
+    },
+    
+    'settings.autoStart'(newValue) {
+      this.onAutoStartChange()
+    },
+    
+    'settings.minimizeToTray'(newValue) {
+      this.onMinimizeToTrayChange()
+    },
+    
+    'settings.screenshotKey'(newKey) {
+      this.onScreenshotKeyChange()
+    },
+    
+    'settings.screenshotLocation'(newLocation) {
+      this.onScreenshotLocationChange()
+    },
+    
+    'settings.saveDataLocation'(newLocation) {
+      this.onSaveDataLocationChange()
     }
   },
   methods: {
@@ -711,6 +750,99 @@ export default {
     getCurrentCategoryDescription() {
       const category = this.settingsCategories.find(cat => cat.id === this.currentCategory)
       return category ? category.description : ''
+    },
+    
+    // 自动保存相关方法
+    scheduleAutoSave() {
+      // 清除之前的定时器
+      if (this.autoSaveTimer) {
+        clearTimeout(this.autoSaveTimer)
+      }
+      
+      // 设置新的定时器，1秒后自动保存
+      this.autoSaveTimer = setTimeout(() => {
+        this.autoSave()
+      }, 1000)
+    },
+    
+    async autoSave() {
+      if (this.isAutoSaving) {
+        return // 如果正在保存，跳过
+      }
+      
+      try {
+        this.isAutoSaving = true
+        
+        // 构建设置对象（复用原有的saveSettings逻辑）
+        const cleanSettings = { ...this.settings }
+        
+        // 构建novel对象
+        cleanSettings.novel = {
+          defaultOpenMode: this.settings.novelDefaultOpenMode || 'internal',
+          readerSettings: {
+            fontSize: this.settings.novelFontSize || 16,
+            lineHeight: this.settings.novelLineHeight || 1.6,
+            fontFamily: this.settings.novelFontFamily || 'Microsoft YaHei, sans-serif',
+            backgroundColor: this.settings.novelBackgroundColor || '#ffffff',
+            textColor: this.settings.novelTextColor || '#333333',
+            wordsPerPage: this.settings.novelWordsPerPage || 1000,
+            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true
+          }
+        }
+        
+        // 构建image对象
+        cleanSettings.image = {
+          jpegQuality: this.settings.image?.jpegQuality || 80,
+          thumbnailSize: this.settings.image?.thumbnailSize || 200,
+          cacheSize: this.settings.image?.cacheSize || 50,
+          enableThumbnails: this.settings.image?.enableThumbnails !== undefined ? this.settings.image.enableThumbnails : true,
+          preloadCount: this.settings.image?.preloadCount || 3,
+          hardwareAcceleration: this.settings.image?.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
+          renderQuality: this.settings.image?.renderQuality || 'high',
+          detailPageSize: parseInt(this.settings.image?.detailPageSize) || 50
+        }
+        
+        // 清理单独的字段
+        delete cleanSettings.novelDefaultOpenMode
+        delete cleanSettings.novelFontSize
+        delete cleanSettings.novelLineHeight
+        delete cleanSettings.novelFontFamily
+        delete cleanSettings.novelBackgroundColor
+        delete cleanSettings.novelTextColor
+        delete cleanSettings.novelWordsPerPage
+        delete cleanSettings.novelShowProgress
+        
+        // 保存设置
+        const success = await saveManager.saveSettings(cleanSettings)
+        
+        if (success) {
+          this.lastSaveTime = new Date()
+          this.$emit('settings-saved', cleanSettings)
+          console.log('设置自动保存成功')
+          
+          // 使用NotificationService显示成功通知
+          const { notify } = await import('../utils/NotificationService.js')
+          notify.autoSaveSettings(true)
+        } else {
+          console.error('设置自动保存失败')
+          
+          // 使用NotificationService显示错误通知
+          const { notify } = await import('../utils/NotificationService.js')
+          notify.autoSaveSettings(false)
+        }
+      } catch (error) {
+        console.error('自动保存设置失败:', error)
+        
+        // 使用NotificationService显示错误通知
+        try {
+          const { notify } = await import('../utils/NotificationService.js')
+          notify.autoSaveSettings(false, error.message)
+        } catch (importError) {
+          console.error('无法导入NotificationService:', importError)
+        }
+      } finally {
+        this.isAutoSaving = false
+      }
     },
     
     onThemeChange() {
@@ -835,89 +967,71 @@ export default {
       // 通知父组件主题变化
       this.$emit('theme-changed', actualTheme)
     },
-    async saveSettings() {
-      try {
-        // 构建novel对象格式的设置
-        const cleanSettings = { ...this.settings }
-        
-        // 构建novel对象
-        cleanSettings.novel = {
-          defaultOpenMode: this.settings.novelDefaultOpenMode || 'internal',
-          readerSettings: {
-            fontSize: this.settings.novelFontSize || 16,
-            lineHeight: this.settings.novelLineHeight || 1.6,
-            fontFamily: this.settings.novelFontFamily || 'Microsoft YaHei, sans-serif',
-            backgroundColor: this.settings.novelBackgroundColor || '#ffffff',
-            textColor: this.settings.novelTextColor || '#333333',
-            wordsPerPage: this.settings.novelWordsPerPage || 1000,
-            showProgress: this.settings.novelShowProgress !== undefined ? this.settings.novelShowProgress : true
+    async resetSettings() {
+      if (confirm('确定要重置所有设置吗？此操作不可撤销！')) {
+        try {
+          this.settings = {
+            theme: 'auto',
+            autoStart: false,
+            minimizeToTray: true,
+            showWelcome: true,
+            sageMode: false,
+            safetyKey: 'Ctrl+Alt+Q',
+            safetyAppPath: '',
+            // 存档设置
+            saveDataLocation: 'default',
+            saveDataPath: '',
+            // 截图设置
+            screenshotKey: 'Ctrl+F12',
+            screenshotLocation: 'default',
+            screenshotsPath: '',
+            screenshotFormat: 'png',
+            screenshotQuality: 90,
+            screenshotNotification: true,
+            autoOpenScreenshotFolder: false,
+            smartWindowDetection: true,
+            // 视频播放设置
+            videoPlayMode: 'external',
+            // 小说设置
+            novelDefaultOpenMode: 'internal',
+            novelFontSize: 16,
+            novelLineHeight: 1.6,
+            novelFontFamily: 'Microsoft YaHei, sans-serif',
+            novelBackgroundColor: '#ffffff',
+            novelTextColor: '#333333',
+            novelWordsPerPage: 1000,
+            novelShowProgress: true,
+            // 图片设置
+            image: {
+              jpegQuality: 80,
+              thumbnailSize: 200,
+              cacheSize: 50,
+              enableThumbnails: true,
+              preloadCount: 3,
+              hardwareAcceleration: true,
+              renderQuality: 'high',
+              detailPageSize: 50
+            }
+          }
+          
+          // 应用主题
+          this.applyTheme(this.settings.theme)
+          
+          // 使用NotificationService显示重置成功通知
+          const { notify } = await import('../utils/NotificationService.js')
+          notify.success('设置已重置', '所有设置已恢复为默认值')
+          
+          // 自动保存重置后的设置
+          await this.autoSave()
+        } catch (error) {
+          console.error('重置设置失败:', error)
+          try {
+            const { notify } = await import('../utils/NotificationService.js')
+            notify.error('重置设置失败', '重置设置时发生错误: ' + error.message)
+          } catch (importError) {
+            console.error('无法导入NotificationService:', importError)
           }
         }
-        
-        // 构建image对象
-        cleanSettings.image = {
-          jpegQuality: this.settings.image?.jpegQuality || 80,
-          thumbnailSize: this.settings.image?.thumbnailSize || 200,
-          cacheSize: this.settings.image?.cacheSize || 50,
-          enableThumbnails: this.settings.image?.enableThumbnails !== undefined ? this.settings.image.enableThumbnails : true,
-          preloadCount: this.settings.image?.preloadCount || 3,
-          hardwareAcceleration: this.settings.image?.hardwareAcceleration !== undefined ? this.settings.image.hardwareAcceleration : true,
-          renderQuality: this.settings.image?.renderQuality || 'high',
-          detailPageSize: parseInt(this.settings.image?.detailPageSize) || 50
-        }
-        
-        // 清理单独的字段，只保留novel对象
-        delete cleanSettings.novelDefaultOpenMode
-        delete cleanSettings.novelFontSize
-        delete cleanSettings.novelLineHeight
-        delete cleanSettings.novelFontFamily
-        delete cleanSettings.novelBackgroundColor
-        delete cleanSettings.novelTextColor
-        delete cleanSettings.novelWordsPerPage
-        delete cleanSettings.novelShowProgress
-        
-        console.log('保存的设置（novel对象格式）:', cleanSettings)
-        
-        // 使用 SaveManager 保存设置（自动处理向后兼容性）
-        const success = await saveManager.saveSettings(cleanSettings)
-        if (success) {
-          this.$emit('settings-saved', cleanSettings)
-          this.showToastNotification('设置保存成功', '所有设置已成功保存')
-          console.log('设置保存成功:', cleanSettings)
-        } else {
-          this.showToastNotification('设置保存失败', '设置保存失败，请重试')
-        }
-      } catch (error) {
-        console.error('保存设置失败:', error)
-        alert('设置保存失败: ' + error.message)
-      }
-    },
-    resetSettings() {
-      if (confirm('确定要重置所有设置吗？')) {
-        this.settings = {
-          theme: 'auto',
-          autoStart: false,
-          minimizeToTray: true,
-          showWelcome: true,
-          sageMode: false,
-          safetyKey: 'Ctrl+Alt+Q',
-          safetyAppPath: '',
-          // 存档设置
-          saveDataLocation: 'default',
-          saveDataPath: '',
-          // 截图设置
-          screenshotKey: 'Ctrl+F12',
-          screenshotLocation: 'default',
-          screenshotsPath: '',
-          screenshotFormat: 'png',
-          screenshotQuality: 90,
-          screenshotNotification: true,
-          autoOpenScreenshotFolder: false,
-          smartWindowDetection: true,
-          // 视频播放设置
-          videoPlayMode: 'external'
-        }
-        this.showToastNotification('设置已重置', '所有设置已恢复为默认值')
       }
     },
     async selectScreenshotsDirectory() {
@@ -1085,15 +1199,6 @@ export default {
         console.error('显示 Toast 通知失败:', error)
         // 降级到原来的通知方式
         this.showNotification(title, message)
-      }
-    },
-    async exportSettings() {
-      // 使用 SaveManager 导出设置
-      const success = await saveManager.exportData('settings')
-      if (success) {
-        this.showToastNotification('设置导出成功', '设置已成功导出到文件')
-      } else {
-        this.showToastNotification('设置导出失败', '设置导出失败，请重试')
       }
     },
     async openSaveDataFolder() {
@@ -1436,8 +1541,19 @@ export default {
       } catch (error) {
         console.error('获取最小化到托盘状态失败:', error)
       }
+      
+      // 设置初始保存时间，启用自动保存
+      this.lastSaveTime = new Date()
+      console.log('设置页面已加载，自动保存功能已启用')
     } catch (error) {
       console.error('加载设置失败:', error)
+    }
+  },
+  
+  beforeUnmount() {
+    // 清理定时器
+    if (this.autoSaveTimer) {
+      clearTimeout(this.autoSaveTimer)
     }
   }
 }
@@ -1577,27 +1693,6 @@ export default {
   opacity: 0.8;
 }
 
-.settings-actions {
-  display: flex;
-  gap: 12px;
-  padding: 20px 30px;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-  justify-content: flex-end;
-}
-
-.settings-actions button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-}
 
 .btn-icon {
   font-size: 16px;
@@ -1777,6 +1872,26 @@ export default {
   transform: translateY(-1px);
 }
 
+.btn-reset-settings {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-reset-settings:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+}
+
 .btn-test-settings {
   background: #10b981;
   color: white;
@@ -1932,80 +2047,6 @@ input:checked + .toggle-slider:before {
   transform: translateX(26px);
 }
 
-/* 按钮样式 */
-.settings-actions {
-  padding: 30px;
-  background: var(--bg-tertiary);
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  transition: background-color 0.3s ease;
-}
-
-.btn-primary {
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background 0.3s ease;
-}
-
-.btn-primary:hover {
-  background: var(--accent-hover);
-}
-
-.btn-secondary {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 12px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.btn-secondary:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--accent-color);
-}
-
-.btn-danger {
-  background: var(--danger-color);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background 0.3s ease;
-}
-
-.btn-danger:hover {
-  background: #e53e3e;
-}
-
-.btn-info {
-  background: var(--info-color, #3182ce);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background 0.3s ease;
-}
-
-.btn-info:hover {
-  background: var(--info-hover, #2c5aa0);
-}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -2052,16 +2093,6 @@ input:checked + .toggle-slider:before {
     padding: 20px;
   }
   
-  .settings-actions {
-    padding: 15px 20px;
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .settings-actions button {
-    width: 100%;
-    justify-content: center;
-  }
 }
 
 @media (max-width: 480px) {
