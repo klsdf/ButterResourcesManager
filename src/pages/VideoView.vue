@@ -21,11 +21,48 @@
         @sort-changed="handleSortChanged"
       />
       
+      <!-- 视频列表分页导航 -->
+      <div class="video-pagination-nav" v-if="totalVideoPages > 1 && filteredVideos.length > 0">
+        <div class="pagination-info">
+          <span>第 {{ currentVideoPage }} 页，共 {{ totalVideoPages }} 页</span>
+          <span class="page-range">
+            显示第 {{ currentVideoPageStartIndex + 1 }} - {{ Math.min(currentVideoPageStartIndex + videoPageSize, filteredVideos.length) }} 个，共 {{ filteredVideos.length }} 个视频
+          </span>
+        </div>
+        <div class="pagination-controls">
+          <button 
+            class="btn-pagination" 
+            @click="previousVideoPage" 
+            :disabled="currentVideoPage <= 1"
+          >
+            ◀ 上一页
+          </button>
+          <div class="page-jump-group">
+            <input 
+              type="number" 
+              v-model.number="jumpToVideoPage" 
+              :min="1" 
+              :max="totalVideoPages"
+              @keyup.enter="jumpToVideoPage(jumpToVideoPage)"
+              class="page-input-group"
+              placeholder="页码"
+            >
+            <button class="btn-jump-group" @click="jumpToVideoPage(jumpToVideoPage)">跳转</button>
+          </div>
+          <button 
+            class="btn-pagination" 
+            @click="nextVideoPage" 
+            :disabled="currentVideoPage >= totalVideoPages"
+          >
+            下一页 ▶
+          </button>
+        </div>
+      </div>
 
       <!-- 视频网格 -->
-      <div class="videos-grid" v-if="filteredVideos.length > 0">
+      <div class="videos-grid" v-if="paginatedVideos.length > 0">
         <MediaCard
-          v-for="video in filteredVideos" 
+          v-for="video in paginatedVideos" 
           :key="video.id"
           :item="video"
           type="video"
@@ -50,10 +87,18 @@
 
     <!-- 无搜索结果 -->
     <EmptyState 
-      v-else
+      v-else-if="filteredVideos.length === 0"
       icon="🔍"
       title="没有找到匹配的视频"
       description="尝试使用不同的搜索词"
+    />
+    
+    <!-- 当前页无数据（但总数据存在） -->
+    <EmptyState 
+      v-else
+      icon="📄"
+      title="当前页没有视频"
+      description="请尝试切换到其他页面"
     />
 
     <!-- 添加视频对话框 -->
@@ -350,7 +395,12 @@ export default {
       // 系列筛选相关
       allSeries: [],
       selectedSeries: null,
-      excludedSeries: null
+      excludedSeries: null,
+      // 视频列表分页相关
+      currentVideoPage: 1,
+      videoPageSize: 20, // 默认每页显示20个视频
+      totalVideoPages: 0,
+      jumpToVideoPage: 1
     }
   },
   computed: {
@@ -398,6 +448,17 @@ export default {
 
       return filtered
     },
+    // 分页显示的视频列表
+    paginatedVideos() {
+      if (!this.filteredVideos || this.filteredVideos.length === 0) return []
+      const start = (this.currentVideoPage - 1) * this.videoPageSize
+      const end = start + this.videoPageSize
+      return this.filteredVideos.slice(start, end)
+    },
+    // 当前视频页的起始索引
+    currentVideoPageStartIndex() {
+      return (this.currentVideoPage - 1) * this.videoPageSize
+    },
     videoStats() {
       if (!this.selectedVideo) return []
       
@@ -431,6 +492,9 @@ export default {
     this.videoManager = new VideoManager()
     await this.loadVideos()
     
+    // 加载视频分页设置
+    await this.loadVideoPaginationSettings()
+    
     // 加载排序设置
     await this.loadSortSetting()
     
@@ -442,6 +506,23 @@ export default {
       this.showContextMenu = false
     })
   },
+  watch: {
+    // 监听筛选结果变化，更新分页信息
+    filteredVideos: {
+      handler() {
+        this.updateVideoPagination()
+      },
+      immediate: false
+    },
+    // 监听搜索查询变化，重置到第一页
+    searchQuery() {
+      this.currentVideoPage = 1
+    },
+    // 监听排序变化，重置到第一页
+    sortBy() {
+      this.currentVideoPage = 1
+    }
+  },
   methods: {
     async loadVideos() {
       if (this.videoManager) {
@@ -451,6 +532,9 @@ export default {
         
         // 检测文件存在性
         await this.checkFileExistence()
+        
+        // 计算视频列表总页数
+        this.updateVideoPagination()
       }
     },
 
@@ -2137,6 +2221,67 @@ export default {
       } catch (error) {
         console.warn('加载排序方式失败:', error)
       }
+    },
+    
+    // 视频列表分页导航方法
+    nextVideoPage() {
+      if (this.currentVideoPage < this.totalVideoPages) {
+        this.currentVideoPage++
+      }
+    },
+    
+    previousVideoPage() {
+      if (this.currentVideoPage > 1) {
+        this.currentVideoPage--
+      }
+    },
+    
+    jumpToVideoPage(pageNum) {
+      if (pageNum >= 1 && pageNum <= this.totalVideoPages) {
+        this.currentVideoPage = pageNum
+      }
+    },
+    
+    // 更新视频列表分页信息
+    updateVideoPagination() {
+      this.totalVideoPages = Math.ceil(this.filteredVideos.length / this.videoPageSize)
+      // 确保当前页不超过总页数
+      if (this.currentVideoPage > this.totalVideoPages && this.totalVideoPages > 0) {
+        this.currentVideoPage = this.totalVideoPages
+      }
+      // 如果当前页为0且没有数据，重置为1
+      if (this.currentVideoPage === 0 && this.filteredVideos.length > 0) {
+        this.currentVideoPage = 1
+      }
+    },
+    
+    // 从设置中加载视频分页配置
+    async loadVideoPaginationSettings() {
+      try {
+        const settings = await this.loadSettings()
+        
+        if (settings && settings.video) {
+          const newVideoPageSize = parseInt(settings.video.listPageSize) || 20
+          
+          // 更新视频列表分页大小
+          if (this.videoPageSize !== newVideoPageSize) {
+            this.videoPageSize = newVideoPageSize
+            
+            // 重新计算视频列表分页
+            this.updateVideoPagination()
+            
+            console.log('视频列表分页设置已更新:', {
+              listPageSize: this.videoPageSize,
+              totalVideoPages: this.totalVideoPages,
+              currentVideoPage: this.currentVideoPage
+            })
+          }
+        }
+      } catch (error) {
+        console.error('加载视频分页设置失败:', error)
+        // 使用默认值
+        this.videoPageSize = 20
+      }
     }
   }
 }
@@ -2884,6 +3029,91 @@ export default {
     width: 95%;
     margin: 20px;
   }
+}
+
+/* 视频列表分页导航样式 */
+.video-pagination-nav {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.pagination-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.page-range {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-pagination {
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.3s ease;
+}
+
+.btn-pagination:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-pagination:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+.page-jump-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-input-group {
+  width: 80px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.btn-jump-group {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.btn-jump-group:hover {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
 }
 
 /* 拖拽样式 */

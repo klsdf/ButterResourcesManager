@@ -21,10 +21,48 @@
         @sort-changed="handleSortChanged"
       />
 
+    <!-- 漫画列表分页导航 -->
+    <div class="album-pagination-nav" v-if="totalAlbumPages > 1 && filteredAlbums.length > 0">
+      <div class="pagination-info">
+        <span>第 {{ currentAlbumPage }} 页，共 {{ totalAlbumPages }} 页</span>
+        <span class="page-range">
+          显示第 {{ currentAlbumPageStartIndex + 1 }} - {{ Math.min(currentAlbumPageStartIndex + albumPageSize, filteredAlbums.length) }} 个，共 {{ filteredAlbums.length }} 个漫画
+        </span>
+      </div>
+      <div class="pagination-controls">
+        <button 
+          class="btn-pagination" 
+          @click="previousAlbumPage" 
+          :disabled="currentAlbumPage <= 1"
+        >
+          ◀ 上一页
+        </button>
+        <div class="page-jump-group">
+          <input 
+            type="number" 
+            v-model.number="jumpToAlbumPage" 
+            :min="1" 
+            :max="totalAlbumPages"
+            @keyup.enter="jumpToAlbumPage(jumpToAlbumPage)"
+            class="page-input-group"
+            placeholder="页码"
+          >
+          <button class="btn-jump-group" @click="jumpToAlbumPage(jumpToAlbumPage)">跳转</button>
+        </div>
+        <button 
+          class="btn-pagination" 
+          @click="nextAlbumPage" 
+          :disabled="currentAlbumPage >= totalAlbumPages"
+        >
+          下一页 ▶
+        </button>
+      </div>
+    </div>
+
     <!-- 专辑网格 -->
-    <div class="albums-grid" v-if="filteredAlbums.length > 0">
+    <div class="albums-grid" v-if="paginatedAlbums.length > 0">
       <MediaCard
-        v-for="album in filteredAlbums" 
+        v-for="album in paginatedAlbums" 
         :key="album.id"
         :item="album"
         type="image"
@@ -49,10 +87,18 @@
     
     <!-- 无搜索结果 -->
     <EmptyState 
-      v-else
+      v-else-if="filteredAlbums.length === 0"
       icon="🔍"
       title="没有找到匹配的漫画"
       description="尝试使用不同的搜索词"
+    />
+    
+    <!-- 当前页无数据（但总数据存在） -->
+    <EmptyState 
+      v-else
+      icon="📄"
+      title="当前页没有漫画"
+      description="请尝试切换到其他页面"
     />
 
     <!-- 添加专辑对话框 -->
@@ -430,6 +476,11 @@ export default {
       pageSize: 50, // 默认值，将从设置中加载
       totalPages: 0,
       jumpToPageGroup: 1,
+      // 漫画列表分页相关
+      currentAlbumPage: 1,
+      albumPageSize: 20, // 默认每页显示20个漫画
+      totalAlbumPages: 0,
+      jumpToAlbumPage: 1,
       // 标签筛选相关
       allTags: [],
       selectedTags: [],
@@ -500,6 +551,34 @@ export default {
     // 当前页的起始索引
     currentPageStartIndex() {
       return (this.currentPage - 1) * this.pageSize
+    },
+    // 分页显示的漫画列表
+    paginatedAlbums() {
+      if (!this.filteredAlbums || this.filteredAlbums.length === 0) return []
+      const start = (this.currentAlbumPage - 1) * this.albumPageSize
+      const end = start + this.albumPageSize
+      return this.filteredAlbums.slice(start, end)
+    },
+    // 当前漫画页的起始索引
+    currentAlbumPageStartIndex() {
+      return (this.currentAlbumPage - 1) * this.albumPageSize
+    }
+  },
+  watch: {
+    // 监听筛选结果变化，更新分页信息
+    filteredAlbums: {
+      handler() {
+        this.updateAlbumPagination()
+      },
+      immediate: false
+    },
+    // 监听搜索查询变化，重置到第一页
+    searchQuery() {
+      this.currentAlbumPage = 1
+    },
+    // 监听排序变化，重置到第一页
+    sortBy() {
+      this.currentAlbumPage = 1
     }
   },
   methods: {
@@ -509,6 +588,9 @@ export default {
       
       // 检测文件存在性
       await this.checkFileExistence()
+      
+      // 计算漫画列表总页数
+      this.updateAlbumPagination()
     },
     
     async checkFileExistence() {
@@ -2144,6 +2226,38 @@ export default {
       }
     },
     
+    // 漫画列表分页导航方法
+    nextAlbumPage() {
+      if (this.currentAlbumPage < this.totalAlbumPages) {
+        this.currentAlbumPage++
+      }
+    },
+    
+    previousAlbumPage() {
+      if (this.currentAlbumPage > 1) {
+        this.currentAlbumPage--
+      }
+    },
+    
+    jumpToAlbumPage(pageNum) {
+      if (pageNum >= 1 && pageNum <= this.totalAlbumPages) {
+        this.currentAlbumPage = pageNum
+      }
+    },
+    
+    // 更新漫画列表分页信息
+    updateAlbumPagination() {
+      this.totalAlbumPages = Math.ceil(this.filteredAlbums.length / this.albumPageSize)
+      // 确保当前页不超过总页数
+      if (this.currentAlbumPage > this.totalAlbumPages && this.totalAlbumPages > 0) {
+        this.currentAlbumPage = this.totalAlbumPages
+      }
+      // 如果当前页为0且没有数据，重置为1
+      if (this.currentAlbumPage === 0 && this.filteredAlbums.length > 0) {
+        this.currentAlbumPage = 1
+      }
+    },
+    
     
     
     // 提取标签和作者信息
@@ -2312,6 +2426,7 @@ export default {
         if (settings && settings.image) {
           // 从image对象中更新图片相关配置，确保转换为数字
           const newPageSize = parseInt(settings.image.detailPageSize) || 50
+          const newAlbumPageSize = parseInt(settings.image.listPageSize) || 20
           
           // 只有当pageSize发生变化时才更新
           if (this.pageSize !== newPageSize) {
@@ -2332,11 +2447,26 @@ export default {
               currentPage: this.currentPage
             })
           }
+          
+          // 更新漫画列表分页大小
+          if (this.albumPageSize !== newAlbumPageSize) {
+            this.albumPageSize = newAlbumPageSize
+            
+            // 重新计算漫画列表分页
+            this.updateAlbumPagination()
+            
+            console.log('漫画列表分页设置已更新:', {
+              listPageSize: this.albumPageSize,
+              totalAlbumPages: this.totalAlbumPages,
+              currentAlbumPage: this.currentAlbumPage
+            })
+          }
         }
       } catch (error) {
         console.error('加载图片设置失败:', error)
         // 使用默认值
         this.pageSize = 50
+        this.albumPageSize = 20
       }
     },
     
@@ -2996,6 +3126,15 @@ export default {
 
 /* 分页导航样式 */
 .pagination-nav {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+/* 漫画列表分页导航样式 */
+.album-pagination-nav {
   margin-bottom: 20px;
   padding: 15px;
   background: var(--bg-tertiary);
