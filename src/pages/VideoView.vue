@@ -791,7 +791,7 @@ export default {
           if (!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) {
             try {
               console.log('🔄 开始自动生成缩略图...')
-              const thumb = await this.generateThumbnail(filePath)
+              const thumb = await this.generateThumbnail(filePath, this.newVideo.name)
               console.log('🔄 缩略图生成结果:', thumb)
               if (thumb) {
                 this.newVideo.thumbnail = thumb
@@ -835,7 +835,7 @@ export default {
         // 若未设置缩略图且存在视频文件，尝试生成一张
         if ((!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) && this.newVideo.filePath) {
           try {
-            const thumb = await this.generateThumbnail(this.newVideo.filePath)
+            const thumb = await this.generateThumbnail(this.newVideo.filePath, this.newVideo.name)
             if (thumb) this.newVideo.thumbnail = thumb
           } catch (e) {
             console.warn('生成缩略图失败，跳过:', e)
@@ -975,10 +975,16 @@ export default {
          
          console.log('=== 开始生成随机封面 ===')
          console.log('视频文件路径:', this.editVideoForm.filePath)
+         console.log('视频名称:', this.editVideoForm.name)
+         console.log('当前缩略图:', this.editVideoForm.thumbnail)
          console.log('路径类型:', typeof this.editVideoForm.filePath)
          console.log('路径长度:', this.editVideoForm.filePath.length)
          
-         const thumb = await this.generateThumbnail(this.editVideoForm.filePath)
+         const thumb = await this.generateThumbnail(
+           this.editVideoForm.filePath, 
+           this.editVideoForm.name, 
+           this.editVideoForm.thumbnail
+         )
          console.log('🔄 随机封面生成结果:', thumb)
          if (thumb) {
            console.log('✅ 缩略图生成成功，路径:', thumb)
@@ -1506,7 +1512,7 @@ export default {
      },
 
      // 生成视频缩略图：从视频随机时间截取一帧，保存为本地文件并返回文件路径
-     async generateThumbnail(filePath) {
+     async generateThumbnail(filePath, videoName = null, existingThumbnail = null) {
        return new Promise(async (resolve, reject) => {
          try {
            if (!filePath) {
@@ -1625,7 +1631,14 @@ export default {
                // 保存为本地文件
                const saveThumbnailFile = async () => {
                  try {
-                   const filename = `video_${Date.now()}.jpg`
+                   // 生成新的缩略图文件名
+                   const filename = await this.generateThumbnailFilename(videoName, filePath)
+                   
+                   // 删除旧的缩略图文件
+                   if (existingThumbnail && existingThumbnail.trim()) {
+                     await this.deleteOldThumbnail(existingThumbnail)
+                   }
+                   
                    const saveManager = (await import('../utils/SaveManager.js')).default
                    const savedPath = await saveManager.saveThumbnail('videos', filename, dataUrl)
                    
@@ -1710,6 +1723,102 @@ export default {
       } catch (e) {
         console.error('构建文件URL失败:', e)
         return filePath // 降级返回原始路径
+      }
+    },
+
+    // 生成缩略图文件名：视频名+cover+_序号
+    async generateThumbnailFilename(videoName, filePath) {
+      try {
+        // 如果没有提供视频名，从文件路径提取
+        let name = videoName
+        if (!name || !name.trim()) {
+          name = this.extractNameFromPath(filePath)
+        }
+        
+        // 清理文件名，移除特殊字符，只保留字母、数字、中文、下划线和连字符
+        const cleanName = name.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
+        
+        // 获取当前最大的序号
+        const maxNumber = await this.getMaxThumbnailNumber(cleanName)
+        const nextNumber = maxNumber + 1
+        
+        const filename = `${cleanName}cover_${nextNumber}.jpg`
+        console.log('📝 生成缩略图文件名:', filename)
+        return filename
+      } catch (error) {
+        console.error('生成缩略图文件名失败:', error)
+        // 降级方案：使用时间戳
+        return `video_${Date.now()}.jpg`
+      }
+    },
+
+    // 获取指定视频名的最大缩略图序号
+    async getMaxThumbnailNumber(videoName) {
+      try {
+        if (!window.electronAPI || !window.electronAPI.listFiles) {
+          console.warn('Electron API 不可用，使用默认序号')
+          return 0
+        }
+
+        // 获取视频缩略图目录
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const thumbnailDir = saveManager.thumbnailDirectories?.videos || 'SaveData/Video/Covers'
+        
+        // 列出目录中的所有文件
+        const result = await window.electronAPI.listFiles(thumbnailDir)
+        if (!result.success) {
+          console.warn('无法列出缩略图目录:', result.error)
+          return 0
+        }
+
+        const files = result.files || []
+        let maxNumber = 0
+        
+        // 查找匹配的文件名模式：视频名cover_数字.jpg
+        const pattern = new RegExp(`^${videoName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}cover_(\\d+)\\.jpg$`)
+        
+        for (const file of files) {
+          const match = file.match(pattern)
+          if (match) {
+            const number = parseInt(match[1], 10)
+            if (number > maxNumber) {
+              maxNumber = number
+            }
+          }
+        }
+        
+        console.log(`📊 视频 "${videoName}" 的最大缩略图序号: ${maxNumber}`)
+        return maxNumber
+      } catch (error) {
+        console.error('获取最大缩略图序号失败:', error)
+        return 0
+      }
+    },
+
+    // 删除旧的缩略图文件
+    async deleteOldThumbnail(thumbnailPath) {
+      try {
+        if (!thumbnailPath || !thumbnailPath.trim()) {
+          return
+        }
+
+        // 如果是base64数据，不需要删除
+        if (thumbnailPath.startsWith('data:')) {
+          return
+        }
+
+        console.log('🗑️ 准备删除旧缩略图:', thumbnailPath)
+        
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const success = await saveManager.deleteThumbnail(thumbnailPath)
+        
+        if (success) {
+          console.log('✅ 旧缩略图删除成功:', thumbnailPath)
+        } else {
+          console.warn('⚠️ 旧缩略图删除失败:', thumbnailPath)
+        }
+      } catch (error) {
+        console.error('删除旧缩略图失败:', error)
       }
     },
 
@@ -1928,7 +2037,7 @@ export default {
         if (!existingVideo.thumbnail || !existingVideo.thumbnail.trim()) {
           try {
             console.log('🔄 重新生成缩略图...')
-            const thumbnail = await this.generateThumbnail(newPath)
+            const thumbnail = await this.generateThumbnail(newPath, existingVideo.name)
             if (thumbnail) {
               existingVideo.thumbnail = thumbnail
               console.log('✅ 缩略图生成成功')

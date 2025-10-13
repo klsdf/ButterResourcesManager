@@ -2025,6 +2025,33 @@ ipcMain.handle('save-thumbnail', async (event, filePath, dataUrl) => {
   }
 })
 
+// 列出目录中的文件
+ipcMain.handle('list-files', async (event, dirPath) => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    console.log('=== 列出目录文件 ===')
+    console.log('目录路径:', dirPath)
+    
+    // 检查目录是否存在
+    if (!fs.existsSync(dirPath)) {
+      console.warn('目录不存在:', dirPath)
+      return { success: false, error: '目录不存在', files: [] }
+    }
+    
+    // 读取目录内容
+    const files = fs.readdirSync(dirPath)
+    console.log('目录中的文件数量:', files.length)
+    console.log('文件列表:', files)
+    
+    return { success: true, files: files }
+  } catch (error) {
+    console.error('列出目录文件失败:', error)
+    return { success: false, error: error.message, files: [] }
+  }
+})
+
 // 选择音频文件
 ipcMain.handle('select-audio-file', async () => {
   try {
