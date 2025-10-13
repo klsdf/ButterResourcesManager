@@ -90,6 +90,28 @@ class SaveManager {
     try {
       console.log('=== 初始化存档系统 ===')
       
+      // 首先从根目录读取设置，确定真正的存档位置
+      try {
+        const rootSettingsPath = `${this.dataDirectory}/Settings/settings.json`
+        const rootSettings = await this.readJsonFile(rootSettingsPath)
+        
+        if (rootSettings && rootSettings.settings) {
+          const settings = rootSettings.settings
+          if (settings.saveDataLocation === 'custom' && settings.saveDataPath) {
+            // 切换到自定义存档目录
+            const customPath = settings.saveDataPath + '/SaveData'
+            console.log('检测到自定义存档目录设置，切换到:', customPath)
+            this.setDataDirectory(customPath)
+          } else {
+            console.log('使用默认存档目录')
+          }
+        } else {
+          console.log('未找到设置文件，使用默认存档目录')
+        }
+      } catch (error) {
+        console.warn('读取根目录设置失败，使用默认目录:', error)
+      }
+      
       // 检查主存档目录是否存在
       const mainDirExists = await this.ensureDataDirectory()
       if (!mainDirExists) {
@@ -812,6 +834,20 @@ class SaveManager {
       const success = await this.writeJsonFile(this.filePaths.settings, data)
       if (success) {
         console.log('设置数据保存成功')
+        
+        // 同时更新根目录的设置文件（保持同步）
+        try {
+          const rootSettingsPath = 'SaveData/Settings/settings.json'
+          const rootSuccess = await this.writeJsonFile(rootSettingsPath, data)
+          if (rootSuccess) {
+            console.log('根目录设置文件已同步')
+          } else {
+            console.warn('同步根目录设置文件失败')
+          }
+        } catch (rootError) {
+          console.warn('同步根目录设置文件出错:', rootError)
+          // 不影响主流程，继续执行
+        }
         
         // 自动同步到 localStorage 以保持向后兼容性
         try {

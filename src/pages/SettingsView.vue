@@ -76,18 +76,6 @@
                 </div>
               </div>
               
-              <div class="setting-item">
-                <label class="setting-label">
-                  <span class="setting-title">启动时显示欢迎页面</span>
-                  <span class="setting-desc">应用启动时显示欢迎界面</span>
-                </label>
-                <div class="setting-control">
-                  <label class="toggle-switch">
-                    <input type="checkbox" v-model="settings.showWelcome">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
               
               <div class="setting-item">
                 <label class="setting-label">
@@ -756,7 +744,6 @@ export default {
         theme: 'auto',
         autoStart: false,
         minimizeToTray: true,
-        showWelcome: true,
         sageMode: false,
         safetyKey: 'Ctrl+Alt+Q',
         safetyAppPath: '',
@@ -1097,9 +1084,8 @@ export default {
     },
     
     onSaveDataLocationChange() {
-      // 当选择默认目录时，清空自定义路径
+      // 当选择默认目录时，不清空自定义路径，保留用户之前的设置
       if (this.settings.saveDataLocation === 'default') {
-        this.settings.saveDataPath = ''
         console.log('已切换到默认存档目录')
         this.showNotification('存档位置已更新', '已切换到默认存档目录 (根目录/SaveData)')
       }
@@ -1127,7 +1113,6 @@ export default {
             theme: 'auto',
             autoStart: false,
             minimizeToTray: true,
-            showWelcome: true,
             sageMode: false,
             safetyKey: 'Ctrl+Alt+Q',
             safetyAppPath: '',
@@ -1222,8 +1207,13 @@ export default {
     async selectSaveDataDirectory() {
       try {
         if (window.electronAPI && window.electronAPI.setSaveDataDirectory) {
+          // 临时禁用自动保存，避免在复制过程中触发自动保存
+          const originalAutoSaveState = this.isAutoSaving
+          this.isAutoSaving = true
+          
           const result = await window.electronAPI.setSaveDataDirectory()
           if (result && result.success) {
+            // 更新设置
             this.settings.saveDataPath = result.directory
             this.settings.saveDataLocation = 'custom' // 自动设置为自定义模式
             
@@ -1234,30 +1224,64 @@ export default {
               console.log('SaveManager数据目录已更新为:', newSaveDataPath)
             }
             
-            this.saveSettings()
+            // 手动保存设置（绕过自动保存机制）
+            const success = await saveManager.saveSettings(this.settings)
+            if (success) {
+              console.log('存档目录设置已保存')
+            }
             
-            // 显示详细的复制结果
+            // 恢复自动保存状态
+            this.isAutoSaving = originalAutoSaveState
+            
+            // 显示成功通知
             const message = result.message || '存档目录已更新'
-            const detailMessage = `已设置自定义存档目录: ${result.directory}\n\n${message}`
-            this.showNotification('存档目录已更新', detailMessage)
+            let detailMessage = `已设置自定义存档目录: ${result.directory}`
+            
+            if (result.useExistingData) {
+              // 使用现有数据的情况
+              detailMessage += `\n\n${message}`
+            } else if (result.copiedFiles > 0) {
+              // 复制数据的情况
+              detailMessage += `\n\n成功复制 ${result.copiedFiles} 个文件`
+              if (result.copiedFolders > 0) {
+                detailMessage += ` 和 ${result.copiedFolders} 个文件夹`
+              }
+              detailMessage += `\n${message}`
+            } else {
+              detailMessage += `\n\n${message}`
+            }
+            
+            // 使用 toast 通知显示成功消息
+            this.showToastNotification('存档目录设置成功', detailMessage)
             
             // 如果有复制文件，显示更详细的信息
             if (result.copiedFiles > 0) {
               console.log('存档数据复制完成:', {
                 directory: result.directory,
                 copiedFiles: result.copiedFiles,
+                copiedFolders: result.copiedFolders,
                 message: result.message
               })
             }
           } else if (result && !result.success) {
-            // 复制失败的情况
-            this.showNotification('存档目录设置失败', result.error || '未知错误')
+            // 恢复自动保存状态
+            this.isAutoSaving = originalAutoSaveState
+            
+            // 显示错误通知
+            const errorMessage = result.error || '未知错误'
+            this.showToastNotification('存档目录设置失败', errorMessage)
             console.error('设置存档目录失败:', result.error)
+          } else {
+            // 用户取消选择的情况
+            this.isAutoSaving = originalAutoSaveState
+            console.log('用户取消了目录选择')
           }
         } else {
           alert('当前环境不支持选择目录功能')
         }
       } catch (error) {
+        // 确保在出错时也恢复自动保存状态
+        this.isAutoSaving = false
         console.error('选择存档目录失败:', error)
         alert('选择目录失败: ' + error.message)
       }
@@ -1676,11 +1700,8 @@ export default {
         this.settings.saveDataLocation = 'default'
       }
       
-      // 如果使用默认目录，清空自定义路径
-      if (this.settings.saveDataLocation === 'default') {
-        this.settings.saveDataPath = ''
-      } else if (this.settings.saveDataLocation === 'custom' && !this.settings.saveDataPath) {
-        // 如果使用自定义目录但没有设置路径，尝试获取
+      // 如果使用自定义目录但没有设置路径，尝试获取
+      if (this.settings.saveDataLocation === 'custom' && !this.settings.saveDataPath) {
         try {
           if (window.electronAPI && window.electronAPI.getSaveDataDirectory) {
             this.settings.saveDataPath = await window.electronAPI.getSaveDataDirectory()
@@ -2225,6 +2246,24 @@ export default {
 
 .path-button:hover {
   background: var(--accent-hover);
+}
+
+.btn-browse {
+  padding: 8px 16px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-browse:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
 }
 
 /* 开关样式 */

@@ -1312,6 +1312,56 @@ async function copySaveDataToNewDirectory(newDirectory) {
     const newSaveDataDir = path.join(newDirectory, 'SaveData')
     console.log('新存档目录:', newSaveDataDir)
     
+    // 检查是否选择了相同的目录
+    // 首先检查是否与根目录相同
+    const currentDirNormalized = path.resolve(currentSaveDataDir)
+    const newDirNormalized = path.resolve(newSaveDataDir)
+    
+    if (currentDirNormalized === newDirNormalized) {
+      console.log('选择了与根目录相同的存档目录，无需复制')
+      return { 
+        success: false, 
+        error: '不能选择与当前存档目录相同的目录。请选择其他目录。' 
+      }
+    }
+    
+    // 检查是否与当前使用的自定义目录相同
+    try {
+      const settingsPath = path.join(currentSaveDataDir, 'Settings', 'settings.json')
+      if (fs.existsSync(settingsPath)) {
+        const settingsData = fs.readFileSync(settingsPath, 'utf8')
+        const settings = JSON.parse(settingsData)
+        
+        if (settings.settings && settings.settings.saveDataLocation === 'custom' && settings.settings.saveDataPath) {
+          const currentCustomDir = path.resolve(path.join(settings.settings.saveDataPath, 'SaveData'))
+          if (currentCustomDir === newDirNormalized) {
+            console.log('选择了与当前自定义目录相同的存档目录，无需复制')
+            return { 
+              success: false, 
+              error: '不能选择与当前存档目录相同的目录。请选择其他目录。' 
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('检查当前自定义目录失败:', error)
+      // 继续执行，不影响主要流程
+    }
+    
+    // 检查目标目录是否已经包含存档数据
+    let useExistingData = false
+    if (fs.existsSync(newSaveDataDir)) {
+      const existingFiles = fs.readdirSync(newSaveDataDir)
+      if (existingFiles.length > 0) {
+        console.log('目标目录已包含存档数据，将使用现有数据')
+        useExistingData = true
+      } else {
+        console.log('目标目录存在但为空，将复制数据')
+      }
+    } else {
+      console.log('目标目录不存在，将创建并复制数据')
+    }
+    
     // 确保新目录存在
     if (!fs.existsSync(newSaveDataDir)) {
       fs.mkdirSync(newSaveDataDir, { recursive: true })
@@ -1347,21 +1397,77 @@ async function copySaveDataToNewDirectory(newDirectory) {
       }
     }
     
-    // 开始复制
-    copyRecursive(currentSaveDataDir, newSaveDataDir)
+    // 开始复制（只有在不使用现有数据时才复制）
+    if (!useExistingData) {
+      copyRecursive(currentSaveDataDir, newSaveDataDir)
+    } else {
+      console.log('跳过复制，使用现有存档数据')
+    }
     
-    console.log('=== 存档数据复制完成 ===')
-    console.log('复制统计:')
+    // 复制完成后，更新两个位置的设置文件，都指向新的自定义目录
+    try {
+      const settingsPath = path.join(currentSaveDataDir, 'Settings', 'settings.json')
+      const newSettingsPath = path.join(newSaveDataDir, 'Settings', 'settings.json')
+      
+      // 读取当前设置
+      let settings = {}
+      if (fs.existsSync(settingsPath)) {
+        const settingsData = fs.readFileSync(settingsPath, 'utf8')
+        settings = JSON.parse(settingsData)
+      }
+      
+      // 更新设置，指向新的自定义目录
+      if (settings.settings) {
+        settings.settings.saveDataLocation = 'custom'
+        settings.settings.saveDataPath = newDirectory
+      } else {
+        settings.settings = {
+          saveDataLocation: 'custom',
+          saveDataPath: newDirectory
+        }
+      }
+      
+      // 确保新设置目录存在
+      const newSettingsDir = path.dirname(newSettingsPath)
+      if (!fs.existsSync(newSettingsDir)) {
+        fs.mkdirSync(newSettingsDir, { recursive: true })
+      }
+      
+      // 保存设置到新位置
+      fs.writeFileSync(newSettingsPath, JSON.stringify(settings, null, 2))
+      console.log('✅ 新位置设置文件已更新')
+      
+      // 同时更新根目录的设置文件（保持同步）
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2))
+      console.log('✅ 根目录设置文件已同步')
+      
+    } catch (error) {
+      console.warn('更新设置文件失败:', error)
+      // 不影响复制结果，继续执行
+    }
+    
+    console.log('=== 存档目录设置完成 ===')
+    console.log('操作统计:')
     console.log('  - 复制文件数:', copiedFiles)
     console.log('  - 复制文件夹数:', copiedFolders)
     console.log('  - 新存档目录:', newSaveDataDir)
+    console.log('  - 使用现有数据:', useExistingData)
+    console.log('  - 根目录设置已同步')
+    
+    let message = ''
+    if (useExistingData) {
+      message = `已切换到现有存档目录，设置已同步`
+    } else {
+      message = `成功复制 ${copiedFiles} 个文件和 ${copiedFolders} 个文件夹到新存档目录，设置已同步`
+    }
     
     return { 
       success: true, 
-      message: `成功复制 ${copiedFiles} 个文件和 ${copiedFolders} 个文件夹到新存档目录`,
+      message: message,
       copiedFiles: copiedFiles,
       copiedFolders: copiedFolders,
-      newSaveDataDir: newSaveDataDir
+      newSaveDataDir: newSaveDataDir,
+      useExistingData: useExistingData
     }
     
   } catch (error) {
