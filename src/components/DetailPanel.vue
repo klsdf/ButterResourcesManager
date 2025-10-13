@@ -195,15 +195,15 @@ export default {
       // 空值返回默认图片
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
         const defaultImages = {
-          game: '/default-game.svg',
-          image: '/default-image.svg',
-          album: '/default-image.svg',
-          video: '/default-video.svg',
-          audio: '/default-audio.svg',
-          novel: '/default-novel.svg',
-          website: '/default-image.svg'
+          game: './default-game.svg',
+          image: './default-image.svg',
+          album: './default-image.svg',
+          video: './default-video.svg',
+          audio: './default-audio.svg',
+          novel: './default-novel.svg',
+          website: './default-image.svg'
         }
-        return defaultImages[this.type] || '/default-image.svg'
+        return defaultImages[this.type] || './default-image.svg'
       }
       
       // 网络资源直接返回
@@ -229,7 +229,7 @@ export default {
     resolveVideoThumbnail(thumbnail) {
       // 处理视频缩略图路径，参考VideoView.vue的逻辑
       if (!thumbnail) {
-        return '/default-video.svg'
+        return './default-video.svg'
       }
       
       // 相对路径处理（以 SaveData 开头）
@@ -255,14 +255,14 @@ export default {
     handleImageError(event) {
       const defaultImages = {
         game: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+',
-        image: '/default-image.svg',
-        album: '/default-image.svg',
-        video: '/default-video.svg',
-        audio: '/default-audio.svg',
-        novel: '/default-novel.svg',
-        website: '/default-image.svg'
+        image: './default-image.svg',
+        album: './default-image.svg',
+        video: './default-video.svg',
+        audio: './default-audio.svg',
+        novel: './default-novel.svg',
+        website: './default-image.svg'
       }
-      event.target.src = defaultImages[this.type] || '/default-image.svg'
+      event.target.src = defaultImages[this.type] || './default-image.svg'
     },
     formatDate(date) {
       if (!date) return '未知'

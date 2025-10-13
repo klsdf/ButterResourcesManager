@@ -226,7 +226,8 @@
               class="thumb-preview"
               :src="getThumbnailUrl(editVideoForm.thumbnail)"
               :alt="editVideoForm.name || 'thumbnail'"
-              @error="(e)=>{ e.target.style.display='none' }"
+              @error="handleThumbnailPreviewError"
+              @load="handleThumbnailPreviewLoad"
             >
             <div v-else class="thumb-placeholder">无缩略图</div>
           </div>
@@ -988,6 +989,15 @@ export default {
            console.log('🔄 设置前 editVideoForm.thumbnail:', this.editVideoForm.thumbnail)
            this.editVideoForm.thumbnail = thumb
            console.log('🔄 设置后 editVideoForm.thumbnail:', this.editVideoForm.thumbnail)
+           
+           // 强制清除缓存，确保新生成的缩略图能正确显示
+           this.thumbnailUrlCache.delete(thumb)
+           
+           // 强制更新视图
+           this.$nextTick(() => {
+             this.$forceUpdate()
+           })
+           
            this.showNotification('缩略图生成', '视频缩略图生成成功')
          } else {
            console.warn('⚠️ 缩略图生成失败')
@@ -1092,7 +1102,7 @@ export default {
     getThumbnailUrl(thumbnail) {
       // 1. 空值检查：如果没有缩略图，返回默认图标
       if (!thumbnail) {
-        return '/icon.svg' // 默认图标
+        return './default-video.svg' // 使用相对路径的默认图标
       }
       
       // 2. 缓存检查：如果已经处理过这个缩略图，直接返回缓存结果
@@ -1156,7 +1166,7 @@ export default {
           return url
         } catch (error) {
           console.error('转换缩略图路径失败:', error)
-          return '/icon.svg'
+          return './default-video.svg'
         }
       }
       
@@ -1175,7 +1185,7 @@ export default {
     async getThumbnailUrlAsync(thumbnail) {
       // 1. 空值检查
       if (!thumbnail) {
-        return '/icon.svg' // 默认图标
+        return './default-video.svg' // 默认图标
       }
       
       // 2. 缓存检查：避免重复的异步操作
@@ -1218,7 +1228,7 @@ export default {
           return url
         } catch (error) {
           console.error('转换缩略图路径失败:', error)
-          return '/icon.svg'
+          return './default-video.svg'
         }
       }
       
@@ -1266,7 +1276,7 @@ export default {
       
       // 5. 降级处理：如果异步方法也失败，使用默认图标
       console.log('使用默认图标')
-      event.target.src = '/icon.svg'
+      event.target.src = './default-video.svg'
     },
 
     async onThumbnailLoad(event) {
@@ -1985,6 +1995,40 @@ export default {
         // 降级到原来的通知方式
         this.showNotification(title, message)
       }
+    },
+
+    // 处理缩略图预览加载错误
+    async handleThumbnailPreviewError(event) {
+      console.log('缩略图预览加载失败，尝试使用异步方法')
+      
+      const originalSrc = event.target.getAttribute('src')
+      const thumbnailPath = this.editVideoForm.thumbnail
+      
+      if (thumbnailPath && !thumbnailPath.startsWith('data:') && !thumbnailPath.startsWith('/') && !thumbnailPath.startsWith('http')) {
+        try {
+          // 使用异步方法重新获取正确的 URL
+          const asyncUrl = await this.getThumbnailUrlAsync(thumbnailPath)
+          
+          if (asyncUrl && asyncUrl !== '/icon.svg') {
+            console.log('异步方法获取到缩略图 URL:', asyncUrl)
+            // 更新图片的 src 属性，触发重新加载
+            event.target.src = asyncUrl
+            return
+          }
+        } catch (error) {
+          console.error('异步获取缩略图失败:', error)
+        }
+      }
+      
+      // 降级处理：隐藏图片
+      console.log('使用默认处理')
+      event.target.style.display = 'none'
+    },
+
+    // 处理缩略图预览加载成功
+    handleThumbnailPreviewLoad(event) {
+      console.log('缩略图预览加载成功')
+      event.target.style.display = 'block'
     },
 
     // 关闭路径更新对话框

@@ -406,7 +406,7 @@ export default {
     // 异步图片解析 - 用于需要DataURL的场景（如封面预览）
     async resolveImageAsync(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return '/default-image.svg'
+        return './default-image.svg'
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -561,7 +561,7 @@ export default {
 
     onImageError() {
       console.error('图片加载失败:', this.pages[this.currentPageIndex])
-      this.currentPageImage = '/default-image.svg'
+      this.currentPageImage = './default-image.svg'
     },
 
     // 鼠标滚轮缩放
