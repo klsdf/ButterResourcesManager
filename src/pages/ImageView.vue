@@ -1073,6 +1073,9 @@ export default {
         await this.saveAlbums()
         const afterSaveTime = Date.now()
         console.log('批量保存完成，耗时:', afterSaveTime - beforeSaveTime, 'ms')
+        
+        // 重新提取标签和作者信息，更新筛选器
+        this.extractAllTags()
       } else {
         console.log('没有成功的文件夹，跳过保存')
       }
@@ -1233,6 +1236,10 @@ export default {
         console.log('创建专辑对象:', album)
         this.albums.push(album)
         await this.saveAlbums()
+        
+        // 重新提取标签和作者信息，更新筛选器
+        this.extractAllTags()
+        
         console.log('专辑添加成功')
         // 显示成功通知，包含漫画名称和页数
         this.showToastNotification('添加成功', `已成功添加漫画 "${this.newAlbum.name}" (${pages.length}页)`)
@@ -1382,6 +1389,9 @@ export default {
         if (idx > -1) {
           this.albums.splice(idx, 1)
           await this.saveAlbums()
+          
+          // 重新提取标签和作者信息，更新筛选器
+          this.extractAllTags()
           
           // 显示删除成功通知
           this.showToastNotification('删除成功', `已成功删除漫画 "${album.name}"`)
@@ -1625,6 +1635,10 @@ export default {
         }
 
         await this.saveAlbums()
+        
+        // 重新提取标签和作者信息，更新筛选器
+        this.extractAllTags()
+        
         this.showEditDialog = false
       } catch (e) {
         console.error('保存编辑失败:', e)

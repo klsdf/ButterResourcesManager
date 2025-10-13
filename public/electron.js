@@ -1837,9 +1837,6 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
     
     console.log('=== 开始写入 JSON 文件 ===')
     console.log('文件路径:', filePath)
-    console.log('数据类型:', typeof data)
-    console.log('数据长度:', typeof data === 'string' ? data.length : 'N/A')
-    
     // 确保目录存在
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
@@ -1861,9 +1858,6 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
       console.error('数据序列化失败:', serializeError)
       return { success: false, error: `数据序列化失败: ${serializeError.message}` }
     }
-    
-    console.log('准备写入的JSON字符串长度:', jsonString.length)
-    console.log('JSON内容预览:', jsonString.substring(0, 200) + '...')
     
     // 写入 JSON 文件
     fs.writeFileSync(filePath, jsonString, 'utf8')
