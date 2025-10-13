@@ -1,7 +1,16 @@
 <template>
   <div id="app">
+    <!-- 加载中提示 -->
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <h2>Butter Manager</h2>
+        <p>正在初始化应用...</p>
+      </div>
+    </div>
+
     <!-- 左侧导航栏 -->
-    <nav class="sidebar">
+    <nav class="sidebar" v-show="!isLoading">
       <div class="sidebar-header">
         <img src="/butter-logo.svg" alt="Butter Manager" class="sidebar-logo">
         <h1> Butter Manager</h1>
@@ -37,7 +46,7 @@
     </nav>
 
     <!-- 主内容区域 -->
-    <main class="main-content">
+    <main class="main-content" v-show="!isLoading">
 
       <!-- 标题和简介 -->
       <header class="content-header">
@@ -132,6 +141,7 @@ export default {
       currentView: 'games', // 默认页面，稍后会被设置覆盖
       theme: 'light',
       version: '0.0.0',
+      isLoading: true, // 应用加载状态
       // 筛选器相关数据
       showFilterSidebar: false,
       isFilterSidebarLoading: false,
@@ -382,22 +392,35 @@ export default {
       if (settings && settings.theme) {
         console.log('从 SaveManager 加载主题设置:', settings.theme)
         this.applyTheme(settings.theme)
-        return
+      } else {
+        // 降级到本地存储
+        const savedTheme = localStorage.getItem('butter-manager-theme')
+        if (savedTheme) {
+          console.log('从本地存储加载主题设置:', savedTheme)
+          this.applyTheme(savedTheme)
+        } else {
+          // 默认主题
+          console.log('使用默认主题: auto')
+          this.applyTheme('auto')
+        }
       }
     } catch (error) {
       console.warn('从 SaveManager 加载设置失败，使用本地存储:', error)
+      // 降级到本地存储
+      const savedTheme = localStorage.getItem('butter-manager-theme')
+      if (savedTheme) {
+        console.log('从本地存储加载主题设置:', savedTheme)
+        this.applyTheme(savedTheme)
+      } else {
+        // 默认主题
+        console.log('使用默认主题: auto')
+        this.applyTheme('auto')
+      }
     }
 
-    // 降级到本地存储
-    const savedTheme = localStorage.getItem('butter-manager-theme')
-    if (savedTheme) {
-      console.log('从本地存储加载主题设置:', savedTheme)
-      this.applyTheme(savedTheme)
-    } else {
-      // 默认主题
-      console.log('使用默认主题: auto')
-      this.applyTheme('auto')
-    }
+    // 所有初始化完成，隐藏加载提示
+    this.isLoading = false
+    console.log('✅ 应用初始化完成')
   }
 }
 </script>
@@ -440,5 +463,54 @@ export default {
   margin: 0;
   opacity: 0.8;
   font-weight: 400;
+}
+
+/* 加载中样式 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.3s ease;
+}
+
+.loading-content {
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid var(--border-color);
+  border-top: 4px solid var(--accent-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+.loading-content h2 {
+  margin: 0 0 10px 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.loading-content p {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>
