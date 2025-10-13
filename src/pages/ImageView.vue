@@ -1470,20 +1470,19 @@ export default {
         if (files.length > 0) {
           // 使用第一张图片作为封面
           this.editAlbumForm.cover = files[0]
-          this.showNotification('设置成功', '已使用第一张图片作为封面')
         } else {
-          alert('文件夹中没有找到图片文件')
+          this.showToastNotification('设置失败', '文件夹中没有找到图片文件')
         }
       } catch (e) {
         console.error('设置第一张图片为封面失败:', e)
-        alert('设置封面失败: ' + e.message)
+        this.showToastNotification('设置失败', `设置封面失败: ${e.message}`)
       }
     },
     
     async selectImageFromFolder() {
       try {
         if (!this.editAlbumForm.folderPath) {
-          alert('请先选择漫画文件夹')
+          this.showToastNotification('设置失败', '请先选择漫画文件夹')
           return
         }
         
@@ -1494,21 +1493,19 @@ export default {
           const filePath = await window.electronAPI.selectScreenshotImage(this.editAlbumForm.folderPath)
           if (filePath) {
             this.editAlbumForm.cover = filePath
-            this.showNotification('设置成功', '已从文件夹选择封面')
           }
         } else if (window.electronAPI && window.electronAPI.selectImageFile) {
           // 降级到普通图片选择器
           const filePath = await window.electronAPI.selectImageFile(this.editAlbumForm.folderPath)
           if (filePath) {
             this.editAlbumForm.cover = filePath
-            this.showNotification('设置成功', '已从文件夹选择封面')
           }
         } else {
-          alert('当前环境不支持从文件夹选择图片功能')
+          this.showToastNotification('设置失败', '当前环境不支持从文件夹选择图片功能')
         }
       } catch (error) {
         console.error('从文件夹选择封面失败:', error)
-        alert(`从文件夹选择封面失败: ${error.message}`)
+        this.showToastNotification('设置失败', `从文件夹选择封面失败: ${error.message}`)
       }
     },
     
@@ -1519,7 +1516,7 @@ export default {
     async useFirstImageAsCoverNew() {
       try {
         if (!this.newAlbum.folderPath) {
-          alert('请先选择漫画文件夹')
+          this.showToastNotification('设置失败', '请先选择漫画文件夹')
           return
         }
         
@@ -1535,20 +1532,19 @@ export default {
         if (files.length > 0) {
           // 使用第一张图片作为封面
           this.newAlbum.cover = files[0]
-          this.showNotification('设置成功', '已使用第一张图片作为封面')
         } else {
-          alert('文件夹中没有找到图片文件')
+          this.showToastNotification('设置失败', '文件夹中没有找到图片文件')
         }
       } catch (e) {
         console.error('设置第一张图片为封面失败:', e)
-        alert('设置封面失败: ' + e.message)
+        this.showToastNotification('设置失败', `设置封面失败: ${e.message}`)
       }
     },
     
     async selectImageFromFolderNew() {
       try {
         if (!this.newAlbum.folderPath) {
-          alert('请先选择漫画文件夹')
+          this.showToastNotification('设置失败', '请先选择漫画文件夹')
           return
         }
         

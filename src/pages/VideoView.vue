@@ -702,17 +702,18 @@ export default {
         
         // 显示结果通知
         if (addedCount > 0) {
-          this.showNotification(
+          // 成功时使用 toast 通知
+          this.showToastNotification(
             '添加成功', 
             `成功添加 ${addedCount} 个视频文件${failedCount > 0 ? `，${failedCount} 个文件添加失败` : ''}`
           )
         } else {
-          this.showNotification('添加失败', '没有成功添加任何视频文件')
+          this.showToastNotification('添加失败', '没有成功添加任何视频文件')
         }
         
       } catch (error) {
         console.error('拖拽添加视频失败:', error)
-        this.showNotification('添加失败', `添加视频失败: ${error.message}`)
+        this.showToastNotification('添加失败', `添加视频失败: ${error.message}`)
       }
     },
     
@@ -842,9 +843,12 @@ export default {
         await this.videoManager.addVideo(this.newVideo)
         await this.loadVideos()
         this.closeAddVideoDialog()
+        
+        // 成功时使用 toast 通知
+        this.showToastNotification('添加成功', `视频 "${this.newVideo.name}" 已成功添加`)
       } catch (error) {
         console.error('添加视频失败:', error)
-        alert('添加视频失败')
+        this.showToastNotification('添加失败', `添加视频失败: ${error.message}`)
       }
     },
 
@@ -878,31 +882,38 @@ export default {
     },
 
     async playVideo(video) {
-      if (video.filePath) {
-        try {
-          // 获取当前设置
-          const settings = await this.loadSettings()
-          console.log('当前视频播放设置:', settings)
-          console.log('videoPlayMode:', settings.videoPlayMode)
-          
-          if (settings.videoPlayMode === 'internal') {
-            console.log('使用内部播放器播放视频')
-            // 在本应用新窗口中播放
-            await this.playVideoInternal(video)
-          } else {
-            console.log('使用外部播放器播放视频')
-            // 使用外部默认播放器
-            await this.playVideoExternal(video)
-          }
-          
-          await this.videoManager.incrementWatchCount(video.id)
-          await this.loadVideos()
-        } catch (error) {
-          console.error('播放视频失败:', error)
-          alert('播放视频失败')
+      if (!video.filePath) {
+        this.showToastNotification('播放失败', '视频文件路径不存在')
+        return
+      }
+
+      // 检查视频文件是否存在
+      if (video.fileExists === false) {
+        this.showToastNotification('播放失败', `视频文件不存在: ${video.name}`)
+        return
+      }
+
+      try {
+        // 获取当前设置
+        const settings = await this.loadSettings()
+        console.log('当前视频播放设置:', settings)
+        console.log('videoPlayMode:', settings.videoPlayMode)
+        
+        if (settings.videoPlayMode === 'internal') {
+          console.log('使用内部播放器播放视频')
+          // 在本应用新窗口中播放
+          await this.playVideoInternal(video)
+        } else {
+          console.log('使用外部播放器播放视频')
+          // 使用外部默认播放器
+          await this.playVideoExternal(video)
         }
-      } else {
-        alert('视频文件路径不存在')
+        
+        await this.videoManager.incrementWatchCount(video.id)
+        await this.loadVideos()
+      } catch (error) {
+        console.error('播放视频失败:', error)
+        this.showToastNotification('播放失败', `播放视频失败: ${error.message}`)
       }
     },
 
@@ -998,24 +1009,31 @@ export default {
              this.$forceUpdate()
            })
            
-           this.showNotification('缩略图生成', '视频缩略图生成成功')
+           // 缩略图生成成功时不显示通知，只在控制台记录
+           console.log('缩略图生成成功，已更新预览')
          } else {
            console.warn('⚠️ 缩略图生成失败')
            // 检查文件扩展名，给出更友好的提示
            const extension = this.editVideoForm.filePath.toLowerCase().split('.').pop()
            const supportedFormats = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'mkv', 'flv', 'wmv']
            
+           let errorMessage = ''
            if (!supportedFormats.includes(extension)) {
-             alert(`缩略图生成失败：不支持的视频格式 "${extension}"\n\n支持的格式：${supportedFormats.join(', ')}`)
+             errorMessage = `不支持的视频格式 "${extension}"。支持的格式：${supportedFormats.join(', ')}`
            } else {
-             alert('缩略图生成失败：\n\n可能的原因：\n1. 视频编码格式不被浏览器支持\n2. 视频文件损坏或无法访问\n3. 文件路径包含特殊字符\n\n建议：\n- 尝试使用其他视频文件\n- 手动选择缩略图图片')
+             errorMessage = '可能的原因：视频编码格式不被浏览器支持、视频文件损坏或无法访问、文件路径包含特殊字符。建议尝试使用其他视频文件或手动选择缩略图图片。'
            }
+           
+           // 使用 toast 通知显示错误
+           this.showToastNotification('缩略图生成失败', errorMessage)
          }
        } catch (e) {
          console.error('❌ 随机封面失败:', e)
          console.error('错误堆栈:', e.stack)
          console.error('错误类型:', e.constructor.name)
-         alert(`随机封面生成失败: ${e.message}\n\n详细信息请查看控制台`)
+         
+         // 使用 toast 通知显示错误
+         this.showToastNotification('缩略图生成失败', `生成过程中发生错误: ${e.message}`)
        }
      },
     async saveEditedVideo() {
@@ -1386,12 +1404,11 @@ export default {
     async updateVideoDuration(video) {
       try {
         if (!video.filePath) {
-          alert('视频文件路径不存在')
+          this.showToastNotification('更新失败', '视频文件路径不存在')
           return
         }
 
         console.log('🔄 开始更新视频时长:', video.name)
-        this.showNotification('更新时长', '正在获取视频时长，请稍候...')
 
         const duration = await this.getVideoDuration(video.filePath)
         if (duration > 0) {
@@ -1405,14 +1422,14 @@ export default {
           await this.loadVideos()
           
           console.log('✅ 视频时长更新成功:', duration, '分钟')
-          this.showNotification('更新成功', `视频时长已更新为 ${this.formatDuration(duration)}`)
+          // 成功时不显示通知，只在控制台记录
         } else {
           console.warn('⚠️ 无法获取视频时长')
-          this.showNotification('更新失败', '无法获取视频时长，请检查视频文件是否有效')
+          this.showToastNotification('更新失败', '无法获取视频时长，请检查视频文件是否有效')
         }
       } catch (error) {
         console.error('更新视频时长失败:', error)
-        this.showNotification('更新失败', `更新视频时长失败: ${error.message}`)
+        this.showToastNotification('更新失败', `更新视频时长失败: ${error.message}`)
       }
     },
 
@@ -1875,8 +1892,7 @@ export default {
         const accessCheck = await this.checkVideoFileAccess(video.filePath)
         if (!accessCheck.accessible) {
           console.error('❌ 视频文件不可访问:', accessCheck.error)
-          alert(`❌ 视频文件不可访问\n错误: ${accessCheck.error}\n\n将尝试使用外部播放器`)
-          await this.playVideoExternal(video)
+          this.showToastNotification('播放失败', `视频文件不可访问: ${accessCheck.error}`)
           return
         }
         
@@ -1896,28 +1912,24 @@ export default {
           
           if (result.success) {
             console.log('✅ 视频窗口已成功打开')
-            this.showNotification('视频播放', `正在播放: ${video.name}`)
+            // 播放成功时不显示通知，只在控制台记录
           } else {
             console.error('❌ 打开视频窗口失败:', result.error)
             
             // 检查是否是路径编码问题
             if (result.error && (result.error.includes('ERR_FILE_NOT_FOUND') || result.error.includes('路径'))) {
-              console.log('🔄 检测到路径问题，尝试使用外部播放器')
-              alert(`❌ 视频文件路径问题\n错误: ${result.error}\n\n将使用外部播放器播放`)
+              console.log('🔄 检测到路径问题')
+              this.showToastNotification('播放失败', `视频文件路径问题: ${result.error}`)
             } else {
-              alert(`❌ 打开视频窗口失败\n错误: ${result.error}\n\n将尝试使用外部播放器`)
+              this.showToastNotification('播放失败', `打开视频窗口失败: ${result.error}`)
             }
-            
-            // 降级到外部播放器
-            await this.playVideoExternal(video)
           }
         } else {
           // 降级处理：使用外部播放器
           console.warn('❌ Electron API 不可用，降级到外部播放器')
           console.warn('electronAPI 可用性:', !!window.electronAPI)
           console.warn('openVideoWindow 可用性:', !!window.electronAPI?.openVideoWindow)
-          alert('⚠️ 内部播放器不可用，将使用外部播放器')
-          await this.playVideoExternal(video)
+          this.showToastNotification('播放失败', '内部播放器不可用')
         }
       } catch (error) {
         console.error('❌ 内部播放视频失败:', error)
@@ -1930,15 +1942,7 @@ export default {
           errorMessage = '无法访问视频文件，请检查文件权限'
         }
         
-        alert(`❌ 内部播放视频失败: ${errorMessage}\n\n将尝试使用外部播放器`)
-        
-        // 降级到外部播放器
-        try {
-          await this.playVideoExternal(video)
-        } catch (externalError) {
-          console.error('外部播放器也失败:', externalError)
-          alert(`❌ 播放失败: ${externalError.message}`)
-        }
+        this.showToastNotification('播放失败', `内部播放视频失败: ${errorMessage}`)
       }
     },
 
@@ -1947,14 +1951,15 @@ export default {
       try {
         if (window.electronAPI && window.electronAPI.openExternal) {
           await window.electronAPI.openExternal(video.filePath)
-          this.showNotification('视频播放', `正在使用系统默认播放器播放: ${video.name}`)
+          // 播放成功时不显示通知，只在控制台记录
+          console.log('✅ 已使用外部播放器播放视频:', video.name)
         } else {
           // 降级处理：在浏览器中显示路径
-          alert(`视频文件路径: ${video.filePath}\n\n在浏览器环境中无法直接打开视频文件`)
+          this.showToastNotification('播放失败', '在浏览器环境中无法直接打开视频文件')
         }
       } catch (error) {
         console.error('外部播放视频失败:', error)
-        alert('外部播放视频失败: ' + error.message)
+        this.showToastNotification('播放失败', `外部播放视频失败: ${error.message}`)
       }
     },
 
@@ -2097,10 +2102,10 @@ export default {
         // 关闭对话框
         this.closePathUpdateDialog()
         
-        // 显示成功通知
-        this.showToastNotification('路径更新成功', `视频 "${existingVideo.name}" 的路径已更新`)
+        // 成功时不显示通知，只在控制台记录
+        console.log('✅ 视频路径更新成功:', existingVideo.name)
         
-        console.log('✅ 视频路径更新完成')
+        this.showToastNotification('路径更新成功', `视频 "${existingVideo.name}" 的路径已更新`)
         
       } catch (error) {
         console.error('更新视频路径失败:', error)
