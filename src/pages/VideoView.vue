@@ -536,14 +536,11 @@ export default {
         try {
           const result = await window.electronAPI.checkFileExists(video.filePath)
           video.fileExists = result.exists
-          console.log(`🔍 检测结果: ${video.name} - fileExists=${video.fileExists}`)
           
           if (!result.exists) {
             missingCount++
             console.log(`❌ 视频文件不存在: ${video.name} - ${video.filePath}`)
-          } else {
-            console.log(`✅ 视频文件存在: ${video.name}`)
-          }
+          } 
         } catch (error) {
           console.error(`❌ 检测视频文件存在性失败: ${video.name}`, error)
           video.fileExists = false

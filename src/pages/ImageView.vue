@@ -590,15 +590,11 @@ export default {
         
         try {
           const result = await window.electronAPI.checkFileExists(album.folderPath)
-          album.fileExists = result.exists
-          console.log(`🔍 检测结果: ${album.name} - fileExists=${album.fileExists}`)
-          
+          album.fileExists = result.exists       
           if (!result.exists) {
             missingCount++
             console.log(`❌ 图片文件夹不存在: ${album.name} - ${album.folderPath}`)
-          } else {
-            console.log(`✅ 图片文件夹存在: ${album.name}`)
-          }
+          } 
         } catch (error) {
           console.error(`❌ 检测图片文件夹存在性失败: ${album.name}`, error)
           album.fileExists = false

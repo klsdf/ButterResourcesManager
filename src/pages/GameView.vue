@@ -1175,15 +1175,11 @@ export default {
         
         try {
           const result = await window.electronAPI.checkFileExists(game.executablePath)
-          game.fileExists = result.exists
-          console.log(`🔍 检测结果: ${game.name} - fileExists=${game.fileExists}`)
-          
+          game.fileExists = result.exists        
           if (!result.exists) {
             missingCount++
             console.log(`❌ 游戏文件不存在: ${game.name} - ${game.executablePath}`)
-          } else {
-            console.log(`✅ 游戏文件存在: ${game.name}`)
-          }
+          } 
         } catch (error) {
           console.error(`❌ 检测游戏文件存在性失败: ${game.name}`, error)
           game.fileExists = false
