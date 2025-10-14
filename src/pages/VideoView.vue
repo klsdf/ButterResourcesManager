@@ -17,8 +17,11 @@
         search-placeholder="搜索视频..."
         :sort-options="videoSortOptions"
         page-type="videos"
+        :show-batch-update="true"
+        batch-update-text="批量更新时长"
         @add-item="showAddVideoDialog"
         @sort-changed="handleSortChanged"
+        @batch-update="batchUpdateAllDurations"
       />
       
       <!-- 视频列表分页导航 -->
@@ -507,6 +510,9 @@ export default {
         // 检测文件存在性
         await this.checkFileExistence()
         
+        // 自动更新未知时长的视频
+        await this.autoUpdateUnknownDurations()
+        
         // 计算视频列表总页数
         this.updateVideoPagination()
       }
@@ -555,6 +561,113 @@ export default {
       
       // 强制更新视图
       this.$forceUpdate()
+    },
+
+    // 自动更新未知时长的视频
+    async autoUpdateUnknownDurations() {
+      console.log('🔄 开始自动更新未知时长的视频...')
+      
+      // 检查设置，看是否启用自动更新
+      try {
+        const settings = await this.loadSettings()
+        if (settings.autoUpdateVideoDuration === false) {
+          console.log('⏭️ 自动更新视频时长已禁用，跳过')
+          return
+        }
+      } catch (error) {
+        console.warn('⚠️ 无法加载设置，继续执行自动更新:', error)
+      }
+      
+      // 筛选出需要更新时长的视频
+      const videosToUpdate = this.videos.filter(video => {
+        return video.filePath && 
+               video.fileExists !== false && 
+               (!video.duration || video.duration === 0)
+      })
+      
+      if (videosToUpdate.length === 0) {
+        console.log('✅ 所有视频都有时长信息，无需更新')
+        return
+      }
+      
+      console.log(`📊 发现 ${videosToUpdate.length} 个视频需要更新时长`)
+      
+      // 如果视频数量较多，询问用户是否要批量更新
+      if (videosToUpdate.length > 10) {
+        const shouldUpdate = confirm(
+          `发现 ${videosToUpdate.length} 个视频需要更新时长。\n\n` +
+          `这可能需要一些时间，是否要现在更新？\n\n` +
+          `点击"确定"开始更新，点击"取消"稍后手动更新。`
+        )
+        
+        if (!shouldUpdate) {
+          console.log('⏭️ 用户取消了批量更新')
+          this.showToastNotification(
+            '已取消更新', 
+            `发现 ${videosToUpdate.length} 个视频需要更新时长，您可以稍后手动更新`
+          )
+          return
+        }
+      }
+      
+      let updatedCount = 0
+      let failedCount = 0
+      
+      // 显示更新进度通知
+      this.showToastNotification(
+        '正在更新视频时长', 
+        `发现 ${videosToUpdate.length} 个视频需要更新时长，正在处理中...`
+      )
+      
+      // 批量更新视频时长
+      for (const video of videosToUpdate) {
+        try {
+          console.log(`🔄 正在更新视频时长: ${video.name}`)
+          
+          const duration = await this.getVideoDuration(video.filePath)
+          if (duration > 0) {
+            // 更新视频数据
+            await this.videoManager.updateVideo(video.id, {
+              ...video,
+              duration: duration
+            })
+            
+            // 更新本地数据
+            video.duration = duration
+            updatedCount++
+            
+            console.log(`✅ 视频时长更新成功: ${video.name} - ${duration} 分钟`)
+          } else {
+            console.warn(`⚠️ 无法获取视频时长: ${video.name}`)
+            failedCount++
+          }
+        } catch (error) {
+          console.error(`❌ 更新视频时长失败: ${video.name}`, error)
+          failedCount++
+        }
+        
+        // 添加小延迟，避免过于频繁的操作
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      // 重新加载视频列表以保存更改
+      await this.videoManager.loadVideos()
+      this.videos = this.videoManager.getVideos()
+      
+      // 显示更新结果
+      if (updatedCount > 0) {
+        this.showToastNotification(
+          '时长更新完成', 
+          `成功更新 ${updatedCount} 个视频的时长${failedCount > 0 ? `，${failedCount} 个视频更新失败` : ''}`
+        )
+      } else if (failedCount > 0) {
+        this.showToastNotification(
+          '时长更新失败', 
+          `所有 ${failedCount} 个视频的时长更新失败，请检查视频文件是否有效`
+        )
+      }
+      
+      console.log(`📊 视频时长更新完成: 成功 ${updatedCount} 个，失败 ${failedCount} 个`)
     },
 
     // 拖拽处理方法
@@ -1464,6 +1577,93 @@ export default {
         console.error('更新视频时长失败:', error)
         this.showToastNotification('更新失败', `更新视频时长失败: ${error.message}`)
       }
+    },
+
+    // 手动批量更新所有未知时长的视频
+    async batchUpdateAllDurations() {
+      console.log('🔄 开始手动批量更新所有视频时长...')
+      
+      // 筛选出需要更新时长的视频
+      const videosToUpdate = this.videos.filter(video => {
+        return video.filePath && 
+               video.fileExists !== false && 
+               (!video.duration || video.duration === 0)
+      })
+      
+      if (videosToUpdate.length === 0) {
+        this.showToastNotification('无需更新', '所有视频都有时长信息')
+        return
+      }
+      
+      const shouldUpdate = confirm(
+        `发现 ${videosToUpdate.length} 个视频需要更新时长。\n\n` +
+        `这可能需要一些时间，是否要开始更新？\n\n` +
+        `点击"确定"开始更新，点击"取消"取消操作。`
+      )
+      
+      if (!shouldUpdate) {
+        console.log('⏭️ 用户取消了批量更新')
+        return
+      }
+      
+      let updatedCount = 0
+      let failedCount = 0
+      
+      // 显示更新进度通知
+      this.showToastNotification(
+        '正在批量更新视频时长', 
+        `正在更新 ${videosToUpdate.length} 个视频的时长，请稍候...`
+      )
+      
+      // 批量更新视频时长
+      for (const video of videosToUpdate) {
+        try {
+          console.log(`🔄 正在更新视频时长: ${video.name}`)
+          
+          const duration = await this.getVideoDuration(video.filePath)
+          if (duration > 0) {
+            // 更新视频数据
+            await this.videoManager.updateVideo(video.id, {
+              ...video,
+              duration: duration
+            })
+            
+            // 更新本地数据
+            video.duration = duration
+            updatedCount++
+            
+            console.log(`✅ 视频时长更新成功: ${video.name} - ${duration} 分钟`)
+          } else {
+            console.warn(`⚠️ 无法获取视频时长: ${video.name}`)
+            failedCount++
+          }
+        } catch (error) {
+          console.error(`❌ 更新视频时长失败: ${video.name}`, error)
+          failedCount++
+        }
+        
+        // 添加小延迟，避免过于频繁的操作
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
+      // 重新加载视频列表以保存更改
+      await this.videoManager.loadVideos()
+      this.videos = this.videoManager.getVideos()
+      
+      // 显示更新结果
+      if (updatedCount > 0) {
+        this.showToastNotification(
+          '批量更新完成', 
+          `成功更新 ${updatedCount} 个视频的时长${failedCount > 0 ? `，${failedCount} 个视频更新失败` : ''}`
+        )
+      } else if (failedCount > 0) {
+        this.showToastNotification(
+          '批量更新失败', 
+          `所有 ${failedCount} 个视频的时长更新失败，请检查视频文件是否有效`
+        )
+      }
+      
+      console.log(`📊 批量视频时长更新完成: 成功 ${updatedCount} 个，失败 ${failedCount} 个`)
     },
 
      // 获取视频时长
