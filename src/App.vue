@@ -148,6 +148,12 @@ export default {
       currentFilterData: {
         filters: []
       },
+      // 全局游戏运行状态管理
+      runningGames: new Set(), // 存储正在运行的游戏ID
+      statusCheckInterval: null, // 定期检查运行状态的定时器
+      // 游戏时长跟踪
+      gameSessionStartTimes: new Map(), // 存储游戏会话开始时间 {gameId: startTime}
+      playtimeUpdateInterval: null, // 定期更新游戏时长的定时器
       navItems: [
         {
           id: 'games',
@@ -253,6 +259,147 @@ export default {
         'audio': this.$refs.audioView
       }
       return refMap[this.currentView]
+    },
+    // 全局游戏运行状态管理方法
+    addRunningGame(gameId) {
+      this.runningGames.add(gameId)
+      // 记录游戏会话开始时间
+      this.gameSessionStartTimes.set(gameId, Date.now())
+      console.log('全局添加运行游戏:', gameId, '会话开始时间:', new Date().toISOString(), '当前运行游戏:', Array.from(this.runningGames))
+    },
+    removeRunningGame(gameId) {
+      // 计算本次会话的游戏时长
+      const sessionStartTime = this.gameSessionStartTimes.get(gameId)
+      if (sessionStartTime) {
+        const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000) // 转换为秒
+        console.log(`游戏 ${gameId} 本次会话时长: ${sessionDuration} 秒`)
+        
+        // 通知 GameView 更新游戏时长
+        this.updateGamePlayTime(gameId, sessionDuration)
+        
+        // 清除会话开始时间
+        this.gameSessionStartTimes.delete(gameId)
+      }
+      
+      this.runningGames.delete(gameId)
+      console.log('全局移除运行游戏:', gameId, '当前运行游戏:', Array.from(this.runningGames))
+    },
+    isGameRunning(gameId) {
+      return this.runningGames.has(gameId)
+    },
+    // 更新游戏时长
+    updateGamePlayTime(gameId, sessionDuration) {
+      const gameView = this.$refs.gameView
+      if (!gameView || !gameView.games) {
+        console.log('游戏视图不可用，无法更新游戏时长')
+        return
+      }
+      
+      const game = gameView.games.find(g => g.id === gameId)
+      if (game) {
+        // 累加游戏时长
+        game.playTime = (game.playTime || 0) + sessionDuration
+        
+        // 保存更新后的数据
+        gameView.saveGames()
+        
+        console.log(`游戏 ${game.name} 总时长更新为: ${game.playTime} 秒 (本次增加: ${sessionDuration} 秒)`)
+      } else {
+        console.warn('未找到对应的游戏:', gameId)
+      }
+    },
+    // 检查所有游戏的运行状态
+    async checkAllGamesRunningStatus() {
+      if (!window.electronAPI || !window.electronAPI.checkProcessRunning) {
+        console.log('无法检查游戏运行状态：Electron API 不可用')
+        return
+      }
+      
+      const gameView = this.$refs.gameView
+      if (!gameView || !gameView.games) {
+        console.log('游戏视图不可用，跳过状态检查')
+        return
+      }
+      
+      console.log('开始检查所有游戏的运行状态...')
+      const runningGamesToCheck = Array.from(this.runningGames)
+      
+      for (const gameId of runningGamesToCheck) {
+        const game = gameView.games.find(g => g.id === gameId)
+        if (!game) {
+          // 游戏不存在，从运行列表中移除
+          this.runningGames.delete(gameId)
+          console.log(`游戏 ${gameId} 不存在，从运行列表中移除`)
+          continue
+        }
+        
+        try {
+          // 检查游戏进程是否还在运行
+          const isRunning = await window.electronAPI.checkProcessRunning(game.executablePath)
+          if (!isRunning) {
+            // 游戏进程已结束，从运行列表中移除
+            this.runningGames.delete(gameId)
+            console.log(`游戏 ${game.name} 进程已结束，从运行列表中移除`)
+          }
+        } catch (error) {
+          console.error(`检查游戏 ${game.name} 运行状态失败:`, error)
+          // 出错时保守处理，保留运行状态
+        }
+      }
+      
+      console.log('游戏运行状态检查完成，正在运行的游戏:', Array.from(this.runningGames))
+    },
+    // 启动定期检查运行状态
+    startPeriodicStatusCheck() {
+      // 每30秒检查一次运行状态
+      this.statusCheckInterval = setInterval(async () => {
+        if (this.runningGames.size > 0) {
+          console.log('定期检查游戏运行状态...')
+          await this.checkAllGamesRunningStatus()
+        }
+      }, 30000) // 30秒
+    },
+    // 启动定期更新游戏时长
+    startPeriodicPlaytimeUpdate() {
+      // 每60秒更新一次游戏时长
+      this.playtimeUpdateInterval = setInterval(() => {
+        if (this.runningGames.size > 0) {
+          this.updateRunningGamesPlaytime()
+        }
+      }, 60000) // 60秒
+    },
+    // 更新正在运行游戏的时长
+    updateRunningGamesPlaytime() {
+      const now = Date.now()
+      
+      for (const gameId of this.runningGames) {
+        const sessionStartTime = this.gameSessionStartTimes.get(gameId)
+        if (sessionStartTime) {
+          const sessionDuration = Math.floor((now - sessionStartTime) / 1000)
+          
+          // 更新会话开始时间（重置计时器）
+          this.gameSessionStartTimes.set(gameId, now)
+          
+          // 更新游戏时长
+          this.updateGamePlayTime(gameId, sessionDuration)
+        }
+      }
+    },
+    // 停止定期检查
+    stopPeriodicStatusCheck() {
+      if (this.statusCheckInterval) {
+        clearInterval(this.statusCheckInterval)
+        this.statusCheckInterval = null
+        console.log('已停止定期检查游戏运行状态')
+      }
+    },
+    // 停止定期更新游戏时长
+    stopPeriodicPlaytimeUpdate() {
+      if (this.playtimeUpdateInterval) {
+        clearInterval(this.playtimeUpdateInterval)
+        this.playtimeUpdateInterval = null
+        console.log('已停止定期更新游戏时长')
+      }
     },
     getCurrentViewTitle() {
       if (this.currentView === 'settings') {
@@ -418,9 +565,22 @@ export default {
       }
     }
 
+    // 启动游戏运行状态检查
+    this.startPeriodicStatusCheck()
+    
+    // 启动游戏时长更新
+    this.startPeriodicPlaytimeUpdate()
+    
     // 所有初始化完成，隐藏加载提示
     this.isLoading = false
     console.log('✅ 应用初始化完成')
+  },
+  beforeUnmount() {
+    // 停止定期检查游戏运行状态
+    this.stopPeriodicStatusCheck()
+    
+    // 停止定期更新游戏时长
+    this.stopPeriodicPlaytimeUpdate()
   }
 }
 </script>

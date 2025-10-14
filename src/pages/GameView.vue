@@ -311,7 +311,7 @@ export default {
       selectedGame: null,
       showDetailModal: false,
       currentGame: null,
-      runningGames: new Set(), // 存储正在运行的游戏ID
+      // runningGames 现在由 App.vue 全局管理
       newGame: {
         name: '',
         developer: '',
@@ -613,8 +613,8 @@ export default {
           if (result.success) {
             console.log('游戏启动成功，进程ID:', result.pid)
             
-            // 将游戏添加到运行列表中
-            this.runningGames.add(game.id)
+            // 将游戏添加到全局运行列表中
+            this.$parent.addRunningGame(game.id)
             
             // 显示成功提示
             this.showToastNotification('游戏启动成功', `${game.name} 已启动`)
@@ -1416,30 +1416,24 @@ export default {
       // 根据可执行文件路径找到对应的游戏
       const game = this.games.find(g => g.executablePath === data.executablePath)
       if (game) {
-        console.log(`更新游戏 ${game.name} 的时长:`, data.playTime, '秒')
+        console.log(`游戏 ${game.name} 进程结束，时长:`, data.playTime, '秒')
         
-        // 累加游戏时长
-        game.playTime = (game.playTime || 0) + data.playTime
-        
-        // 从运行列表中移除
-        this.runningGames.delete(game.id)
-        
-        // 保存更新后的数据
-        this.saveGames()
+        // 从全局运行列表中移除（这会自动更新游戏时长）
+        this.$parent.removeRunningGame(game.id)
         
         // 显示通知
         this.showNotification(
-          '游戏时长已更新', 
+          '游戏已结束', 
           `${game.name} 本次游玩 ${this.formatPlayTime(data.playTime)}，总时长 ${this.formatPlayTime(game.playTime)}`
         )
         
-        console.log(`游戏 ${game.name} 总时长更新为:`, game.playTime, '秒')
+        console.log(`游戏 ${game.name} 进程结束`)
       } else {
         console.warn('未找到对应的游戏:', data.executablePath)
       }
     },
     isGameRunning(game) {
-      return this.runningGames.has(game.id)
+      return this.$parent.isGameRunning(game.id)
     },
     async takeScreenshot() {
       // 防止重复截图：检查是否正在截图或距离上次截图时间太短
@@ -2195,6 +2189,8 @@ export default {
   async mounted() {
     this.checkElectronEnvironment()
     await this.loadGames()
+    
+    // 游戏运行状态现在由 App.vue 全局管理，无需在此处处理
     
     // 加载游戏分页设置
     await this.loadGamePaginationSettings()
