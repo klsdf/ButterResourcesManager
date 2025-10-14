@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell, screen, desktopCapturer, globalShortcut, Tray, nativeImage } = require('electron')
+const { autoUpdater } = require('electron-updater')
 const path = require('path')
 const { spawn } = require('child_process')
 const fs = require('fs')
@@ -30,7 +31,7 @@ function createWindow() {
       // 允许在 http(s) 环境下加载 file:// 资源（用于本地视频缩略图生成）
       webSecurity: false
     },
-    icon: path.join(__dirname, 'butter-logo.svg'), // 应用图标
+    icon: path.join(__dirname, 'butter-icon.ico'), // 应用图标
     titleBarStyle: 'default',
     show: false // 先不显示，等加载完成后再显示
   })
@@ -82,7 +83,7 @@ function createWindow() {
         tray.displayBalloon({
           title: 'Butter Manager Vue',
           content: '应用已最小化到系统托盘',
-          icon: nativeImage.createFromPath(path.join(__dirname, 'butter-logo.svg'))
+          icon: nativeImage.createFromPath(path.join(__dirname, 'butter-icon.ico'))
         })
       }
     }
@@ -105,6 +106,12 @@ app.whenReady().then(() => {
   createWindow()
   createMenu()
   createTray() // 创建系统托盘
+  
+  // 初始化自动更新
+  if (!isDev) {
+    initAutoUpdater()
+  }
+  
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建窗口
   app.on('activate', () => {
@@ -206,7 +213,7 @@ function createMenu() {
 function createTray() {
   try {
     // 创建托盘图标
-    const iconPath = path.join(__dirname, 'butter-logo.svg')
+    const iconPath = path.join(__dirname, 'butter-icon.ico')
     const trayIcon = nativeImage.createFromPath(iconPath)
     
     // 如果SVG图标创建失败，尝试使用PNG图标
@@ -560,7 +567,7 @@ ipcMain.handle('open-video-window', async (event, filePath, options = {}) => {
         allowRunningInsecureContent: true, // 允许不安全内容
         preload: path.join(__dirname, 'preload.js')
       },
-      icon: path.join(__dirname, 'butter-logo.svg'),
+      icon: path.join(__dirname, 'butter-icon.ico'),
       show: true
     })
     // 保持全局引用，防止被GC
@@ -1068,7 +1075,7 @@ ipcMain.handle('show-notification', (event, title, body) => {
       const notification = new Notification({
         title: title,
         body: body,
-        icon: path.join(__dirname, 'butter-logo.svg'), // 使用应用图标
+        icon: path.join(__dirname, 'butter-icon.ico'), // 使用应用图标
         silent: false // 允许声音
       })
       
@@ -2380,5 +2387,152 @@ app.on('will-quit', () => {
   if (tray) {
     tray.destroy()
     tray = null
+  }
+})
+
+// ==================== 自动更新相关功能 ====================
+
+// 初始化自动更新
+function initAutoUpdater() {
+  // 配置自动更新
+  autoUpdater.checkForUpdatesAndNotify()
+  
+  // 设置更新检查间隔（每小时检查一次）
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify()
+  }, 60 * 60 * 1000) // 1小时 = 60 * 60 * 1000 毫秒
+  
+  // 监听更新检查事件
+  autoUpdater.on('checking-for-update', () => {
+    console.log('正在检查更新...')
+    if (mainWindow) {
+      mainWindow.webContents.send('update-checking')
+    }
+  })
+  
+  // 监听发现新版本事件
+  autoUpdater.on('update-available', (info) => {
+    console.log('发现新版本:', info.version)
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info)
+    }
+    
+    // 显示更新通知
+    showUpdateNotification(info)
+  })
+  
+  // 监听没有新版本事件
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('当前已是最新版本:', info.version)
+    if (mainWindow) {
+      mainWindow.webContents.send('update-not-available', info)
+    }
+  })
+  
+  // 监听更新下载进度事件
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "下载速度: " + progressObj.bytesPerSecond
+    log_message = log_message + ' - 已下载 ' + progressObj.percent + '%'
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')'
+    console.log(log_message)
+    
+    if (mainWindow) {
+      mainWindow.webContents.send('update-download-progress', progressObj)
+    }
+  })
+  
+  // 监听更新下载完成事件
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('更新下载完成:', info.version)
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info)
+    }
+    
+    // 显示安装提示
+    showUpdateReadyDialog(info)
+  })
+  
+  // 监听更新错误事件
+  autoUpdater.on('error', (err) => {
+    console.error('自动更新错误:', err)
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', err.message)
+    }
+  })
+}
+
+// 显示更新通知
+function showUpdateNotification(info) {
+  if (tray) {
+    tray.displayBalloon({
+      title: '发现新版本',
+      content: `版本 ${info.version} 已发布，点击查看详情`,
+      icon: nativeImage.createFromPath(path.join(__dirname, 'butter-icon.ico'))
+    })
+  }
+}
+
+// 显示更新就绪对话框
+function showUpdateReadyDialog(info) {
+  const options = {
+    type: 'info',
+    title: '更新就绪',
+    message: `新版本 ${info.version} 已下载完成`,
+    detail: '应用将在重启后更新到最新版本。是否现在重启？',
+    buttons: ['现在重启', '稍后重启'],
+    defaultId: 0,
+    cancelId: 1
+  }
+  
+  dialog.showMessageBox(mainWindow, options).then((result) => {
+    if (result.response === 0) {
+      // 用户选择现在重启
+      autoUpdater.quitAndInstall()
+    }
+  })
+}
+
+// IPC 处理程序 - 手动检查更新
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    if (!isDev) {
+      const result = await autoUpdater.checkForUpdates()
+      return { success: true, result }
+    } else {
+      return { success: false, error: '开发环境不支持自动更新' }
+    }
+  } catch (error) {
+    console.error('检查更新失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// IPC 处理程序 - 下载并安装更新
+ipcMain.handle('download-and-install-update', async () => {
+  try {
+    if (!isDev) {
+      autoUpdater.downloadUpdate()
+      return { success: true }
+    } else {
+      return { success: false, error: '开发环境不支持自动更新' }
+    }
+  } catch (error) {
+    console.error('下载更新失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// IPC 处理程序 - 立即重启并安装更新
+ipcMain.handle('quit-and-install', async () => {
+  try {
+    if (!isDev) {
+      autoUpdater.quitAndInstall()
+      return { success: true }
+    } else {
+      return { success: false, error: '开发环境不支持自动更新' }
+    }
+  } catch (error) {
+    console.error('安装更新失败:', error)
+    return { success: false, error: error.message }
   }
 })

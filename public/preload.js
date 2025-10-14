@@ -95,11 +95,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setMinimizeToTray: (enabled) => ipcRenderer.invoke('set-minimize-to-tray', enabled),
   getMinimizeToTray: () => ipcRenderer.invoke('get-minimize-to-tray'),
   
+  // 自动更新功能
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadAndInstallUpdate: () => ipcRenderer.invoke('download-and-install-update'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
   onAppUpdate: (callback) => ipcRenderer.on('app-update', callback),
   onGameProcessEnded: (callback) => ipcRenderer.on('game-process-ended', callback),
-  onGlobalScreenshotTrigger: (callback) => ipcRenderer.on('global-screenshot-trigger', callback)
+  onGlobalScreenshotTrigger: (callback) => ipcRenderer.on('global-screenshot-trigger', callback),
+  
+  // 自动更新事件监听
+  onUpdateChecking: (callback) => ipcRenderer.on('update-checking', callback),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
+  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', callback),
+  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', callback),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', callback)
 })
 
 // 监听来自主进程的消息

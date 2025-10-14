@@ -1,6 +1,6 @@
 {
   "name": "butter-manager",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A Vue + Electron desktop application",
   "main": "public/electron.js",
   "homepage": "./",
@@ -31,34 +31,56 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
+    "electron-updater": "^6.6.2",
     "vue": "^3.3.8"
   },
   "build": {
-    "appId": "com.example.butter-manager-vue",
-    "productName": "Butter Manager Vue",
+    "appId": "com.example.butter-resources-manager",
+    "productName": "Butter Resources Manager",
     "directories": {
       "output": "dist-electron"
     },
+    "artifactName": "${productName} ${version}.${ext}",
     "files": [
       "dist/**/*",
       "public/electron.js",
       "public/preload.js",
       "public/butter-logo.svg",
-      "public/butter-logo.ico",
-      "public/butter-logo.png",
+      "public/butter-icon.ico",
+      "public/butter-icon.png",
       "node_modules/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "klsdf",
+      "repo": "ButterResourcesManager"
+    },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "public/butter-logo.png"
     },
     "win": {
-      "target": "portable",
-      "icon": "public/butter-logo.png"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/butter-icon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName} Portable ${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",

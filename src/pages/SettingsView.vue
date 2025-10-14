@@ -716,6 +716,122 @@
               </div>
             </div>
           </div>
+
+          <!-- 更新设置 -->
+          <div v-if="currentCategory === 'updates'" class="settings-section">
+            <div class="settings-grid">
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">当前版本</span>
+                  <span class="setting-desc">应用当前安装的版本号</span>
+                </label>
+                <div class="setting-control">
+                  <span class="version-info">{{ currentVersion }}</span>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">自动检查更新</span>
+                  <span class="setting-desc">应用启动时自动检查是否有新版本</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.autoCheckUpdates" @change="onAutoCheckUpdatesChange">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">自动下载更新</span>
+                  <span class="setting-desc">发现新版本时自动下载更新包</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.autoDownloadUpdates" @change="onAutoDownloadUpdatesChange">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">更新检查</span>
+                  <span class="setting-desc">手动检查是否有新版本可用</span>
+                </label>
+                <div class="setting-control">
+                  <button 
+                    class="btn btn-primary" 
+                    @click="checkForUpdates"
+                    :disabled="isCheckingUpdates"
+                  >
+                    <span v-if="isCheckingUpdates">检查中...</span>
+                    <span v-else>检查更新</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 更新状态显示 -->
+              <div v-if="updateStatus" class="update-status">
+                <div class="status-item" v-if="updateStatus.checking">
+                  <div class="status-icon">🔄</div>
+                  <div class="status-text">正在检查更新...</div>
+                </div>
+                
+                <div class="status-item" v-if="updateStatus.available">
+                  <div class="status-icon">✨</div>
+                  <div class="status-content">
+                    <div class="status-text">发现新版本 {{ updateStatus.version }}</div>
+                    <div class="status-actions">
+                      <button class="btn btn-success" @click="downloadUpdate" :disabled="isDownloading">
+                        <span v-if="isDownloading">下载中...</span>
+                        <span v-else>下载更新</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="status-item" v-if="updateStatus.notAvailable">
+                  <div class="status-icon">✅</div>
+                  <div class="status-text">当前已是最新版本</div>
+                </div>
+                
+                <div class="status-item" v-if="updateStatus.downloaded">
+                  <div class="status-icon">🎉</div>
+                  <div class="status-content">
+                    <div class="status-text">更新已下载完成，重启应用即可安装</div>
+                    <div class="status-actions">
+                      <button class="btn btn-warning" @click="installUpdate">
+                        立即重启并安装
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="status-item" v-if="updateStatus.error">
+                  <div class="status-icon">❌</div>
+                  <div class="status-text">更新检查失败: {{ updateStatus.error }}</div>
+                </div>
+              </div>
+
+              <!-- 下载进度显示 -->
+              <div v-if="downloadProgress.show" class="download-progress">
+                <div class="progress-header">
+                  <span>下载进度</span>
+                  <span>{{ Math.round(downloadProgress.percent) }}%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: downloadProgress.percent + '%' }"></div>
+                </div>
+                <div class="progress-details">
+                  <span>{{ formatBytes(downloadProgress.transferred) }} / {{ formatBytes(downloadProgress.total) }}</span>
+                  <span>{{ formatBytes(downloadProgress.bytesPerSecond) }}/s</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
       </div>
@@ -738,7 +854,8 @@ export default {
         { id: 'videos', name: '视频', icon: '🎬', description: '视频播放和管理设置' },
         { id: 'audios', name: '音频', icon: '🎵', description: '音频播放和管理设置' },
         { id: 'novels', name: '小说', icon: '📚', description: '小说阅读和管理设置' },
-        { id: 'websites', name: '网站', icon: '🌐', description: '网站收藏和管理设置' }
+        { id: 'websites', name: '网站', icon: '🌐', description: '网站收藏和管理设置' },
+        { id: 'updates', name: '更新', icon: '🔄', description: '应用更新和版本管理' }
       ],
       settings: {
         theme: 'auto',
@@ -793,14 +910,29 @@ export default {
         },
         novel: {
           listPageSize: 20
-        }
+        },
+        // 更新设置
+        autoCheckUpdates: true,
+        autoDownloadUpdates: false
       },
       // 自动保存相关
       autoSaveTimer: null,
       isAutoSaving: false,
       lastSaveTime: null,
       // 初始化标志，避免在初始化时触发watcher
-      isInitializing: true
+      isInitializing: true,
+      // 更新相关
+      currentVersion: '0.4.0',
+      isCheckingUpdates: false,
+      isDownloading: false,
+      updateStatus: null,
+      downloadProgress: {
+        show: false,
+        percent: 0,
+        transferred: 0,
+        total: 0,
+        bytesPerSecond: 0
+      }
     }
   },
   watch: {
@@ -1034,19 +1166,19 @@ export default {
             )
           } else {
             console.error('最小化到托盘设置更新失败:', result.error)
-            alert(`最小化到托盘设置失败: ${result.error}`)
+            this.showToastNotification(`最小化到托盘设置失败: ${result.error}`)
             // 恢复开关状态
             this.settings.minimizeToTray = !this.settings.minimizeToTray
           }
         } else {
           console.warn('当前环境不支持最小化到托盘功能')
-          alert('当前环境不支持最小化到托盘功能')
+          this.showToastNotification('当前环境不支持最小化到托盘功能')
           // 恢复开关状态
           this.settings.minimizeToTray = !this.settings.minimizeToTray
         }
       } catch (error) {
         console.error('更新最小化到托盘设置失败:', error)
-        alert('更新最小化到托盘设置失败: ' + error.message)
+        this.showToastNotification('更新最小化到托盘设置失败', error.message)
         // 恢复开关状态
         this.settings.minimizeToTray = !this.settings.minimizeToTray
       }
@@ -1079,7 +1211,7 @@ export default {
       if (this.settings.screenshotLocation === 'default') {
         this.settings.screenshotsPath = ''
         console.log('已切换到默认截图目录')
-        this.showNotification('截图位置已更新', '已切换到默认截图目录 (SaveData/Game/Screenshots)')
+        this.showToastNotification('截图位置已更新', '已切换到默认截图目录 (SaveData/Game/Screenshots)')
       }
     },
     
@@ -1087,7 +1219,7 @@ export default {
       // 当选择默认目录时，不清空自定义路径，保留用户之前的设置
       if (this.settings.saveDataLocation === 'default') {
         console.log('已切换到默认存档目录')
-        this.showNotification('存档位置已更新', '已切换到默认存档目录 (根目录/SaveData)')
+        this.showToastNotification('存档位置已更新', '已切换到默认存档目录 (根目录/SaveData)')
       }
     },
     applyTheme(theme) {
@@ -1162,7 +1294,10 @@ export default {
             },
             novel: {
               listPageSize: 20
-            }
+            },
+            // 更新设置
+            autoCheckUpdates: true,
+            autoDownloadUpdates: false
           }
           
           // 应用主题
@@ -1193,7 +1328,7 @@ export default {
             this.settings.screenshotsPath = directory
             this.settings.screenshotLocation = 'custom' // 自动设置为自定义模式
             this.saveSettings()
-            this.showNotification('截图目录已更新', `已设置自定义截图目录: ${directory}`)
+            this.showToastNotification('截图目录已更新', `已设置自定义截图目录: ${directory}`)
           }
         } else {
           alert('当前环境不支持选择目录功能')
@@ -1328,7 +1463,7 @@ export default {
           const result = await window.electronAPI.minimizeToTray()
           if (result.success) {
             console.log('✅ 最小化到托盘成功')
-            this.showNotification('托盘测试', '应用已最小化到系统托盘，请检查系统托盘区域')
+            this.showToastNotification('托盘测试', '应用已最小化到系统托盘，请检查系统托盘区域')
             
             // 3秒后自动恢复窗口
             setTimeout(async () => {
@@ -1343,15 +1478,15 @@ export default {
             }, 3000)
           } else {
             console.error('❌ 最小化到托盘失败:', result.error)
-            alert(`最小化到托盘失败: ${result.error}`)
+            this.showToastNotification(`最小化到托盘失败: ${result.error}`)
           }
         } else {
           console.warn('当前环境不支持系统托盘功能')
-          alert('当前环境不支持系统托盘功能')
+          this.showToastNotification('当前环境不支持系统托盘功能')
         }
       } catch (error) {
         console.error('测试系统托盘失败:', error)
-        alert('测试系统托盘失败: ' + error.message)
+        this.showToastNotification('测试系统托盘失败: ' + error.message)
       }
     },
     async showNotification(title, message) {
@@ -1427,21 +1562,21 @@ export default {
           const result = await window.electronAPI.openFolder(saveDataPath)
           if (result.success) {
             console.log('存档文件夹已打开')
-            this.showNotification('文件夹已打开', `已打开存档文件夹: ${saveDataPath}`)
+            this.showToastNotification('文件夹已打开', `已打开存档文件夹: ${saveDataPath}`)
           } else {
             console.error('打开存档文件夹失败:', result.error)
-            alert(`打开存档文件夹失败: ${result.error}`)
+            this.showToastNotification(`打开存档文件夹失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中显示路径信息
           const saveDataPath = this.settings.saveDataLocation === 'default' 
             ? 'SaveData' 
             : (this.settings.saveDataPath || 'SaveData')
-          alert(`存档文件夹路径: ${saveDataPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+          this.showToastNotification(`存档文件夹路径: ${saveDataPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
         }
       } catch (error) {
         console.error('打开存档文件夹失败:', error)
-        alert(`打开存档文件夹失败: ${error.message}`)
+        this.showToastNotification(`打开存档文件夹失败: ${error.message}`)
       }
     },
     async openScreenshotFolder() {
@@ -1480,21 +1615,21 @@ export default {
           const result = await window.electronAPI.openFolder(screenshotPath)
           if (result.success) {
             console.log('截图文件夹已打开')
-            this.showNotification('文件夹已打开', `已打开截图文件夹: ${screenshotPath}`)
+            this.showToastNotification('文件夹已打开', `已打开截图文件夹: ${screenshotPath}`)
           } else {
             console.error('打开截图文件夹失败:', result.error)
-            alert(`打开截图文件夹失败: ${result.error}`)
+            this.showToastNotification(`打开截图文件夹失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中显示路径信息
           const screenshotPath = this.settings.screenshotLocation === 'default' 
             ? 'SaveData/Game/Screenshots' 
             : (this.settings.screenshotsPath || 'SaveData/Game/Screenshots')
-          alert(`截图文件夹路径: ${screenshotPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
+          this.showToastNotification(`截图文件夹路径: ${screenshotPath}\n\n在浏览器环境中无法直接打开文件夹，请手动导航到该路径`)
         }
       } catch (error) {
         console.error('打开截图文件夹失败:', error)
-        alert(`打开截图文件夹失败: ${error.message}`)
+        this.showToastNotification(`打开截图文件夹失败: ${error.message}`)
       }
     },
     async testNovelSettings() {
@@ -1522,7 +1657,7 @@ export default {
           
           this.showToastNotification('测试完成', '设置已保存并验证，请查看控制台输出')
         } else {
-          alert('设置保存失败！')
+          this.showToastNotification('设置保存失败！')
         }
       } catch (error) {
         console.error('测试设置失败:', error)
@@ -1569,6 +1704,123 @@ export default {
       } catch (error) {
         console.error('测试图片设置失败:', error)
         alert('测试图片设置失败: ' + error.message)
+      }
+    },
+
+    // ==================== 自动更新相关方法 ====================
+    
+    async checkForUpdates() {
+      try {
+        this.isCheckingUpdates = true
+        this.updateStatus = { checking: true }
+        
+        if (window.electronAPI && window.electronAPI.checkForUpdates) {
+          const result = await window.electronAPI.checkForUpdates()
+          if (result.success) {
+            console.log('更新检查完成:', result.result)
+          } else {
+            this.updateStatus = { error: result.error }
+          }
+        } else {
+          this.updateStatus = { error: '自动更新功能不可用' }
+        }
+      } catch (error) {
+        console.error('检查更新失败:', error)
+        this.updateStatus = { error: error.message }
+      } finally {
+        this.isCheckingUpdates = false
+      }
+    },
+
+    async downloadUpdate() {
+      try {
+        this.isDownloading = true
+        this.downloadProgress.show = true
+        
+        if (window.electronAPI && window.electronAPI.downloadAndInstallUpdate) {
+          await window.electronAPI.downloadAndInstallUpdate()
+        }
+      } catch (error) {
+        console.error('下载更新失败:', error)
+        this.updateStatus = { error: error.message }
+      } finally {
+        this.isDownloading = false
+      }
+    },
+
+    async installUpdate() {
+      try {
+        if (window.electronAPI && window.electronAPI.quitAndInstall) {
+          await window.electronAPI.quitAndInstall()
+        }
+      } catch (error) {
+        console.error('安装更新失败:', error)
+        this.updateStatus = { error: error.message }
+      }
+    },
+
+    onAutoCheckUpdatesChange() {
+      // 自动检查更新设置变化时的处理
+      console.log('自动检查更新设置已更新:', this.settings.autoCheckUpdates)
+    },
+
+    onAutoDownloadUpdatesChange() {
+      // 自动下载更新设置变化时的处理
+      console.log('自动下载更新设置已更新:', this.settings.autoDownloadUpdates)
+    },
+
+    formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes'
+      const k = 1024
+      const sizes = ['Bytes', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    },
+
+    // 监听自动更新事件
+    setupUpdateListeners() {
+      if (window.electronAPI) {
+        // 监听更新检查事件
+        window.electronAPI.onUpdateChecking(() => {
+          this.updateStatus = { checking: true }
+        })
+
+        // 监听发现新版本事件
+        window.electronAPI.onUpdateAvailable((event, info) => {
+          this.updateStatus = { 
+            available: true, 
+            version: info.version,
+            releaseNotes: info.releaseNotes 
+          }
+        })
+
+        // 监听没有新版本事件
+        window.electronAPI.onUpdateNotAvailable((event, info) => {
+          this.updateStatus = { notAvailable: true, version: info.version }
+        })
+
+        // 监听下载进度事件
+        window.electronAPI.onUpdateDownloadProgress((event, progressObj) => {
+          this.downloadProgress = {
+            show: true,
+            percent: progressObj.percent,
+            transferred: progressObj.transferred,
+            total: progressObj.total,
+            bytesPerSecond: progressObj.bytesPerSecond
+          }
+        })
+
+        // 监听下载完成事件
+        window.electronAPI.onUpdateDownloaded((event, info) => {
+          this.updateStatus = { downloaded: true, version: info.version }
+          this.downloadProgress.show = false
+        })
+
+        // 监听更新错误事件
+        window.electronAPI.onUpdateError((event, error) => {
+          this.updateStatus = { error: error }
+          this.downloadProgress.show = false
+        })
       }
     }
   },
@@ -1795,6 +2047,20 @@ export default {
     } catch (error) {
       console.error('加载设置失败:', error)
     }
+  },
+  
+  mounted() {
+    // 获取当前版本信息
+    if (window.electronAPI && window.electronAPI.getAppVersion) {
+      window.electronAPI.getAppVersion().then(version => {
+        this.currentVersion = version
+      }).catch(error => {
+        console.error('获取版本信息失败:', error)
+      })
+    }
+    
+    // 设置自动更新事件监听
+    this.setupUpdateListeners()
   },
   
   beforeUnmount() {
@@ -2312,6 +2578,139 @@ input:checked + .toggle-slider:before {
   transform: translateX(26px);
 }
 
+/* 更新相关样式 */
+.version-info {
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  color: var(--accent-color);
+  background: var(--bg-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.update-status {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-item:last-child {
+  margin-bottom: 0;
+}
+
+.status-icon {
+  font-size: 20px;
+  width: 24px;
+  text-align: center;
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-text {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.status-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.download-progress {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent-color);
+  transition: width 0.3s ease;
+}
+
+.progress-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-color);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+}
+
+.btn-warning:hover:not(:disabled) {
+  background: #e0a800;
+  transform: translateY(-1px);
+}
 
 /* 响应式设计 */
 @media (max-width: 768px) {
