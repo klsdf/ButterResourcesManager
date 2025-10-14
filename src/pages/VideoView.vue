@@ -1,5 +1,18 @@
 <template>
-  <div class="video-view">
+  <BaseView
+    ref="baseView"
+    :items="videos"
+    :filtered-items="filteredVideos"
+    :empty-state-config="videoEmptyStateConfig"
+    :toolbar-config="videoToolbarConfig"
+    :context-menu-items="videoContextMenuItems"
+    @empty-state-action="handleEmptyStateAction"
+    @add-item="showAddVideoDialog"
+    @sort-changed="handleSortChanged"
+    @search-query-changed="handleSearchQueryChanged"
+    @sort-by-changed="handleSortByChanged"
+    @context-menu-click="handleContextMenuClick"
+  >
     <!-- 主内容区域 -->
     <div 
       class="video-content"
@@ -9,21 +22,6 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 工具栏 -->
-      <GameToolbar 
-        v-model:searchQuery="searchQuery"
-        v-model:sortBy="sortBy"
-        add-button-text="添加视频"
-        search-placeholder="搜索视频..."
-        :sort-options="videoSortOptions"
-        page-type="videos"
-        :show-batch-update="true"
-        batch-update-text="批量更新时长"
-        @add-item="showAddVideoDialog"
-        @sort-changed="handleSortChanged"
-        @batch-update="batchUpdateAllDurations"
-      />
-      
       <!-- 视频列表分页导航 -->
       <PaginationNav
         :current-page="currentVideoPage"
@@ -44,37 +42,11 @@
           :isElectronEnvironment="true"
           :file-exists="video.fileExists"
           @click="showVideoDetail"
-          @contextmenu="showVideoContextMenu"
+          @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, video)"
           @action="playVideo"
         />
       </div>
-
-    <!-- 空状态 -->
-    <EmptyState 
-      v-else-if="videos.length === 0"
-      icon="🎬"
-      title="你的视频库是空的"
-      description="点击&quot;添加视频&quot;按钮来添加你的第一个视频，或直接拖拽视频文件到此处"
-      :show-button="true"
-      button-text="添加第一个视频"
-      @action="showAddVideoDialog"
-    />
-
-    <!-- 无搜索结果 -->
-    <EmptyState 
-      v-else-if="filteredVideos.length === 0"
-      icon="🔍"
-      title="没有找到匹配的视频"
-      description="尝试使用不同的搜索词"
-    />
-    
-    <!-- 当前页无数据（但总数据存在） -->
-    <EmptyState 
-      v-else
-      icon="📄"
-      title="当前页没有视频"
-      description="请尝试切换到其他页面"
-    />
+    </div>
 
     <!-- 添加视频对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddVideoDialog">
@@ -169,10 +141,9 @@
       @close="closeVideoDetail"
       @action="handleDetailAction"
     />
-  </div>
 
-  <!-- 编辑视频对话框 -->
-  <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
+    <!-- 编辑视频对话框 -->
+    <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
         <h3>编辑视频</h3>
@@ -245,17 +216,7 @@
         <button type="button" class="btn-confirm" @click="saveEditedVideo">保存</button>
       </div>
     </div>
-
     </div>
-  </div>
-  
-      <!-- 右键菜单 -->
-      <ContextMenu
-      :visible="showContextMenu"
-      :position="contextMenuPos"
-      :menu-items="videoContextMenuItems"
-      @item-click="handleContextMenuClick"
-    />
 
     <!-- 路径更新确认对话框 -->
     <PathUpdateDialog
@@ -272,13 +233,12 @@
       @confirm="confirmPathUpdate"
       @cancel="closePathUpdateDialog"
     />
+  </BaseView>
 </template>
 
 <script>
 import VideoManager from '../utils/VideoManager.js'
-import GameToolbar from '../components/Toolbar.vue'
-import EmptyState from '../components/EmptyState.vue'
-import ContextMenu from '../components/ContextMenu.vue'
+import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -289,9 +249,7 @@ import PaginationNav from '../components/PaginationNav.vue'
 export default {
   name: 'VideoView',
   components: {
-    GameToolbar,
-    EmptyState,
-    ContextMenu,
+    BaseView,
     FormField,
     MediaCard,
     DetailPanel,
@@ -316,8 +274,6 @@ export default {
       },
       showDetailDialog: false,
       selectedVideo: null,
-      showContextMenu: false,
-      contextMenuPos: { x: 0, y: 0 },
       newVideo: {
         name: '',
         description: '',
@@ -378,6 +334,32 @@ export default {
       currentVideoPage: 1,
       videoPageSize: 20, // 默认每页显示20个视频
       totalVideoPages: 0,
+      // 空状态配置
+      videoEmptyStateConfig: {
+        emptyIcon: '🎬',
+        emptyTitle: '你的视频库是空的',
+        emptyDescription: '点击"添加视频"按钮来添加你的第一个视频，或直接拖拽视频文件到此处',
+        emptyButtonText: '添加第一个视频',
+        emptyButtonAction: 'showAddVideoDialog',
+        noResultsIcon: '🔍',
+        noResultsTitle: '没有找到匹配的视频',
+        noResultsDescription: '尝试使用不同的搜索词',
+        noPageDataIcon: '📄',
+        noPageDataTitle: '当前页没有视频',
+        noPageDataDescription: '请尝试切换到其他页面'
+      },
+      // 工具栏配置
+      videoToolbarConfig: {
+        addButtonText: '添加视频',
+        searchPlaceholder: '搜索视频...',
+        sortOptions: [
+          { value: 'name', label: '按名称排序' },
+          { value: 'lastWatched', label: '按最后观看时间' },
+          { value: 'watchCount', label: '按观看次数' },
+          { value: 'added', label: '按添加时间' }
+        ],
+        pageType: 'videos'
+      },
     }
   },
   computed: {
@@ -478,10 +460,6 @@ export default {
     // 初始化筛选器数据
     this.updateFilterData()
     
-    // 点击其他地方关闭右键菜单
-    document.addEventListener('click', () => {
-      this.showContextMenu = false
-    })
   },
   watch: {
     // 监听筛选结果变化，更新分页信息
@@ -1223,33 +1201,48 @@ export default {
       }
     },
 
-    showVideoContextMenu(event, video) {
-      event.preventDefault()
-      this.selectedVideo = video
-      this.contextMenuPos = { x: event.clientX, y: event.clientY }
-      this.showContextMenu = true
-    },
-    handleContextMenuClick(item) {
-      this.showContextMenu = false
-      if (!this.selectedVideo) return
+    /**
+     * 右键菜单点击事件处理
+     * @param {*} data - 包含 item 和 selectedItem
+     */
+    handleContextMenuClick(data) {
+      const { item, selectedItem } = data
+      if (!selectedItem) return
       
       switch (item.key) {
         case 'detail':
-          this.showVideoDetail(this.selectedVideo)
+          this.showVideoDetail(selectedItem)
           break
         case 'play':
-          this.playVideo(this.selectedVideo)
+          this.playVideo(selectedItem)
           break
         case 'folder':
-          this.openVideoFolder(this.selectedVideo)
+          this.openVideoFolder(selectedItem)
           break
         case 'edit':
-          this.editVideo(this.selectedVideo)
+          this.editVideo(selectedItem)
           break
         case 'remove':
-          this.deleteVideo(this.selectedVideo)
+          this.deleteVideo(selectedItem)
           break
       }
+    },
+    
+    // 处理空状态按钮点击事件
+    handleEmptyStateAction(actionName) {
+      if (actionName === 'showAddVideoDialog') {
+        this.showAddVideoDialog()
+      }
+    },
+    
+    // 处理搜索查询变化
+    handleSearchQueryChanged(newValue) {
+      this.searchQuery = newValue
+    },
+    
+    // 处理排序变化
+    handleSortByChanged(newValue) {
+      this.sortBy = newValue
     },
 
     /**

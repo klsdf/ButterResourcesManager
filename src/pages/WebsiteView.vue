@@ -1,57 +1,40 @@
 <template>
-  <div class="website-view">
+  <BaseView
+    ref="baseView"
+    :items="websites"
+    :filtered-items="filteredWebsites"
+    :empty-state-config="websiteEmptyStateConfig"
+    :toolbar-config="websiteToolbarConfig"
+    :context-menu-items="websiteContextMenuItems"
+    @empty-state-action="handleEmptyStateAction"
+    @add-item="showAddDialog = true"
+    @sort-changed="handleSortChanged"
+    @search-query-changed="handleSearchQueryChanged"
+    @sort-by-changed="handleSortByChanged"
+    @context-menu-click="handleContextMenuClick"
+  >
     <!-- 主内容区域 -->
     <div class="website-content">
-      <!-- 工具栏 -->
-      <Toolbar 
-        v-model:searchQuery="searchQuery"
-        v-model:sortBy="sortBy"
-        add-button-text="添加网站"
-        search-placeholder="搜索网站..."
-        :sort-options="websiteSortOptions"
-        @add-item="showAddDialog = true"
-      />
-    
+      <!-- 加载状态 -->
+      <div v-if="isLoading" class="loading-state">
+        <div class="loading-spinner">🔄</div>
+        <p>正在加载网站数据...</p>
+      </div>
 
-
-    <!-- 加载状态 -->
-    <div v-if="isLoading" class="loading-state">
-      <div class="loading-spinner">🔄</div>
-      <p>正在加载网站数据...</p>
+      <!-- 网站列表 -->
+      <div class="websites-grid" v-else-if="filteredWebsites.length > 0">
+        <MediaCard 
+          v-for="website in filteredWebsites" 
+          :key="website.id"
+          :item="formatWebsiteForMediaCard(website)"
+          type="image"
+          :is-electron-environment="isElectronEnvironment"
+          @click="showWebsiteDetail"
+          @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, website)"
+          @action="(item) => visitWebsite(item)"
+        />
+      </div>
     </div>
-
-    <!-- 网站列表 -->
-    <div class="websites-grid" v-else-if="filteredWebsites.length > 0">
-      <MediaCard 
-        v-for="website in filteredWebsites" 
-        :key="website.id"
-        :item="formatWebsiteForMediaCard(website)"
-        type="image"
-        :is-electron-environment="isElectronEnvironment"
-        @click="showWebsiteDetail"
-        @contextmenu="showContextMenu"
-        @action="(item) => visitWebsite(item)"
-      />
-    </div>
-
-    <!-- 空状态 -->
-    <EmptyState 
-      v-else-if="!isLoading && websites.length === 0"
-      icon="🌐"
-      title="你的网站收藏是空的"
-      description="点击&quot;添加网站&quot;按钮来添加你的第一个网站收藏"
-      :show-button="true"
-      button-text="添加第一个网站"
-      @action="showAddDialog = true"
-    />
-
-    <!-- 无搜索结果 -->
-    <EmptyState 
-      v-else-if="!isLoading"
-      icon="🔍"
-      title="没有找到匹配的网站"
-      description="尝试使用不同的搜索词"
-    />
 
     <!-- 添加网站对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddDialog">
@@ -188,22 +171,12 @@
       </div>
     </div>
 
-    <!-- 右键菜单 -->
-    <ContextMenu
-      :visible="contextMenu.visible"
-      :position="{ x: contextMenu.x, y: contextMenu.y }"
-      :menu-items="websiteContextMenuItems"
-      @item-click="handleContextMenuClick"
-    />
-    </div>
-  </div>
+  </BaseView>
 </template>
 
 <script>
 import websiteManager from '../utils/WebsiteManager.js'
-import Toolbar from '../components/Toolbar.vue'
-import EmptyState from '../components/EmptyState.vue'
-import ContextMenu from '../components/ContextMenu.vue'
+import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -211,9 +184,7 @@ import DetailPanel from '../components/DetailPanel.vue'
 export default {
   name: 'WebsiteView',
   components: {
-    Toolbar,
-    EmptyState,
-    ContextMenu,
+    BaseView,
     FormField,
     MediaCard,
     DetailPanel
@@ -228,11 +199,6 @@ export default {
       showAddDialog: false,
       showEditDialog: false,
       selectedWebsite: null,
-      contextMenu: {
-        visible: false,
-        x: 0,
-        y: 0
-      },
       newWebsite: {
         name: '',
         url: '',
@@ -264,14 +230,33 @@ export default {
       allCategories: [],
       selectedCategories: [],
       excludedCategories: [],
-      // 排序选项
-      websiteSortOptions: [
-        { value: 'name', label: '按名称' },
-        { value: 'category', label: '按分类' },
-        { value: 'visitCount', label: '按访问次数' },
-        { value: 'addedDate', label: '按添加时间' },
-        { value: 'lastVisited', label: '按最后访问' }
-      ],
+      // 空状态配置
+      websiteEmptyStateConfig: {
+        emptyIcon: '🌐',
+        emptyTitle: '你的网站收藏是空的',
+        emptyDescription: '点击"添加网站"按钮来添加你的第一个网站收藏',
+        emptyButtonText: '添加第一个网站',
+        emptyButtonAction: 'showAddDialog',
+        noResultsIcon: '🔍',
+        noResultsTitle: '没有找到匹配的网站',
+        noResultsDescription: '尝试使用不同的搜索词',
+        noPageDataIcon: '📄',
+        noPageDataTitle: '当前页没有网站',
+        noPageDataDescription: '请切换到其他页面查看网站'
+      },
+      // 工具栏配置
+      websiteToolbarConfig: {
+        addButtonText: '添加网站',
+        searchPlaceholder: '搜索网站...',
+        sortOptions: [
+          { value: 'name', label: '按名称' },
+          { value: 'category', label: '按分类' },
+          { value: 'visitCount', label: '按访问次数' },
+          { value: 'addedDate', label: '按添加时间' },
+          { value: 'lastVisited', label: '按最后访问' }
+        ],
+        pageType: 'websites'
+      },
       // 右键菜单配置
       websiteContextMenuItems: [
         { key: 'detail', icon: '👁️', label: '查看详情' },
@@ -708,50 +693,53 @@ export default {
       this.urlError = ''
     },
     
-    showContextMenu(event, website) {
-      event.preventDefault()
-      
-      // 如果传入的是格式化后的数据，需要找到原始网站对象
-      let originalWebsite = website
-      if (website.image && website.image !== website.favicon) {
-        // 这是格式化后的数据，需要找到原始网站
-        originalWebsite = this.websites.find(w => w.id === website.id)
-        if (!originalWebsite) {
-          console.error('找不到原始网站数据:', website.id)
-          return
-        }
-      }
-      
-      this.contextMenu = {
-        visible: true,
-        x: event.clientX,
-        y: event.clientY
-      }
-      // 临时存储选中的网站，用于右键菜单操作
-      this.contextMenu.selectedWebsite = originalWebsite
-    },
-    handleContextMenuClick(item) {
-      this.contextMenu.visible = false
-      const website = this.contextMenu.selectedWebsite
-      if (!website) return
+    /**
+     * 右键菜单点击事件处理
+     * @param {*} data - 包含 item 和 selectedItem
+     */
+    handleContextMenuClick(data) {
+      const { item, selectedItem } = data
+      if (!selectedItem) return
       
       switch (item.key) {
         case 'detail':
-          this.showWebsiteDetail(website)
+          this.showWebsiteDetail(selectedItem)
           break
         case 'visit':
-          this.visitWebsite(website)
+          this.visitWebsite(selectedItem)
           break
         case 'refresh-favicon':
-          this.refreshWebsiteFavicon(website)
+          this.refreshWebsiteFavicon(selectedItem)
           break
         case 'edit':
-          this.editWebsite(website)
+          this.editWebsite(selectedItem)
           break
         case 'delete':
-          this.deleteWebsite(website)
+          this.deleteWebsite(selectedItem)
           break
       }
+    },
+    
+    // 处理空状态按钮点击事件
+    handleEmptyStateAction(actionName) {
+      if (actionName === 'showAddDialog') {
+        this.showAddDialog = true
+      }
+    },
+    
+    // 处理搜索查询变化
+    handleSearchQueryChanged(newValue) {
+      this.searchQuery = newValue
+    },
+    
+    // 处理排序变化
+    handleSortByChanged(newValue) {
+      this.sortBy = newValue
+    },
+    
+    // 处理排序变化（兼容原有方法）
+    handleSortChanged(data) {
+      // 这个方法可以保持为空，因为 BaseView 会处理排序
     },
     
     editWebsite(website) {
@@ -1033,22 +1021,11 @@ export default {
     
     // 初始化筛选器数据
     this.updateFilterData()
-    
-    // 点击其他地方关闭右键菜单
-    document.addEventListener('click', () => {
-      this.contextMenu.visible = false
-    })
   }
 }
 </script>
 
 <style scoped>
-.website-view {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
 /* 网站主内容区域 */
 .website-content {
   flex: 1;

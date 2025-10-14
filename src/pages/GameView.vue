@@ -1,5 +1,18 @@
 <template>
-  <div class="game-view">
+  <BaseView
+    ref="baseView"
+    :items="games"
+    :filtered-items="filteredGames"
+    :empty-state-config="gameEmptyStateConfig"
+    :toolbar-config="gameToolbarConfig"
+    :context-menu-items="gameContextMenuItems"
+    @empty-state-action="handleEmptyStateAction"
+    @add-item="showAddGameDialog"
+    @sort-changed="handleSortChanged"
+    @search-query-changed="handleSearchQueryChanged"
+    @sort-by-changed="handleSortByChanged"
+    @context-menu-click="handleContextMenuClick"
+  >
     <!-- 主内容区域 -->
     <div 
       class="game-content"
@@ -9,17 +22,6 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 工具栏 -->
-      <GameToolbar 
-        v-model:searchQuery="searchQuery"
-        v-model:sortBy="sortBy"
-        add-button-text="添加游戏"
-        search-placeholder="搜索游戏..."
-        :sort-options="gameSortOptions"
-        page-type="games"
-        @add-item="showAddGameDialog"
-        @sort-changed="handleSortChanged"
-      />
       
       <!-- 游戏列表分页导航 -->
       <PaginationNav
@@ -42,37 +44,11 @@
           :is-electron-environment="isElectronEnvironment"
           :file-exists="game.fileExists"
           @click="showGameDetail"
-          @contextmenu="showGameContextMenu"
+          @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, game)"
           @action="launchGame"
         />
     </div>
 
-    <!-- 空状态 -->
-    <EmptyState 
-      v-else-if="games.length === 0"
-      icon="🎮"
-      title="你的游戏库是空的"
-      description="点击&quot;添加游戏&quot;按钮来添加你的第一个游戏，或直接拖拽 .exe 文件到此处"
-      :show-button="true"
-      button-text="添加第一个游戏"
-      @action="showAddGameDialog"
-    />
-
-    <!-- 无搜索结果 -->
-    <EmptyState 
-      v-else-if="filteredGames.length === 0"
-      icon="🔍"
-      title="没有找到匹配的游戏"
-      description="尝试使用不同的搜索词"
-    />
-
-    <!-- 当前页无数据 -->
-    <EmptyState 
-      v-else
-      icon="📄"
-      title="当前页没有游戏"
-      description="请切换到其他页面查看游戏"
-    />
 
     <!-- 添加游戏对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddGameDialog">
@@ -247,13 +223,6 @@
       @action="handleDetailAction"
     />
 
-    <!-- 右键菜单 -->
-    <ContextMenu
-      :visible="showContextMenu"
-      :position="contextMenuPos"
-      :menu-items="gameContextMenuItems"
-      @item-click="handleContextMenuClick"
-    />
 
     <!-- 路径更新确认对话框 -->
     <PathUpdateDialog
@@ -271,14 +240,13 @@
       @cancel="closePathUpdateDialog"
     />
     </div>
-  </div>
+  </BaseView>
 </template>
 
 <script>
 import saveManager from '../utils/SaveManager.js'
-import GameToolbar from '../components/Toolbar.vue'
+import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
-import ContextMenu from '../components/ContextMenu.vue'
 import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -289,9 +257,8 @@ import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFir
 export default {
   name: 'GameView',
   components: {
-    GameToolbar,
+    BaseView,
     EmptyState,
-    ContextMenu,
     MediaCard,
     FormField,
     DetailPanel,
@@ -306,8 +273,6 @@ export default {
       searchQuery: '',
       sortBy: 'name',
       showAddDialog: false,
-      showContextMenu: false,
-      contextMenuPos: { x: 0, y: 0 },
       selectedGame: null,
       showDetailModal: false,
       currentGame: null,
@@ -374,7 +339,33 @@ export default {
       // 游戏列表分页相关
       currentGamePage: 1,
       gamePageSize: 20, // 默认每页显示20个游戏
-      totalGamePages: 0
+      totalGamePages: 0,
+      // 空状态配置
+      gameEmptyStateConfig: {
+        emptyIcon: '🎮',
+        emptyTitle: '你的游戏库是空的',
+        emptyDescription: '点击"添加游戏"按钮来添加你的第一个游戏，或直接拖拽 .exe 文件到此处',
+        emptyButtonText: '添加第一个游戏',
+        emptyButtonAction: 'showAddGameDialog',
+        noResultsIcon: '🔍',
+        noResultsTitle: '没有找到匹配的游戏',
+        noResultsDescription: '尝试使用不同的搜索词',
+        noPageDataIcon: '📄',
+        noPageDataTitle: '当前页没有游戏',
+        noPageDataDescription: '请切换到其他页面查看游戏'
+      },
+      // 工具栏配置
+      gameToolbarConfig: {
+        addButtonText: '添加游戏',
+        searchPlaceholder: '搜索游戏...',
+        sortOptions: [
+          { value: 'name', label: '按名称排序' },
+          { value: 'lastPlayed', label: '按最后游玩时间' },
+          { value: 'playTime', label: '按游戏时长' },
+          { value: 'added', label: '按添加时间' }
+        ],
+        pageType: 'games'
+      }
     }
   },
   computed: {
@@ -711,43 +702,35 @@ export default {
           break
       }
     },
-    showGameContextMenu(event, game) {
-      event.preventDefault()
-      this.selectedGame = game
-      this.contextMenuPos = { x: event.clientX, y: event.clientY }
-      this.showContextMenu = true
-    },
-
     /**
-     * 右键菜单点击事件，注册右键菜单中有哪些方法的
-     * @param {*} item
-     * @returns
+     * 右键菜单点击事件处理
+     * @param {*} data - 包含 item 和 selectedItem
      */
-    handleContextMenuClick(item) {
-      this.showContextMenu = false
-      if (!this.selectedGame) return
+    handleContextMenuClick(data) {
+      const { item, selectedItem } = data
+      if (!selectedItem) return
       
       switch (item.key) {
         case 'detail':
-          this.showGameDetail(this.selectedGame)
+          this.showGameDetail(selectedItem)
           break
         case 'launch':
-          this.launchGame(this.selectedGame)
+          this.launchGame(selectedItem)
           break
         case 'folder':
-          this.openGameFolder(this.selectedGame)
+          this.openGameFolder(selectedItem)
           break
         case 'screenshot-folder':
-          this.openGameScreenshotFolder(this.selectedGame)
+          this.openGameScreenshotFolder(selectedItem)
           break
         case 'update-folder-size':
-          this.updateGameFolderSize(this.selectedGame)
+          this.updateGameFolderSize(selectedItem)
           break
         case 'edit':
-          this.editGame(this.selectedGame)
+          this.editGame(selectedItem)
           break
         case 'remove':
-          this.removeGame(this.selectedGame)
+          this.removeGame(selectedItem)
           break
       }
     },
@@ -2167,6 +2150,23 @@ export default {
         // 使用默认值
         this.gamePageSize = 20
       }
+    },
+    
+    // 处理空状态按钮点击事件
+    handleEmptyStateAction(actionName) {
+      if (actionName === 'showAddGameDialog') {
+        this.showAddGameDialog()
+      }
+    },
+    
+    // 处理搜索查询变化
+    handleSearchQueryChanged(newValue) {
+      this.searchQuery = newValue
+    },
+    
+    // 处理排序变化
+    handleSortByChanged(newValue) {
+      this.sortBy = newValue
     }
   },
   watch: {
@@ -2201,10 +2201,6 @@ export default {
     // 初始化筛选器数据
     this.updateFilterData()
     
-    // 点击其他地方关闭右键菜单
-    document.addEventListener('click', () => {
-      this.showContextMenu = false
-    })
     
     // 监听游戏进程结束事件
     if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.onGameProcessEnded) {
@@ -2243,11 +2239,6 @@ export default {
 </script>
 
 <style scoped>
-.game-view {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
 
 
 

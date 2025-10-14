@@ -1,26 +1,27 @@
 <template>
-  <div 
-    class="audio-view"
-    @drop="handleDrop"
-    @dragover="handleDragOver"
-    @dragenter="handleDragEnter"
-    @dragleave="handleDragLeave"
-    :class="{ 'drag-over': isDragOver }"
+  <BaseView
+    ref="baseView"
+    :items="audios"
+    :filtered-items="filteredAudios"
+    :empty-state-config="audioEmptyStateConfig"
+    :toolbar-config="audioToolbarConfig"
+    :context-menu-items="audioContextMenuItems"
+    @empty-state-action="handleEmptyStateAction"
+    @add-item="showAddDialog = true"
+    @sort-changed="handleSortChanged"
+    @search-query-changed="handleSearchQueryChanged"
+    @sort-by-changed="handleSortByChanged"
+    @context-menu-click="handleContextMenuClick"
   >
     <!-- 音频主内容区域 -->
-    <div class="audio-content">
-      <!-- 工具栏 -->
-      <Toolbar 
-        v-model:searchQuery="searchQuery"
-        v-model:sortBy="sortBy"
-        add-button-text="添加音频"
-        search-placeholder="搜索音频..."
-        :sort-options="audioSortOptions"
-        page-type="audio"
-        @add-item="showAddDialog = true"
-        @sort-changed="handleSortChanged"
-      />
-      
+    <div 
+      class="audio-content"
+      @drop="handleDrop"
+      @dragover="handleDragOver"
+      @dragenter="handleDragEnter"
+      @dragleave="handleDragLeave"
+      :class="{ 'drag-over': isDragOver }"
+    >
       <!-- 音频列表分页导航 -->
       <PaginationNav
         :current-page="currentAudioPage"
@@ -43,37 +44,12 @@
             :isElectronEnvironment="true"
             :file-exists="audio.fileExists"
             @click="showAudioDetail"
-            @contextmenu="showContextMenu"
+            @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, audio)"
             @action="playAudio"
           />
         </div>
-
-        <!-- 空状态 -->
-        <EmptyState 
-          v-else-if="audios.length === 0"
-          icon="🎵"
-          title="你的音频库是空的"
-          description="点击&quot;添加音频&quot;按钮来添加你的第一个音频"
-          :show-button="true"
-          button-text="添加第一个音频"
-          @action="showAddDialog = true"
-        />
-
-        <!-- 无搜索结果 -->
-        <EmptyState 
-          v-else-if="filteredAudios.length === 0"
-          icon="🔍"
-          title="没有找到匹配的音频"
-          description="尝试使用不同的搜索词"
-        />
-
-        <!-- 当前页无数据 -->
-        <EmptyState 
-          v-else
-          icon="📄"
-          title="当前页没有音频"
-          description="请切换到其他页面查看音频"
-        />
+      </div>
+    </div>
 
     <!-- 添加音频对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddDialog">
@@ -225,13 +201,6 @@
       </div>
     </div>
 
-    <!-- 右键菜单 -->
-    <ContextMenu
-      :visible="contextMenu.visible"
-      :position="{ x: contextMenu.x, y: contextMenu.y }"
-      :menu-items="audioContextMenuItems"
-      @item-click="handleContextMenuClick"
-    />
 
     <!-- 路径更新确认对话框 -->
     <PathUpdateDialog
@@ -248,16 +217,12 @@
       @confirm="confirmPathUpdate"
       @cancel="closePathUpdateDialog"
     />
-      </div>
-    </div>
-  </div>
+  </BaseView>
 </template>
 
 <script>
 import audioManager from '../utils/AudioManager.js'
-import Toolbar from '../components/Toolbar.vue'
-import EmptyState from '../components/EmptyState.vue'
-import ContextMenu from '../components/ContextMenu.vue'
+import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -267,9 +232,7 @@ import PaginationNav from '../components/PaginationNav.vue'
 export default {
   name: 'AudioView',
   components: {
-    Toolbar,
-    EmptyState,
-    ContextMenu,
+    BaseView,
     FormField,
     MediaCard,
     DetailPanel,
@@ -303,11 +266,6 @@ export default {
       audioPageSize: 20, // 默认每页显示20个音频
       totalAudioPages: 0,
       selectedAudio: null,
-      contextMenu: {
-        visible: false,
-        x: 0,
-        y: 0
-      },
       newAudio: {
         name: '',
         artist: '',
@@ -337,6 +295,32 @@ export default {
         { value: 'playCount', label: '按播放次数' },
         { value: 'addedDate', label: '按添加时间' }
       ],
+      // 空状态配置
+      audioEmptyStateConfig: {
+        emptyIcon: '🎵',
+        emptyTitle: '你的音频库是空的',
+        emptyDescription: '点击"添加音频"按钮来添加你的第一个音频',
+        emptyButtonText: '添加第一个音频',
+        emptyButtonAction: 'showAddDialog',
+        noResultsIcon: '🔍',
+        noResultsTitle: '没有找到匹配的音频',
+        noResultsDescription: '尝试使用不同的搜索词',
+        noPageDataIcon: '📄',
+        noPageDataTitle: '当前页没有音频',
+        noPageDataDescription: '请切换到其他页面查看音频'
+      },
+      // 工具栏配置
+      audioToolbarConfig: {
+        addButtonText: '添加音频',
+        searchPlaceholder: '搜索音频...',
+        sortOptions: [
+          { value: 'name', label: '按名称' },
+          { value: 'artist', label: '按艺术家' },
+          { value: 'playCount', label: '按播放次数' },
+          { value: 'addedDate', label: '按添加时间' }
+        ],
+        pageType: 'audio'
+      },
       // 右键菜单配置
       audioContextMenuItems: [
         { key: 'detail', icon: '👁️', label: '查看详情' },
@@ -677,18 +661,18 @@ export default {
             this.newAudio.duration = await this.getAudioDuration(filePath)
           }
         } else {
-          alert('当前环境不支持文件选择功能')
+          this.showToastNotification('当前环境不支持文件选择功能')
         }
       } catch (error) {
         console.error('选择音频文件失败:', error)
-        alert('选择音频文件失败: ' + error.message)
+        this.showToastNotification('选择音频文件失败: ' + error.message)
       }
     },
     
     async addAudio() {
       try {
         if (!this.newAudio.filePath) {
-          alert('请选择音频文件')
+          this.showToastNotification('请选择音频文件')
           return
         }
         
@@ -705,7 +689,7 @@ export default {
         this.showNotification('音频添加成功', `已添加音频: ${audio.name}`)
       } catch (error) {
         console.error('添加音频失败:', error)
-        alert('添加音频失败: ' + error.message)
+        this.showToastNotification('添加音频失败: ' + error.message)
       }
     },
     
@@ -728,7 +712,7 @@ export default {
         
       } catch (error) {
         console.error('播放音频失败:', error)
-        alert('播放音频失败: ' + error.message)
+        this.showToastNotification('播放音频失败: ' + error.message)
       }
     },
     
@@ -741,7 +725,7 @@ export default {
     async openAudioFolder(audio) {
       try {
         if (!audio.filePath) {
-          alert('音频文件路径不存在')
+          this.showToastNotification('音频文件路径不存在')
           return
         }
         
@@ -749,18 +733,18 @@ export default {
           const result = await window.electronAPI.openFileFolder(audio.filePath)
           if (result.success) {
             console.log('已打开音频文件夹:', result.folderPath)
-            alert(`已打开音频文件夹: ${result.folderPath}`)
+            this.showToastNotification(`已打开音频文件夹: ${result.folderPath}`)
           } else {
             console.error('打开文件夹失败:', result.error)
-            alert(`打开文件夹失败: ${result.error}`)
+            this.showToastNotification(`打开文件夹失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中显示路径
-          alert(`音频文件位置:\n${audio.filePath}`)
+          this.showToastNotification(`音频文件位置:\n${audio.filePath}`)
         }
       } catch (error) {
         console.error('打开音频文件夹失败:', error)
-        alert(`打开文件夹失败: ${error.message}`)
+        this.showToastNotification(`打开文件夹失败: ${error.message}`)
       }
     },
     
@@ -826,41 +810,51 @@ export default {
       }
     },
     
-    showContextMenu(event, audio) {
-      event.preventDefault()
-      this.contextMenu = {
-        visible: true,
-        x: event.clientX,
-        y: event.clientY
-      }
-      // 临时存储选中的音频，用于右键菜单操作
-      this.contextMenu.selectedAudio = audio
-    },
-    handleContextMenuClick(item) {
-      this.contextMenu.visible = false
-      const audio = this.contextMenu.selectedAudio
-      if (!audio) return
+    /**
+     * 右键菜单点击事件处理
+     * @param {*} data - 包含 item 和 selectedItem
+     */
+    handleContextMenuClick(data) {
+      const { item, selectedItem } = data
+      if (!selectedItem) return
       
       switch (item.key) {
         case 'detail':
-          this.showAudioDetail(audio)
+          this.showAudioDetail(selectedItem)
           break
         case 'play':
-          this.playAudio(audio)
+          this.playAudio(selectedItem)
           break
         case 'addToPlaylist':
-          this.addToPlaylist(audio)
+          this.addToPlaylist(selectedItem)
           break
         case 'folder':
-          this.openAudioFolder(audio)
+          this.openAudioFolder(selectedItem)
           break
         case 'edit':
-          this.editAudio(audio)
+          this.editAudio(selectedItem)
           break
         case 'delete':
-          this.deleteAudio(audio)
+          this.deleteAudio(selectedItem)
           break
       }
+    },
+    
+    // 处理空状态按钮点击事件
+    handleEmptyStateAction(actionName) {
+      if (actionName === 'showAddDialog') {
+        this.showAddDialog = true
+      }
+    },
+    
+    // 处理搜索查询变化
+    handleSearchQueryChanged(newValue) {
+      this.searchQuery = newValue
+    },
+    
+    // 处理排序变化
+    handleSortByChanged(newValue) {
+      this.sortBy = newValue
     },
     
     editAudio(audio) {
@@ -940,11 +934,11 @@ export default {
             this.editAudioForm.duration = await this.getAudioDuration(filePath)
           }
         } else {
-          alert('当前环境不支持文件选择功能')
+          this.showToastNotification('当前环境不支持文件选择功能')
         }
       } catch (error) {
         console.error('选择音频文件失败:', error)
-        alert('选择音频文件失败: ' + error.message)
+        this.showToastNotification('选择音频文件失败: ' + error.message)
       }
     },
     
@@ -1558,22 +1552,11 @@ export default {
     
     // 初始化筛选器数据
     this.updateFilterData()
-    
-    // 点击其他地方关闭右键菜单
-    document.addEventListener('click', () => {
-      this.contextMenu.visible = false
-    })
   }
 }
 </script>
 
 <style scoped>
-.audio-view {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
 /* 音频主内容区域 */
 .audio-content {
   flex: 1;
@@ -1604,7 +1587,7 @@ export default {
 }
 
 /* 拖拽状态样式 */
-.audio-view.drag-over {
+.audio-content.drag-over {
   background-color: rgba(102, 192, 244, 0.1);
   border: 2px dashed var(--accent-color);
 }
@@ -2115,18 +2098,18 @@ export default {
 }
 
 /* 拖拽样式 */
-.audio-view {
+.audio-content {
   position: relative;
   transition: all 0.3s ease;
 }
 
-.audio-view.drag-over {
+.audio-content.drag-over {
   background: rgba(59, 130, 246, 0.1);
   border: 2px dashed var(--accent-color);
   border-radius: 12px;
 }
 
-.audio-view.drag-over::before {
+.audio-content.drag-over::before {
   content: '拖拽音频文件到这里添加音频（支持多选）';
   position: absolute;
   top: 50%;

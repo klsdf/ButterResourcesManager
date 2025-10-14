@@ -1,5 +1,18 @@
 <template>
-  <div class="image-view">
+  <BaseView
+    ref="baseView"
+    :items="albums"
+    :filtered-items="filteredAlbums"
+    :empty-state-config="albumEmptyStateConfig"
+    :toolbar-config="albumToolbarConfig"
+    :context-menu-items="albumContextMenuItems"
+    @empty-state-action="handleEmptyStateAction"
+    @add-item="showAddAlbumDialog"
+    @sort-changed="handleSortChanged"
+    @search-query-changed="handleSearchQueryChanged"
+    @sort-by-changed="handleSortByChanged"
+    @context-menu-click="handleContextMenuClick"
+  >
     <!-- 主内容区域 -->
     <div 
       class="image-content"
@@ -9,17 +22,6 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 工具栏 -->
-      <GameToolbar 
-        v-model:searchQuery="searchQuery"
-        v-model:sortBy="sortBy"
-        add-button-text="添加漫画"
-        search-placeholder="搜索漫画..."
-        :sort-options="imageSortOptions"
-        page-type="images"
-        @add-item="showAddAlbumDialog"
-        @sort-changed="handleSortChanged"
-      />
 
     <!-- 漫画列表分页导航 -->
     <PaginationNav
@@ -41,37 +43,11 @@
         :isElectronEnvironment="true"
         :file-exists="album.fileExists"
         @click="showAlbumDetail"
-        @contextmenu="showAlbumContextMenu"
+        @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, album)"
         @action="openAlbum"
       />
     </div>
 
-    <!-- 空状态 -->
-    <EmptyState 
-      v-else-if="albums.length === 0"
-      icon="🖼️"
-      title="还没有添加漫画"
-      description="点击&quot;添加漫画&quot;按钮选择文件夹，或直接拖拽文件夹到此处（支持多选）"
-      :show-button="true"
-      button-text="添加第一个漫画"
-      @action="showAddAlbumDialog"
-    />
-    
-    <!-- 无搜索结果 -->
-    <EmptyState 
-      v-else-if="filteredAlbums.length === 0"
-      icon="🔍"
-      title="没有找到匹配的漫画"
-      description="尝试使用不同的搜索词"
-    />
-    
-    <!-- 当前页无数据（但总数据存在） -->
-    <EmptyState 
-      v-else
-      icon="📄"
-      title="当前页没有漫画"
-      description="请尝试切换到其他页面"
-    />
 
     <!-- 添加专辑对话框 -->
     <div v-if="showAddDialog" class="modal-overlay" @click="closeAddAlbumDialog">
@@ -315,13 +291,6 @@
       @view-count-update="onViewCountUpdate"
     />
 
-    <!-- 右键菜单 -->
-    <ContextMenu
-      :visible="showContextMenu"
-      :position="contextMenuPos"
-      :menu-items="albumContextMenuItems"
-      @item-click="handleContextMenuClick"
-    />
 
     <!-- 路径更新确认对话框 -->
     <PathUpdateDialog
@@ -339,15 +308,14 @@
       @cancel="closePathUpdateDialog"
     />
     </div>
-  </div>
+  </BaseView>
   
 </template>
 
 <script>
 import saveManager from '../utils/SaveManager.js'
-import GameToolbar from '../components/Toolbar.vue'
+import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
-import ContextMenu from '../components/ContextMenu.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -358,9 +326,8 @@ import PaginationNav from '../components/PaginationNav.vue'
 export default {
   name: 'ImageView',
   components: {
-    GameToolbar,
+    BaseView,
     EmptyState,
-    ContextMenu,
     FormField,
     MediaCard,
     DetailPanel,
@@ -394,8 +361,6 @@ export default {
       tagInput: '',
       showDetailModal: false,
       currentAlbum: null,
-      showContextMenu: false,
-      contextMenuPos: { x: 0, y: 0 },
       selectedAlbum: null,
       pages: [],
       // 优化的图片缓存系统
@@ -454,6 +419,32 @@ export default {
       currentAlbumPage: 1,
       albumPageSize: 20, // 默认每页显示20个漫画
       totalAlbumPages: 0,
+      // 空状态配置
+      albumEmptyStateConfig: {
+        emptyIcon: '🖼️',
+        emptyTitle: '还没有添加漫画',
+        emptyDescription: '点击"添加漫画"按钮选择文件夹，或直接拖拽文件夹到此处（支持多选）',
+        emptyButtonText: '添加第一个漫画',
+        emptyButtonAction: 'showAddAlbumDialog',
+        noResultsIcon: '🔍',
+        noResultsTitle: '没有找到匹配的漫画',
+        noResultsDescription: '尝试使用不同的搜索词',
+        noPageDataIcon: '📄',
+        noPageDataTitle: '当前页没有漫画',
+        noPageDataDescription: '请尝试切换到其他页面'
+      },
+      // 工具栏配置
+      albumToolbarConfig: {
+        addButtonText: '添加漫画',
+        searchPlaceholder: '搜索漫画...',
+        sortOptions: [
+          { value: 'name', label: '按名称排序' },
+          { value: 'author', label: '按作者排序' },
+          { value: 'added', label: '按添加时间' },
+          { value: 'viewCount', label: '按查看次数' }
+        ],
+        pageType: 'images'
+      },
       // 标签筛选相关
       allTags: [],
       selectedTags: [],
@@ -1146,6 +1137,23 @@ export default {
     async saveAlbums() {
       await saveManager.saveImages(this.albums)
     },
+    // 处理空状态按钮点击事件
+    handleEmptyStateAction(actionName) {
+      if (actionName === 'showAddAlbumDialog') {
+        this.showAddAlbumDialog()
+      }
+    },
+    
+    // 处理搜索查询变化
+    handleSearchQueryChanged(newValue) {
+      this.searchQuery = newValue
+    },
+    
+    // 处理排序变化
+    handleSortByChanged(newValue) {
+      this.sortBy = newValue
+    },
+    
     showAddAlbumDialog() {
       this.showAddDialog = true
       this.newAlbum = {
@@ -1338,31 +1346,29 @@ export default {
           break
       }
     },
-    showAlbumContextMenu(event, album) {
-      event.preventDefault()
-      this.selectedAlbum = album
-      this.contextMenuPos = { x: event.clientX, y: event.clientY }
-      this.showContextMenu = true
-    },
-    handleContextMenuClick(item) {
-      this.showContextMenu = false
-      if (!this.selectedAlbum) return
+    /**
+     * 右键菜单点击事件处理
+     * @param {*} data - 包含 item 和 selectedItem
+     */
+    handleContextMenuClick(data) {
+      const { item, selectedItem } = data
+      if (!selectedItem) return
       
       switch (item.key) {
         case 'detail':
-          this.showAlbumDetail(this.selectedAlbum)
+          this.showAlbumDetail(selectedItem)
           break
         case 'open':
-          this.openAlbum(this.selectedAlbum)
+          this.openAlbum(selectedItem)
           break
         case 'folder':
-          this.openAlbumFolder(this.selectedAlbum)
+          this.openAlbumFolder(selectedItem)
           break
         case 'edit':
-          this.editAlbum(this.selectedAlbum)
+          this.editAlbum(selectedItem)
           break
         case 'remove':
-          this.removeAlbum(this.selectedAlbum)
+          this.removeAlbum(selectedItem)
           break
       }
     },
@@ -2530,20 +2536,11 @@ export default {
     // 初始化筛选器数据
     this.updateFilterData()
     
-    // 点击其他地方关闭右键菜单
-    document.addEventListener('click', () => {
-      this.showContextMenu = false
-    })
   }
 }
 </script>
 
 <style scoped>
-.image-view {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
 
 /* 漫画主内容区域 */
 .image-content {

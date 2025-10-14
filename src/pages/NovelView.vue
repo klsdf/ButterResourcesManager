@@ -1,5 +1,18 @@
 <template>
-  <div class="novel-view">
+  <BaseView
+    ref="baseView"
+    :items="novels"
+    :filtered-items="filteredNovels"
+    :empty-state-config="novelEmptyStateConfig"
+    :toolbar-config="novelToolbarConfig"
+    :context-menu-items="novelContextMenuItems"
+    @empty-state-action="handleEmptyStateAction"
+    @add-item="showAddNovelDialog"
+    @sort-changed="handleSortChanged"
+    @search-query-changed="handleSearchQueryChanged"
+    @sort-by-changed="handleSortByChanged"
+    @context-menu-click="handleContextMenuClick"
+  >
     <!-- 主内容区域 -->
     <div 
       class="novel-content"
@@ -9,123 +22,85 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 工具栏 -->
-      <Toolbar 
-        v-model:searchQuery="searchQuery"
-        v-model:sortBy="sortBy"
-        add-button-text="添加小说"
-        search-placeholder="搜索小说..."
-        :sort-options="novelSortOptions"
-        page-type="novels"
-        @add-item="showAddNovelDialog"
-        @sort-changed="handleSortChanged"
+      <!-- 小说列表分页导航 -->
+      <PaginationNav
+        :current-page="currentNovelPage"
+        :total-pages="totalNovelPages"
+        :page-size="novelPageSize"
+        :total-items="filteredNovels.length"
+        item-type="小说"
+        @page-change="handleNovelPageChange"
       />
-    
-    <!-- 小说列表分页导航 -->
-    <PaginationNav
-      :current-page="currentNovelPage"
-      :total-pages="totalNovelPages"
-      :page-size="novelPageSize"
-      :total-items="filteredNovels.length"
-      item-type="小说"
-      @page-change="handleNovelPageChange"
-    />
-    
-    <!-- 主要内容区域 -->
-    <div class="novel-main-content">
-      <!-- 左侧：小说列表 -->
-      <div class="novel-list-section" :class="{ 'with-reader': currentReadingNovel }">
-    
-        <!-- 小说网格 -->
-        <div class="novels-grid" v-if="paginatedNovels.length > 0">
-          <MediaCard
-            v-for="novel in paginatedNovels" 
-            :key="novel.id"
-            :item="novel"
-            type="novel"
-            :isElectronEnvironment="true"
-            :file-exists="novel.fileExists"
-            @click="showNovelDetail"
-            @contextmenu="showNovelContextMenu"
-            @action="handleNovelClick"
-          />
-        </div>
-
-        <!-- 空状态 -->
-        <EmptyState 
-          v-else-if="novels.length === 0"
-          icon="📚"
-          title="你的小说库是空的"
-          description="点击&quot;添加小说&quot;按钮来添加你的第一本小说"
-          :show-button="true"
-          button-text="添加第一本小说"
-          @action="showAddNovelDialog"
-        />
-
-        <!-- 无搜索结果 -->
-        <EmptyState 
-          v-else-if="filteredNovels.length === 0"
-          icon="🔍"
-          title="没有找到匹配的小说"
-          description="尝试使用不同的搜索词"
-        />
-
-        <!-- 当前页无数据 -->
-        <EmptyState 
-          v-else
-          icon="📄"
-          title="当前页没有小说"
-          description="请切换到其他页面查看小说"
-        />
-      </div>
-
-      <!-- 右侧：阅读器区域 -->
-      <div class="reader-section" v-if="currentReadingNovel">
-        <div class="reader-header">
-          <div class="reader-title">
-            <h3>{{ currentReadingNovel.name }}</h3>
-            <p class="reader-author">{{ currentReadingNovel.author }}</p>
-          </div>
-          <div class="reader-controls">
-            <button class="btn-close-reader" @click="closeReader" title="关闭阅读器">
-              <span class="btn-icon">✕</span>
-            </button>
-          </div>
-        </div>
-        
-        <div class="reader-progress">
-          <div class="progress-info">
-            <span>阅读进度: {{ currentReadingNovel.readProgress || 0 }}%</span>
-            <span>字数: {{ formatNumber(currentReadingNovel.totalWords) }}</span>
-          </div>
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: currentReadingNovel.readProgress + '%' }"></div>
+      
+      <!-- 主要内容区域 -->
+      <div class="novel-main-content">
+        <!-- 左侧：小说列表 -->
+        <div class="novel-list-section" :class="{ 'with-reader': currentReadingNovel }">
+      
+          <!-- 小说网格 -->
+          <div class="novels-grid" v-if="paginatedNovels.length > 0">
+            <MediaCard
+              v-for="novel in paginatedNovels" 
+              :key="novel.id"
+              :item="novel"
+              type="novel"
+              :isElectronEnvironment="true"
+              :file-exists="novel.fileExists"
+              @click="showNovelDetail"
+              @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, novel)"
+              @action="handleNovelClick"
+            />
           </div>
         </div>
 
-        <div class="reader-content" ref="readerContent" :style="readerContentStyle">
-          <div v-if="novelContent" class="novel-text" :style="novelTextStyle" v-html="formattedContent"></div>
-          <div v-else-if="loadingContent" class="loading-content">
-            <div class="loading-spinner"></div>
-            <p>正在加载小说内容...</p>
+        <!-- 右侧：阅读器区域 -->
+        <div class="reader-section" v-if="currentReadingNovel">
+          <div class="reader-header">
+            <div class="reader-title">
+              <h3>{{ currentReadingNovel.name }}</h3>
+              <p class="reader-author">{{ currentReadingNovel.author }}</p>
+            </div>
+            <div class="reader-controls">
+              <button class="btn-close-reader" @click="closeReader" title="关闭阅读器">
+                <span class="btn-icon">✕</span>
+              </button>
+            </div>
           </div>
-          <div v-else class="no-content">
-            <p>无法加载小说内容</p>
-            <button class="btn-retry" @click="loadNovelContent">重试</button>
+          
+          <div class="reader-progress">
+            <div class="progress-info">
+              <span>阅读进度: {{ currentReadingNovel.readProgress || 0 }}%</span>
+              <span>字数: {{ formatNumber(currentReadingNovel.totalWords) }}</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" :style="{ width: currentReadingNovel.readProgress + '%' }"></div>
+            </div>
           </div>
-        </div>
 
-        <div class="reader-footer">
-          <div class="reader-navigation">
-            <button class="btn-prev" @click="previousPage" :disabled="!canGoPrevious">
-              <span class="btn-icon">←</span>
-              上一页
-            </button>
-            <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-            <button class="btn-next" @click="nextPage" :disabled="!canGoNext">
-              下一页
-              <span class="btn-icon">→</span>
-            </button>
+          <div class="reader-content" ref="readerContent" :style="readerContentStyle">
+            <div v-if="novelContent" class="novel-text" :style="novelTextStyle" v-html="formattedContent"></div>
+            <div v-else-if="loadingContent" class="loading-content">
+              <div class="loading-spinner"></div>
+              <p>正在加载小说内容...</p>
+            </div>
+            <div v-else class="no-content">
+              <p>无法加载小说内容</p>
+              <button class="btn-retry" @click="loadNovelContent">重试</button>
+            </div>
+          </div>
+
+          <div class="reader-footer">
+            <div class="reader-navigation">
+              <button class="btn-prev" @click="previousPage" :disabled="!canGoPrevious">
+                <span class="btn-icon">←</span>
+                上一页
+              </button>
+              <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+              <button class="btn-next" @click="nextPage" :disabled="!canGoNext">
+                下一页
+                <span class="btn-icon">→</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -261,13 +236,6 @@
       @action="handleDetailAction"
     />
     
-    <!-- 右键菜单 -->
-    <ContextMenu
-      :visible="showContextMenu"
-      :position="contextMenuPos"
-      :menu-items="novelContextMenuItems"
-      @item-click="handleContextMenuClick"
-    />
 
     <!-- 路径更新确认对话框 -->
     <PathUpdateDialog
@@ -284,15 +252,12 @@
       @confirm="confirmPathUpdate"
       @cancel="closePathUpdateDialog"
     />
-    </div>
-  </div>
+  </BaseView>
 </template>
 
 <script>
 import novelManager from '../utils/NovelManager.js'
-import Toolbar from '../components/Toolbar.vue'
-import EmptyState from '../components/EmptyState.vue'
-import ContextMenu from '../components/ContextMenu.vue'
+import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
@@ -302,9 +267,7 @@ import PaginationNav from '../components/PaginationNav.vue'
 export default {
   name: 'NovelView',
   components: {
-    Toolbar,
-    EmptyState,
-    ContextMenu,
+    BaseView,
     FormField,
     MediaCard,
     DetailPanel,
@@ -326,8 +289,6 @@ export default {
         newPath: '',
         newFileName: ''
       },
-      showContextMenu: false,
-      contextMenuPos: { x: 0, y: 0 },
       selectedNovel: null,
       showDetailModal: false,
       currentNovel: null,
@@ -389,13 +350,32 @@ export default {
         novelWordsPerPage: 1000,
         novelShowProgress: true
       },
-      // 排序选项
-      novelSortOptions: [
-        { value: 'name', label: '按名称排序' },
-        { value: 'author', label: '按作者排序' },
-        { value: 'readProgress', label: '按阅读进度' },
-        { value: 'added', label: '按添加时间' }
-      ],
+      // 空状态配置
+      novelEmptyStateConfig: {
+        emptyIcon: '📚',
+        emptyTitle: '你的小说库是空的',
+        emptyDescription: '点击"添加小说"按钮来添加你的第一本小说',
+        emptyButtonText: '添加第一本小说',
+        emptyButtonAction: 'showAddNovelDialog',
+        noResultsIcon: '🔍',
+        noResultsTitle: '没有找到匹配的小说',
+        noResultsDescription: '尝试使用不同的搜索词',
+        noPageDataIcon: '📄',
+        noPageDataTitle: '当前页没有小说',
+        noPageDataDescription: '请切换到其他页面查看小说'
+      },
+      // 工具栏配置
+      novelToolbarConfig: {
+        addButtonText: '添加小说',
+        searchPlaceholder: '搜索小说...',
+        sortOptions: [
+          { value: 'name', label: '按名称排序' },
+          { value: 'author', label: '按作者排序' },
+          { value: 'readProgress', label: '按阅读进度' },
+          { value: 'added', label: '按添加时间' }
+        ],
+        pageType: 'novels'
+      },
       // 右键菜单配置
       novelContextMenuItems: [
         { key: 'detail', icon: '👁️', label: '查看详情' },
@@ -713,33 +693,48 @@ export default {
           break
       }
     },
-    showNovelContextMenu(event, novel) {
-      event.preventDefault()
-      this.selectedNovel = novel
-      this.contextMenuPos = { x: event.clientX, y: event.clientY }
-      this.showContextMenu = true
-    },
-    handleContextMenuClick(item) {
-      this.showContextMenu = false
-      if (!this.selectedNovel) return
+    /**
+     * 右键菜单点击事件处理
+     * @param {*} data - 包含 item 和 selectedItem
+     */
+    handleContextMenuClick(data) {
+      const { item, selectedItem } = data
+      if (!selectedItem) return
       
       switch (item.key) {
         case 'detail':
-          this.showNovelDetail(this.selectedNovel)
+          this.showNovelDetail(selectedItem)
           break
         case 'read':
-          this.openNovelReader(this.selectedNovel)
+          this.openNovelReader(selectedItem)
           break
         case 'folder':
-          this.openNovelFolder(this.selectedNovel)
+          this.openNovelFolder(selectedItem)
           break
         case 'edit':
-          this.editNovel(this.selectedNovel)
+          this.editNovel(selectedItem)
           break
         case 'remove':
-          this.removeNovel(this.selectedNovel)
+          this.removeNovel(selectedItem)
           break
       }
+    },
+    
+    // 处理空状态按钮点击事件
+    handleEmptyStateAction(actionName) {
+      if (actionName === 'showAddNovelDialog') {
+        this.showAddNovelDialog()
+      }
+    },
+    
+    // 处理搜索查询变化
+    handleSearchQueryChanged(newValue) {
+      this.searchQuery = newValue
+    },
+    
+    // 处理排序变化
+    handleSortByChanged(newValue) {
+      this.sortBy = newValue
     },
     editNovel(novel) {
       this.showContextMenu = false
@@ -1754,22 +1749,11 @@ export default {
     
     // 加载全局设置
     await this.getGlobalSettings()
-    
-    // 点击其他地方关闭右键菜单
-    document.addEventListener('click', () => {
-      this.showContextMenu = false
-    })
   }
 }
 </script>
 
 <style scoped>
-.novel-view {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
 /* 小说主内容区域 */
 .novel-content {
   flex: 1;
