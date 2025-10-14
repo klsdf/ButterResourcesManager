@@ -708,12 +708,45 @@ export default {
             `成功添加 ${addedCount} 个视频文件${failedCount > 0 ? `，${failedCount} 个文件添加失败` : ''}`
           )
         } else {
-          this.showToastNotification('添加失败', '没有成功添加任何视频文件')
+          // 详细分析失败原因
+          let failureReason = ''
+          if (videoFiles.length === 0) {
+            failureReason = '没有检测到视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）'
+          } else if (files.length === 0) {
+            failureReason = '没有检测到任何文件'
+          } else {
+            failureReason = `所有 ${videoFiles.length} 个视频文件都已存在于视频库中`
+          }
+          
+          this.showToastNotification(
+            '添加失败', 
+            `没有成功添加任何视频文件\n原因：${failureReason}\n\n提示：\n• 请确保拖拽的是视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）\n• 检查文件是否已存在于视频库中\n• 尝试重新拖拽文件`
+          )
         }
         
       } catch (error) {
         console.error('拖拽添加视频失败:', error)
-        this.showToastNotification('添加失败', `添加视频失败: ${error.message}`)
+        
+        // 根据错误类型提供更详细的错误信息
+        let errorMessage = ''
+        if (error.name === 'SecurityError') {
+          errorMessage = '安全错误：浏览器阻止了文件访问\n请尝试使用"添加视频"按钮手动选择文件'
+        } else if (error.name === 'NotAllowedError') {
+          errorMessage = '权限错误：无法访问拖拽的文件\n请检查文件权限或尝试重新拖拽'
+        } else if (error.message.includes('path')) {
+          errorMessage = `文件路径错误：${error.message}\n请确保文件路径有效且可访问`
+        } else if (error.message.includes('size')) {
+          errorMessage = `文件大小错误：${error.message}\n请检查文件是否损坏或过大`
+        } else if (error.message.includes('format') || error.message.includes('codec')) {
+          errorMessage = `视频格式错误：${error.message}\n请检查视频文件是否完整且格式正确`
+        } else {
+          errorMessage = `未知错误：${error.message}\n请尝试重新拖拽文件或使用"添加视频"按钮`
+        }
+        
+        this.showToastNotification(
+          '添加失败', 
+          `拖拽添加视频时发生错误\n\n${errorMessage}\n`
+        )
       }
     },
     

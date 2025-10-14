@@ -1988,12 +1988,43 @@ export default {
             `成功添加 ${addedCount} 个游戏${failedCount > 0 ? `，${failedCount} 个文件添加失败` : ''}`
           )
         } else {
-          this.showToastNotification('添加失败', '没有成功添加任何游戏文件')
+          // 详细分析失败原因
+          let failureReason = ''
+          if (executableFiles.length === 0) {
+            failureReason = '没有检测到可执行文件（.exe 或 .app）'
+          } else if (files.length === 0) {
+            failureReason = '没有检测到任何文件'
+          } else {
+            failureReason = `所有 ${executableFiles.length} 个可执行文件都已存在于游戏库中`
+          }
+          
+          this.showToastNotification(
+            '添加失败', 
+            `没有成功添加任何游戏文件\n原因：${failureReason}\n\n提示：\n• 请确保拖拽的是 .exe 或 .app 文件\n• 检查文件是否已存在于游戏库中\n• 尝试重新拖拽文件`
+          )
         }
         
       } catch (error) {
         console.error('拖拽添加游戏失败:', error)
-        this.showToastNotification('添加失败', `添加游戏失败: ${error.message}`)
+        
+        // 根据错误类型提供更详细的错误信息
+        let errorMessage = ''
+        if (error.name === 'SecurityError') {
+          errorMessage = '安全错误：浏览器阻止了文件访问\n请尝试使用"添加游戏"按钮手动选择文件'
+        } else if (error.name === 'NotAllowedError') {
+          errorMessage = '权限错误：无法访问拖拽的文件\n请检查文件权限或尝试重新拖拽'
+        } else if (error.message.includes('path')) {
+          errorMessage = `文件路径错误：${error.message}\n请确保文件路径有效且可访问`
+        } else if (error.message.includes('size')) {
+          errorMessage = `文件大小错误：${error.message}\n请检查文件是否损坏或过大`
+        } else {
+          errorMessage = `未知错误：${error.message}\n请尝试重新拖拽文件或使用"添加游戏"按钮`
+        }
+        
+        this.showToastNotification(
+          '添加失败', 
+          `拖拽添加游戏时发生错误\n\n${errorMessage}\n\n建议：\n• 重新拖拽文件\n• 使用"添加游戏"按钮手动选择\n• 检查文件是否完整且可访问`
+        )
       }
     },
 
