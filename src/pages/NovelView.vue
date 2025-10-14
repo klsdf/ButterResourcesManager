@@ -1,18 +1,20 @@
 <template>
-  <BaseView
-    ref="baseView"
-    :items="novels"
-    :filtered-items="filteredNovels"
-    :empty-state-config="novelEmptyStateConfig"
-    :toolbar-config="novelToolbarConfig"
-    :context-menu-items="novelContextMenuItems"
-    @empty-state-action="handleEmptyStateAction"
-    @add-item="showAddNovelDialog"
-    @sort-changed="handleSortChanged"
-    @search-query-changed="handleSearchQueryChanged"
-    @sort-by-changed="handleSortByChanged"
-    @context-menu-click="handleContextMenuClick"
-  >
+        <BaseView
+          ref="baseView"
+          :items="novels"
+          :filtered-items="filteredNovels"
+          :empty-state-config="novelEmptyStateConfig"
+          :toolbar-config="novelToolbarConfig"
+          :context-menu-items="novelContextMenuItems"
+          :pagination-config="novelPaginationConfig"
+          @empty-state-action="handleEmptyStateAction"
+          @add-item="showAddNovelDialog"
+          @sort-changed="handleSortChanged"
+          @search-query-changed="handleSearchQueryChanged"
+          @sort-by-changed="handleSortByChanged"
+          @context-menu-click="handleContextMenuClick"
+          @page-change="handleNovelPageChange"
+        >
     <!-- 主内容区域 -->
     <div 
       class="novel-content"
@@ -22,15 +24,6 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 小说列表分页导航 -->
-      <PaginationNav
-        :current-page="currentNovelPage"
-        :total-pages="totalNovelPages"
-        :page-size="novelPageSize"
-        :total-items="filteredNovels.length"
-        item-type="小说"
-        @page-change="handleNovelPageChange"
-      />
       
       <!-- 主要内容区域 -->
       <div class="novel-main-content">
@@ -262,7 +255,6 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
-import PaginationNav from '../components/PaginationNav.vue'
 
 export default {
   name: 'NovelView',
@@ -271,8 +263,7 @@ export default {
     FormField,
     MediaCard,
     DetailPanel,
-    PathUpdateDialog,
-    PaginationNav
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -511,6 +502,16 @@ export default {
         { key: 'edit', icon: '✏️', label: '编辑信息', class: 'btn-edit-novel' },
         { key: 'remove', icon: '🗑️', label: '删除小说', class: 'btn-remove-novel' }
       ]
+    },
+    // 动态更新分页配置
+    novelPaginationConfig() {
+      return {
+        currentPage: this.currentNovelPage,
+        totalPages: this.totalNovelPages,
+        pageSize: this.novelPageSize,
+        totalItems: this.filteredNovels.length,
+        itemType: '小说'
+      }
     }
   },
   methods: {

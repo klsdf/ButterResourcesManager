@@ -1,18 +1,20 @@
 <template>
-  <BaseView
-    ref="baseView"
-    :items="videos"
-    :filtered-items="filteredVideos"
-    :empty-state-config="videoEmptyStateConfig"
-    :toolbar-config="videoToolbarConfig"
-    :context-menu-items="videoContextMenuItems"
-    @empty-state-action="handleEmptyStateAction"
-    @add-item="showAddVideoDialog"
-    @sort-changed="handleSortChanged"
-    @search-query-changed="handleSearchQueryChanged"
-    @sort-by-changed="handleSortByChanged"
-    @context-menu-click="handleContextMenuClick"
-  >
+        <BaseView
+          ref="baseView"
+          :items="videos"
+          :filtered-items="filteredVideos"
+          :empty-state-config="videoEmptyStateConfig"
+          :toolbar-config="videoToolbarConfig"
+          :context-menu-items="videoContextMenuItems"
+          :pagination-config="videoPaginationConfig"
+          @empty-state-action="handleEmptyStateAction"
+          @add-item="showAddVideoDialog"
+          @sort-changed="handleSortChanged"
+          @search-query-changed="handleSearchQueryChanged"
+          @sort-by-changed="handleSortByChanged"
+          @context-menu-click="handleContextMenuClick"
+          @page-change="handleVideoPageChange"
+        >
     <!-- 主内容区域 -->
     <div 
       class="video-content"
@@ -22,15 +24,6 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 视频列表分页导航 -->
-      <PaginationNav
-        :current-page="currentVideoPage"
-        :total-pages="totalVideoPages"
-        :page-size="videoPageSize"
-        :total-items="filteredVideos.length"
-        item-type="视频"
-        @page-change="handleVideoPageChange"
-      />
 
       <!-- 视频网格 -->
       <div class="videos-grid" v-if="paginatedVideos.length > 0">
@@ -243,7 +236,6 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
-import PaginationNav from '../components/PaginationNav.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -254,7 +246,6 @@ export default {
     MediaCard,
     DetailPanel,
     PathUpdateDialog,
-    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -445,6 +436,16 @@ export default {
       }
       
       return actions
+    },
+    // 动态更新分页配置
+    videoPaginationConfig() {
+      return {
+        currentPage: this.currentVideoPage,
+        totalPages: this.totalVideoPages,
+        pageSize: this.videoPageSize,
+        totalItems: this.filteredVideos.length,
+        itemType: '视频'
+      }
     }
   },
   async mounted() {

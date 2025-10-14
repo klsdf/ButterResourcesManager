@@ -1,18 +1,20 @@
 <template>
-  <BaseView
-    ref="baseView"
-    :items="games"
-    :filtered-items="filteredGames"
-    :empty-state-config="gameEmptyStateConfig"
-    :toolbar-config="gameToolbarConfig"
-    :context-menu-items="gameContextMenuItems"
-    @empty-state-action="handleEmptyStateAction"
-    @add-item="showAddGameDialog"
-    @sort-changed="handleSortChanged"
-    @search-query-changed="handleSearchQueryChanged"
-    @sort-by-changed="handleSortByChanged"
-    @context-menu-click="handleContextMenuClick"
-  >
+        <BaseView
+          ref="baseView"
+          :items="games"
+          :filtered-items="filteredGames"
+          :empty-state-config="gameEmptyStateConfig"
+          :toolbar-config="gameToolbarConfig"
+          :context-menu-items="gameContextMenuItems"
+          :pagination-config="gamePaginationConfig"
+          @empty-state-action="handleEmptyStateAction"
+          @add-item="showAddGameDialog"
+          @sort-changed="handleSortChanged"
+          @search-query-changed="handleSearchQueryChanged"
+          @sort-by-changed="handleSortByChanged"
+          @context-menu-click="handleContextMenuClick"
+          @page-change="handleGamePageChange"
+        >
     <!-- 主内容区域 -->
     <div 
       class="game-content"
@@ -23,15 +25,6 @@
       :class="{ 'drag-over': isDragOver }"
     >
       
-      <!-- 游戏列表分页导航 -->
-      <PaginationNav
-        :current-page="currentGamePage"
-        :total-pages="totalGamePages"
-        :page-size="gamePageSize"
-        :total-items="filteredGames.length"
-        item-type="游戏"
-        @page-change="handleGamePageChange"
-      />
 
     <!-- 游戏网格 -->
     <div class="games-grid" v-if="paginatedGames.length > 0">
@@ -251,7 +244,6 @@ import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
-import PaginationNav from '../components/PaginationNav.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
 export default {
@@ -262,8 +254,7 @@ export default {
     MediaCard,
     FormField,
     DetailPanel,
-    PathUpdateDialog,
-    PaginationNav
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -417,6 +408,16 @@ export default {
     },
     canAddGame() {
       return this.newGame.executablePath.trim()
+    },
+    // 动态更新分页配置
+    gamePaginationConfig() {
+      return {
+        currentPage: this.currentGamePage,
+        totalPages: this.totalGamePages,
+        pageSize: this.gamePageSize,
+        totalItems: this.filteredGames.length,
+        itemType: '游戏'
+      }
     }
   },
   methods: {

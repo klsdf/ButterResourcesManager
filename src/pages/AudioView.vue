@@ -1,18 +1,20 @@
 <template>
-  <BaseView
-    ref="baseView"
-    :items="audios"
-    :filtered-items="filteredAudios"
-    :empty-state-config="audioEmptyStateConfig"
-    :toolbar-config="audioToolbarConfig"
-    :context-menu-items="audioContextMenuItems"
-    @empty-state-action="handleEmptyStateAction"
-    @add-item="showAddDialog = true"
-    @sort-changed="handleSortChanged"
-    @search-query-changed="handleSearchQueryChanged"
-    @sort-by-changed="handleSortByChanged"
-    @context-menu-click="handleContextMenuClick"
-  >
+        <BaseView
+          ref="baseView"
+          :items="audios"
+          :filtered-items="filteredAudios"
+          :empty-state-config="audioEmptyStateConfig"
+          :toolbar-config="audioToolbarConfig"
+          :context-menu-items="audioContextMenuItems"
+          :pagination-config="audioPaginationConfig"
+          @empty-state-action="handleEmptyStateAction"
+          @add-item="showAddDialog = true"
+          @sort-changed="handleSortChanged"
+          @search-query-changed="handleSearchQueryChanged"
+          @sort-by-changed="handleSortByChanged"
+          @context-menu-click="handleContextMenuClick"
+          @page-change="handleAudioPageChange"
+        >
     <!-- 音频主内容区域 -->
     <div 
       class="audio-content"
@@ -22,15 +24,6 @@
       @dragleave="handleDragLeave"
       :class="{ 'drag-over': isDragOver }"
     >
-      <!-- 音频列表分页导航 -->
-      <PaginationNav
-        :current-page="currentAudioPage"
-        :total-pages="totalAudioPages"
-        :page-size="audioPageSize"
-        :total-items="filteredAudios.length"
-        item-type="音频"
-        @page-change="handleAudioPageChange"
-      />
       
       <!-- 主要内容区域 -->
       <div class="audio-main-content">
@@ -227,7 +220,6 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
-import PaginationNav from '../components/PaginationNav.vue'
 
 export default {
   name: 'AudioView',
@@ -237,7 +229,6 @@ export default {
     MediaCard,
     DetailPanel,
     PathUpdateDialog,
-    PaginationNav
   },
   emits: ['filter-data-updated'],
   data() {
@@ -422,6 +413,16 @@ export default {
       }
       
       return actions
+    },
+    // 动态更新分页配置
+    audioPaginationConfig() {
+      return {
+        currentPage: this.currentAudioPage,
+        totalPages: this.totalAudioPages,
+        pageSize: this.audioPageSize,
+        totalItems: this.filteredAudios.length,
+        itemType: '音频'
+      }
     }
   },
   methods: {

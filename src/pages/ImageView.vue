@@ -1,18 +1,20 @@
 <template>
-  <BaseView
-    ref="baseView"
-    :items="albums"
-    :filtered-items="filteredAlbums"
-    :empty-state-config="albumEmptyStateConfig"
-    :toolbar-config="albumToolbarConfig"
-    :context-menu-items="albumContextMenuItems"
-    @empty-state-action="handleEmptyStateAction"
-    @add-item="showAddAlbumDialog"
-    @sort-changed="handleSortChanged"
-    @search-query-changed="handleSearchQueryChanged"
-    @sort-by-changed="handleSortByChanged"
-    @context-menu-click="handleContextMenuClick"
-  >
+        <BaseView
+          ref="baseView"
+          :items="albums"
+          :filtered-items="filteredAlbums"
+          :empty-state-config="albumEmptyStateConfig"
+          :toolbar-config="albumToolbarConfig"
+          :context-menu-items="albumContextMenuItems"
+          :pagination-config="albumPaginationConfig"
+          @empty-state-action="handleEmptyStateAction"
+          @add-item="showAddAlbumDialog"
+          @sort-changed="handleSortChanged"
+          @search-query-changed="handleSearchQueryChanged"
+          @sort-by-changed="handleSortByChanged"
+          @context-menu-click="handleContextMenuClick"
+          @page-change="handleAlbumPageChange"
+        >
     <!-- 主内容区域 -->
     <div 
       class="image-content"
@@ -23,15 +25,6 @@
       :class="{ 'drag-over': isDragOver }"
     >
 
-    <!-- 漫画列表分页导航 -->
-    <PaginationNav
-      :current-page="currentAlbumPage"
-      :total-pages="totalAlbumPages"
-      :page-size="albumPageSize"
-      :total-items="filteredAlbums.length"
-      item-type="漫画"
-      @page-change="handleAlbumPageChange"
-    />
 
     <!-- 专辑网格 -->
     <div class="albums-grid" v-if="paginatedAlbums.length > 0">
@@ -321,7 +314,6 @@ import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import ComicViewer from '../components/ComicViewer.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
-import PaginationNav from '../components/PaginationNav.vue'
 
 export default {
   name: 'ImageView',
@@ -332,8 +324,7 @@ export default {
     MediaCard,
     DetailPanel,
     ComicViewer,
-    PathUpdateDialog,
-    PaginationNav
+    PathUpdateDialog
   },
   emits: ['filter-data-updated'],
   data() {
@@ -494,6 +485,16 @@ export default {
     },
     canAddAlbum() {
       return this.newAlbum.folderPath && this.newAlbum.folderPath.trim()
+    },
+    // 动态更新分页配置
+    albumPaginationConfig() {
+      return {
+        currentPage: this.currentAlbumPage,
+        totalPages: this.totalAlbumPages,
+        pageSize: this.albumPageSize,
+        totalItems: this.filteredAlbums.length,
+        itemType: '漫画'
+      }
     },
     albumStats() {
       if (!this.currentAlbum) return []
