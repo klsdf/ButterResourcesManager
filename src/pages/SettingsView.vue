@@ -743,18 +743,6 @@
                 </div>
               </div>
 
-              <div class="setting-item">
-                <label class="setting-label">
-                  <span class="setting-title">自动下载更新</span>
-                  <span class="setting-desc">发现新版本时自动下载更新包</span>
-                </label>
-                <div class="setting-control">
-                  <label class="toggle-switch">
-                    <input type="checkbox" v-model="settings.autoDownloadUpdates" @change="onAutoDownloadUpdatesChange">
-                    <span class="toggle-slider"></span>
-                  </label>
-                </div>
-              </div>
 
               <div class="setting-item">
                 <label class="setting-label">
@@ -773,6 +761,8 @@
                 </div>
               </div>
 
+
+
               <!-- 更新状态显示 -->
               <div v-if="updateStatus" class="update-status">
                 <div class="status-item" v-if="updateStatus.checking">
@@ -780,56 +770,47 @@
                   <div class="status-text">正在检查更新...</div>
                 </div>
                 
+                <div class="status-item" v-if="updateStatus.notAvailable">
+                  <div class="status-icon">✅</div>
+                  <div class="status-content">
+                    <div class="status-text">当前已是最新版本</div>
+                    <div class="status-actions">
+                      <button class="btn btn-info" @click="openGitHubPage">
+                        <span class="btn-icon">🌐</span>
+                        查看GitHub发布页
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
                 <div class="status-item" v-if="updateStatus.available">
                   <div class="status-icon">✨</div>
                   <div class="status-content">
                     <div class="status-text">发现新版本 {{ updateStatus.version }}</div>
                     <div class="status-actions">
-                      <button class="btn btn-success" @click="downloadUpdate" :disabled="isDownloading">
-                        <span v-if="isDownloading">下载中...</span>
-                        <span v-else>下载更新</span>
+                      <button class="btn btn-info" @click="openGitHubPage">
+                        <span class="btn-icon">🌐</span>
+                        手动下载
                       </button>
                     </div>
                   </div>
                 </div>
                 
-                <div class="status-item" v-if="updateStatus.notAvailable">
-                  <div class="status-icon">✅</div>
-                  <div class="status-text">当前已是最新版本</div>
-                </div>
                 
-                <div class="status-item" v-if="updateStatus.downloaded">
-                  <div class="status-icon">🎉</div>
-                  <div class="status-content">
-                    <div class="status-text">更新已下载完成，重启应用即可安装</div>
-                    <div class="status-actions">
-                      <button class="btn btn-warning" @click="installUpdate">
-                        立即重启并安装
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="status-item" v-if="updateStatus.error">
+                <div class="status-item" v-if="updateStatus.error && !updateStatus.checksumError">
                   <div class="status-icon">❌</div>
-                  <div class="status-text">更新检查失败: {{ updateStatus.error }}</div>
+                  <div class="status-content">
+                    <div class="status-text">更新检查失败: {{ updateStatus.error }}</div>
+                    <div class="status-actions">
+                      <button class="btn btn-info" @click="openGitHubPage">
+                        <span class="btn-icon">🌐</span>
+                        手动下载
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <!-- 下载进度显示 -->
-              <div v-if="downloadProgress.show" class="download-progress">
-                <div class="progress-header">
-                  <span>下载进度</span>
-                  <span>{{ Math.round(downloadProgress.percent) }}%</span>
-                </div>
-                <div class="progress-bar">
-                  <div class="progress-fill" :style="{ width: downloadProgress.percent + '%' }"></div>
-                </div>
-                <div class="progress-details">
-                  <span>{{ formatBytes(downloadProgress.transferred) }} / {{ formatBytes(downloadProgress.total) }}</span>
-                  <span>{{ formatBytes(downloadProgress.bytesPerSecond) }}/s</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -912,8 +893,7 @@ export default {
           listPageSize: 20
         },
         // 更新设置
-        autoCheckUpdates: true,
-        autoDownloadUpdates: false
+        autoCheckUpdates: true
       },
       // 自动保存相关
       autoSaveTimer: null,
@@ -924,15 +904,7 @@ export default {
       // 更新相关
       currentVersion: '0.4.0',
       isCheckingUpdates: false,
-      isDownloading: false,
-      updateStatus: null,
-      downloadProgress: {
-        show: false,
-        percent: 0,
-        transferred: 0,
-        total: 0,
-        bytesPerSecond: 0
-      }
+      updateStatus: null
     }
   },
   watch: {
@@ -1717,57 +1689,47 @@ export default {
         if (window.electronAPI && window.electronAPI.checkForUpdates) {
           const result = await window.electronAPI.checkForUpdates()
           if (result.success) {
-            console.log('更新检查完成:', result.result)
+            console.log('更新检查已启动:', result.message)
+            // 不在这里设置 isCheckingUpdates = false，等待事件监听器处理结果
           } else {
             this.updateStatus = { error: result.error }
+            this.isCheckingUpdates = false
           }
         } else {
           this.updateStatus = { error: '自动更新功能不可用' }
+          this.isCheckingUpdates = false
         }
       } catch (error) {
         console.error('检查更新失败:', error)
         this.updateStatus = { error: error.message }
-      } finally {
         this.isCheckingUpdates = false
       }
     },
 
-    async downloadUpdate() {
-      try {
-        this.isDownloading = true
-        this.downloadProgress.show = true
-        
-        if (window.electronAPI && window.electronAPI.downloadAndInstallUpdate) {
-          await window.electronAPI.downloadAndInstallUpdate()
-        }
-      } catch (error) {
-        console.error('下载更新失败:', error)
-        this.updateStatus = { error: error.message }
-      } finally {
-        this.isDownloading = false
-      }
-    },
 
-    async installUpdate() {
-      try {
-        if (window.electronAPI && window.electronAPI.quitAndInstall) {
-          await window.electronAPI.quitAndInstall()
-        }
-      } catch (error) {
-        console.error('安装更新失败:', error)
-        this.updateStatus = { error: error.message }
-      }
-    },
 
     onAutoCheckUpdatesChange() {
       // 自动检查更新设置变化时的处理
       console.log('自动检查更新设置已更新:', this.settings.autoCheckUpdates)
     },
 
-    onAutoDownloadUpdatesChange() {
-      // 自动下载更新设置变化时的处理
-      console.log('自动下载更新设置已更新:', this.settings.autoDownloadUpdates)
+    openGitHubPage() {
+      try {
+        const githubUrl = 'https://github.com/klsdf/ButterResourcesManager/releases/latest'
+        
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          window.electronAPI.openExternal(githubUrl)
+        } else {
+          // 降级处理：在浏览器中打开
+          window.open(githubUrl, '_blank')
+        }
+      } catch (error) {
+        console.error('打开GitHub页面失败:', error)
+        // 最后的降级处理
+        window.open('https://github.com/klsdf/ButterResourcesManager/releases/latest', '_blank')
+      }
     },
+
 
     formatBytes(bytes) {
       if (bytes === 0) return '0 Bytes'
@@ -1777,12 +1739,16 @@ export default {
       return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
     },
 
+
+
+
     // 监听自动更新事件
     setupUpdateListeners() {
       if (window.electronAPI) {
         // 监听更新检查事件
         window.electronAPI.onUpdateChecking(() => {
           this.updateStatus = { checking: true }
+          this.isCheckingUpdates = true
         })
 
         // 监听发现新版本事件
@@ -1792,34 +1758,28 @@ export default {
             version: info.version,
             releaseNotes: info.releaseNotes 
           }
+          this.isCheckingUpdates = false
         })
 
         // 监听没有新版本事件
         window.electronAPI.onUpdateNotAvailable((event, info) => {
           this.updateStatus = { notAvailable: true, version: info.version }
+          this.isCheckingUpdates = false
         })
 
-        // 监听下载进度事件
-        window.electronAPI.onUpdateDownloadProgress((event, progressObj) => {
-          this.downloadProgress = {
-            show: true,
-            percent: progressObj.percent,
-            transferred: progressObj.transferred,
-            total: progressObj.total,
-            bytesPerSecond: progressObj.bytesPerSecond
-          }
-        })
-
-        // 监听下载完成事件
-        window.electronAPI.onUpdateDownloaded((event, info) => {
-          this.updateStatus = { downloaded: true, version: info.version }
-          this.downloadProgress.show = false
-        })
 
         // 监听更新错误事件
         window.electronAPI.onUpdateError((event, error) => {
-          this.updateStatus = { error: error }
-          this.downloadProgress.show = false
+          // 处理不同类型的错误
+          let errorMessage = error
+          if (typeof error === 'object') {
+            errorMessage = error.message || '未知错误'
+            if (error.code) {
+              errorMessage += ` (错误代码: ${error.code})`
+            }
+          }
+          this.updateStatus = { error: errorMessage }
+          this.isCheckingUpdates = false
         })
       }
     }
@@ -2623,6 +2583,17 @@ input:checked + .toggle-slider:before {
   margin-bottom: 8px;
 }
 
+.status-detail {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-family: 'Courier New', monospace;
+  background: var(--bg-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
 .status-actions {
   display: flex;
   gap: 8px;
@@ -2709,6 +2680,36 @@ input:checked + .toggle-slider:before {
 
 .btn-warning:hover:not(:disabled) {
   background: #e0a800;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+  background: #138496;
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #c82333;
   transform: translateY(-1px);
 }
 

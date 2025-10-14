@@ -81,7 +81,7 @@ function createWindow() {
       // 显示托盘通知
       if (tray) {
         tray.displayBalloon({
-          title: 'Butter Manager Vue',
+          title: 'Butter Resource Manager',
           content: '应用已最小化到系统托盘',
           icon: nativeImage.createFromPath(path.join(__dirname, 'butter-icon.ico'))
         })
@@ -108,9 +108,7 @@ app.whenReady().then(() => {
   createTray() // 创建系统托盘
   
   // 初始化自动更新
-  if (!isDev) {
-    initAutoUpdater()
-  }
+  initAutoUpdater()
   
   // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
   // 通常在应用程序中重新创建窗口
@@ -233,7 +231,7 @@ function createTray() {
     }
     
     // 设置托盘提示文本
-    tray.setToolTip('Butter Manager Vue')
+    tray.setToolTip('Butter Resource Manager')
     
     // 创建托盘右键菜单
     const contextMenu = Menu.buildFromTemplate([
@@ -2238,7 +2236,7 @@ ipcMain.handle('set-auto-start', async (event, enabled) => {
       app.setLoginItemSettings({
         openAtLogin: true,
         openAsHidden: false, // 启动时显示窗口
-        name: 'Butter Manager Vue',
+        name: 'Butter Resource Manager',
         path: process.execPath,
         args: []
       })
@@ -2394,8 +2392,28 @@ app.on('will-quit', () => {
 
 // 初始化自动更新
 function initAutoUpdater() {
-  // 配置自动更新
-  autoUpdater.checkForUpdatesAndNotify()
+  // 配置自动更新选项 - 只检查更新，不自动下载
+  autoUpdater.autoDownload = false // 禁用自动下载
+  autoUpdater.autoInstallOnAppQuit = false // 禁用自动安装
+  
+  // 设置更新服务器
+  try {
+    // 使用正确的 GitHub 配置方式
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'klsdf',
+      repo: 'ButterResourcesManager'
+    })
+    console.log('更新服务器已设置为 GitHub: klsdf/ButterResourcesManager')
+  } catch (error) {
+    console.warn('设置更新服务器失败，使用默认配置:', error.message)
+  }
+  
+  // 应用启动时立即检查一次更新
+  setTimeout(() => {
+    console.log('应用启动后检查更新...')
+    autoUpdater.checkForUpdatesAndNotify()
+  }, 5000) // 延迟5秒，确保应用完全启动
   
   // 设置更新检查间隔（每小时检查一次）
   setInterval(() => {
@@ -2429,34 +2447,17 @@ function initAutoUpdater() {
     }
   })
   
-  // 监听更新下载进度事件
-  autoUpdater.on('download-progress', (progressObj) => {
-    let log_message = "下载速度: " + progressObj.bytesPerSecond
-    log_message = log_message + ' - 已下载 ' + progressObj.percent + '%'
-    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')'
-    console.log(log_message)
-    
-    if (mainWindow) {
-      mainWindow.webContents.send('update-download-progress', progressObj)
-    }
-  })
-  
-  // 监听更新下载完成事件
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log('更新下载完成:', info.version)
-    if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded', info)
-    }
-    
-    // 显示安装提示
-    showUpdateReadyDialog(info)
-  })
   
   // 监听更新错误事件
   autoUpdater.on('error', (err) => {
     console.error('自动更新错误:', err)
     if (mainWindow) {
-      mainWindow.webContents.send('update-error', err.message)
+      const errorInfo = {
+        message: err.message,
+        code: err.code || 'UNKNOWN',
+        stack: err.stack
+      }
+      mainWindow.webContents.send('update-error', errorInfo)
     }
   })
 }
@@ -2495,32 +2496,16 @@ function showUpdateReadyDialog(info) {
 // IPC 处理程序 - 手动检查更新
 ipcMain.handle('check-for-updates', async () => {
   try {
-    if (!isDev) {
-      const result = await autoUpdater.checkForUpdates()
-      return { success: true, result }
-    } else {
-      return { success: false, error: '开发环境不支持自动更新' }
-    }
+    // 不返回 autoUpdater.checkForUpdates() 的结果，因为它包含无法序列化的对象
+    // 而是通过事件监听器来处理更新检查结果
+    autoUpdater.checkForUpdates()
+    return { success: true, message: '更新检查已启动，请等待结果' }
   } catch (error) {
     console.error('检查更新失败:', error)
     return { success: false, error: error.message }
   }
 })
 
-// IPC 处理程序 - 下载并安装更新
-ipcMain.handle('download-and-install-update', async () => {
-  try {
-    if (!isDev) {
-      autoUpdater.downloadUpdate()
-      return { success: true }
-    } else {
-      return { success: false, error: '开发环境不支持自动更新' }
-    }
-  } catch (error) {
-    console.error('下载更新失败:', error)
-    return { success: false, error: error.message }
-  }
-})
 
 // IPC 处理程序 - 立即重启并安装更新
 ipcMain.handle('quit-and-install', async () => {
@@ -2536,3 +2521,8 @@ ipcMain.handle('quit-and-install', async () => {
     return { success: false, error: error.message }
   }
 })
+
+
+
+
+

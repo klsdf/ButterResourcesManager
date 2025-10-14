@@ -1,6 +1,6 @@
 {
   "name": "butter-manager",
-  "version": "0.4.0",
+  "version": "0.3.0",
   "description": "A Vue + Electron desktop application",
   "main": "public/electron.js",
   "homepage": "./",
@@ -36,7 +36,7 @@
   },
   "build": {
     "appId": "com.example.butter-resources-manager",
-    "productName": "Butter Resources Manager",
+    "productName": "ButterResourcesManager",
     "directories": {
       "output": "dist-electron"
     },
@@ -60,7 +60,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "artifactName": "${productName} Setup ${version}.${ext}"
+      "artifactName": "${productName}_Setup_${version}.${ext}"
     },
     "mac": {
       "category": "public.app-category.productivity",
@@ -80,7 +80,7 @@
       "icon": "public/butter-icon.ico"
     },
     "portable": {
-      "artifactName": "${productName} Portable ${version}.${ext}"
+      "artifactName": "${productName}_Portable_${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",

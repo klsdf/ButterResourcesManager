@@ -97,8 +97,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 自动更新功能
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  downloadAndInstallUpdate: () => ipcRenderer.invoke('download-and-install-update'),
-  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),
@@ -110,8 +108,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateChecking: (callback) => ipcRenderer.on('update-checking', callback),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
   onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', callback),
-  onUpdateDownloadProgress: (callback) => ipcRenderer.on('update-download-progress', callback),
-  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', callback),
   onUpdateError: (callback) => ipcRenderer.on('update-error', callback)
 })
 
