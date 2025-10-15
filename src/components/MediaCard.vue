@@ -199,7 +199,7 @@ export default {
     
     // 获取显示的名称（支持伪装模式）
     displayName() {
-      if (this.type === 'image' && this.isDisguiseModeEnabled()) {
+      if (this.isDisguiseModeEnabled()) {
         // 检查伪装文字缓存
         if (this.disguiseTextCache[this.item.id]) {
           return this.disguiseTextCache[this.item.id]
@@ -364,8 +364,8 @@ export default {
         return this.getDefaultImage()
       }
       
-      // 检查是否启用伪装模式（仅对图片类型有效）
-      if (this.type === 'image' && this.isDisguiseModeEnabled()) {
+      // 检查是否启用伪装模式（对所有类型有效）
+      if (this.isDisguiseModeEnabled()) {
         console.log('MediaCard: 伪装模式已启用，处理图片:', imagePath)
         // 检查伪装图片缓存
         if (this.disguiseImageCache[imagePath]) {
