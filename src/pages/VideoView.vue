@@ -716,106 +716,29 @@ export default {
         console.log('检测到视频文件数量:', videoFiles.length)
         
         // 批量添加视频文件
-        let addedCount = 0
-        let failedCount = 0
+        const results = await this.processMultipleVideoFiles(videoFiles)
         
-        for (const videoFile of videoFiles) {
-          try {
-            // 检查是否已经存在相同的文件路径
-            const existingVideoByPath = this.videos.find(video => video.filePath === videoFile.path)
-            if (existingVideoByPath) {
-              console.log(`视频文件已存在: ${videoFile.name}`)
-              failedCount++
-              continue
-            }
-            
-            // 检查是否存在同名但路径不同的丢失文件
-            const existingVideoByName = this.videos.find(video => {
-              const videoFileName = video.filePath.split(/[\\/]/).pop().toLowerCase()
-              const newFileName = videoFile.name.toLowerCase()
-              const isSameName = videoFileName === newFileName
-              const isFileMissing = !video.fileExists
-              
-              console.log(`检查视频: ${video.name}`)
-              console.log(`  文件名: ${videoFileName} vs ${newFileName}`)
-              console.log(`  是否同名: ${isSameName}`)
-              console.log(`  文件存在: ${video.fileExists}`)
-              console.log(`  是否丢失: ${isFileMissing}`)
-              console.log(`  匹配条件: ${isSameName && isFileMissing}`)
-              
-              return isSameName && isFileMissing
-            })
-            
-            if (existingVideoByName) {
-              console.log(`发现同名丢失文件: ${videoFile.name}`)
-              console.log(`现有视频路径: ${existingVideoByName.filePath}`)
-              console.log(`新文件路径: ${videoFile.path}`)
-              // 显示路径更新确认对话框
-              this.pathUpdateInfo = {
-                existingVideo: existingVideoByName,
-                newPath: videoFile.path,
-                newFileName: videoFile.name
-              }
-              this.showPathUpdateDialog = true
-              // 暂停处理，等待用户确认
-              return
-            }
-            
-            // 创建新的视频对象
-            const video = {
-              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-              name: this.extractVideoName(videoFile.name),
-              description: '',
-              tags: [],
-              actors: [],
-              series: '',
-              duration: 0,
-              filePath: videoFile.path,
-              thumbnail: '',
-              watchCount: 0,
-              lastWatched: null,
-              addedDate: new Date().toISOString()
-            }
-            
-            console.log('创建视频对象:', video)
-            
-            // 添加到视频管理器
-            if (this.videoManager) {
-              await this.videoManager.addVideo(video)
-              addedCount++
-            }
-            
-          } catch (error) {
-            console.error(`添加视频文件失败: ${videoFile.name}`, error)
-            failedCount++
-          }
-        }
+        // 统计结果
+        const addedCount = results.filter(r => r.success).length
+        const failedCount = results.filter(r => !r.success).length
         
         // 重新加载视频列表
         await this.loadVideos()
         
         // 显示结果通知
         if (addedCount > 0) {
-          // 成功时使用 toast 通知
-          this.showToastNotification(
-            '添加成功', 
-            `成功添加 ${addedCount} 个视频文件${failedCount > 0 ? `，${failedCount} 个文件添加失败` : ''}`
-          )
+          // 使用通知服务的批量结果处理，会自动显示详细的成功和失败信息
+          console.log('显示批量操作结果通知')
+          this.showToastNotification('批量添加完成', '', results)
         } else {
-          // 详细分析失败原因
-          let failureReason = ''
-          if (videoFiles.length === 0) {
-            failureReason = '没有检测到视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）'
-          } else if (files.length === 0) {
-            failureReason = '没有检测到任何文件'
-          } else {
-            failureReason = `所有 ${videoFiles.length} 个视频文件都已存在于视频库中`
-          }
+          console.log('所有视频文件添加失败，显示失败通知')
+          // 收集所有失败原因，添加序号和换行
+          const failureReasons = results
+            .filter(r => !r.success)
+            .map((r, index) => `${index + 1}. "${r.fileName}": ${r.error || '未知错误'}`)
+            .join('\n')
           
-          this.showToastNotification(
-            '添加失败', 
-            `没有成功添加任何视频文件\n原因：${failureReason}\n\n提示：\n• 请确保拖拽的是视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）\n• 检查文件是否已存在于视频库中\n• 尝试重新拖拽文件`
-          )
+          this.showToastNotification('添加失败', `所有视频文件添加失败:\n${failureReasons}`, results)
         }
         
       } catch (error) {
@@ -848,6 +771,143 @@ export default {
     extractVideoName(fileName) {
       const lastDotIndex = fileName.lastIndexOf('.')
       return lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName
+    },
+
+    // 批量处理多个视频文件
+    async processMultipleVideoFiles(videoFiles) {
+      console.log('=== 开始批量处理视频文件 ===')
+      console.log('待处理视频文件数量:', videoFiles.length)
+      
+      const results = []
+      
+      for (let i = 0; i < videoFiles.length; i++) {
+        const videoFile = videoFiles[i]
+        console.log(`\n--- 处理视频文件 ${i + 1}/${videoFiles.length} ---`)
+        console.log('视频文件信息:', {
+          name: videoFile.name,
+          path: videoFile.path,
+          size: videoFile.size
+        })
+        
+        try {
+          // 检查是否已经存在相同的文件路径
+          const existingVideoByPath = this.videos.find(video => video.filePath === videoFile.path)
+          if (existingVideoByPath) {
+            console.log(`视频文件已存在: ${videoFile.name}`)
+            results.push({
+              success: false,
+              fileName: videoFile.name,
+              error: `视频文件 "${videoFile.name}" 已经存在`,
+              filePath: videoFile.path,
+              existingVideoId: existingVideoByPath.id
+            })
+            continue
+          }
+          
+          // 检查是否存在同名但路径不同的丢失文件
+          const existingVideoByName = this.videos.find(video => {
+            const videoFileName = video.filePath.split(/[\\/]/).pop().toLowerCase()
+            const newFileName = videoFile.name.toLowerCase()
+            const isSameName = videoFileName === newFileName
+            const isFileMissing = !video.fileExists
+            
+            console.log(`检查视频: ${video.name}`)
+            console.log(`  文件名: ${videoFileName} vs ${newFileName}`)
+            console.log(`  是否同名: ${isSameName}`)
+            console.log(`  文件存在: ${video.fileExists}`)
+            console.log(`  是否丢失: ${isFileMissing}`)
+            console.log(`  匹配条件: ${isSameName && isFileMissing}`)
+            
+            return isSameName && isFileMissing
+          })
+          
+          if (existingVideoByName) {
+            console.log(`发现同名丢失文件: ${videoFile.name}`)
+            console.log(`现有视频路径: ${existingVideoByName.filePath}`)
+            console.log(`新文件路径: ${videoFile.path}`)
+            // 显示路径更新确认对话框
+            this.pathUpdateInfo = {
+              existingVideo: existingVideoByName,
+              newPath: videoFile.path,
+              newFileName: videoFile.name
+            }
+            this.showPathUpdateDialog = true
+            // 暂停处理，等待用户确认
+            return
+          }
+          
+          // 创建新的视频对象
+          const video = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: this.extractVideoName(videoFile.name),
+            description: '',
+            tags: [],
+            actors: [],
+            series: '',
+            duration: 0,
+            filePath: videoFile.path,
+            thumbnail: '',
+            watchCount: 0,
+            lastWatched: null,
+            addedDate: new Date().toISOString()
+          }
+          
+          console.log('创建视频对象:', video)
+          
+          // 添加到视频管理器
+          if (this.videoManager) {
+            await this.videoManager.addVideo(video)
+            results.push({
+              success: true,
+              fileName: videoFile.name,
+              video: video
+            })
+            console.log('视频文件处理成功:', videoFile.name)
+          } else {
+            results.push({
+              success: false,
+              fileName: videoFile.name,
+              error: '视频管理器不可用',
+              filePath: videoFile.path
+            })
+          }
+          
+        } catch (error) {
+          console.error(`处理视频文件 "${videoFile.name}" 失败:`, error)
+          console.error('错误堆栈:', error.stack)
+          
+          // 根据错误类型提供更具体的错误信息
+          let errorMessage = error.message
+          if (error.message.includes('ENOENT')) {
+            errorMessage = '视频文件不存在或无法访问'
+          } else if (error.message.includes('EACCES')) {
+            errorMessage = '没有访问权限'
+          } else if (error.message.includes('EMFILE') || error.message.includes('ENFILE')) {
+            errorMessage = '打开文件过多，请稍后重试'
+          } else if (error.message.includes('timeout')) {
+            errorMessage = '操作超时'
+          } else if (error.message.includes('Invalid path')) {
+            errorMessage = '无效的视频文件路径'
+          }
+          
+          results.push({
+            success: false,
+            fileName: videoFile.name,
+            error: errorMessage,
+            filePath: videoFile.path,
+            originalError: error.message
+          })
+        }
+      }
+      
+      console.log('\n=== 批量处理完成 ===')
+      console.log('处理结果统计:', {
+        总数: results.length,
+        成功: results.filter(r => r.success).length,
+        失败: results.filter(r => !r.success).length
+      })
+      
+      return results
     },
 
     showAddVideoDialog() {

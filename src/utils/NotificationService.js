@@ -72,7 +72,7 @@ class NotificationService {
       // 收集所有成功的项目名称
       const successItems = results
         .filter(r => r.success)
-        .map((r, index) => `${index + 1}. "${r.folderName}"${r.pagesCount ? ` (${r.pagesCount}页)` : ''}`)
+        .map((r, index) => `${index + 1}. "${r.folderName || r.fileName || r.name || '未知项目'}"${r.pagesCount ? ` (${r.pagesCount}页)` : ''}`)
         .join('\n')
       message = `成功处理 ${successCount} 个项目:\n${successItems}`
     } else if (successCount === 0) {
@@ -81,7 +81,7 @@ class NotificationService {
       // 收集所有失败原因，添加序号和换行
       const failureReasons = results
         .filter(r => !r.success)
-        .map((r, index) => `${index + 1}. "${r.folderName}": ${r.error || '未知错误'}`)
+        .map((r, index) => `${index + 1}. "${r.folderName || r.fileName || r.name || '未知项目'}": ${r.error || '未知错误'}`)
         .join('\n')
       message = `所有 ${totalCount} 个项目处理失败:\n${failureReasons}`
     } else {
@@ -90,12 +90,12 @@ class NotificationService {
       // 收集成功的项目
       const successItems = results
         .filter(r => r.success)
-        .map((r, index) => `${index + 1}. "${r.folderName}"${r.pagesCount ? ` (${r.pagesCount}页)` : ''}`)
+        .map((r, index) => `${index + 1}. "${r.folderName || r.fileName || r.name || '未知项目'}"${r.pagesCount ? ` (${r.pagesCount}页)` : ''}`)
         .join('\n')
       // 收集失败原因
       const failureReasons = results
         .filter(r => !r.success)
-        .map((r, index) => `${index + 1}. "${r.folderName}": ${r.error || '未知错误'}`)
+        .map((r, index) => `${index + 1}. "${r.folderName || r.fileName || r.name || '未知项目'}": ${r.error || '未知错误'}`)
         .join('\n')
       message = `成功 ${successCount} 个，失败 ${failCount} 个，共 ${totalCount} 个项目\n成功项目:\n${successItems}\n失败原因:\n${failureReasons}`
     }

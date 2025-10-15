@@ -46,6 +46,7 @@ class SaveManager {
         sidebarWidth: 280,
         autoStart: false,
         minimizeToTray: true,
+        disguiseMode: false,
         showWelcome: true,
         sageMode: false,
         safetyKey: 'Ctrl+Alt+Q',

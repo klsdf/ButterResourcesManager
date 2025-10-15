@@ -76,6 +76,19 @@
                 </div>
               </div>
               
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">伪装模式</span>
+                  <span class="setting-desc">开启后，图片封面会随机替换为disguise文件夹中的图片，提供隐私保护</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.disguiseMode" @change="onDisguiseModeChange">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              
               
               <div class="setting-item">
                 <label class="setting-label">
@@ -842,6 +855,7 @@ export default {
         theme: 'auto',
         autoStart: false,
         minimizeToTray: true,
+        disguiseMode: false,
         sageMode: false,
         safetyKey: 'Ctrl+Alt+Q',
         safetyAppPath: '',
@@ -1155,6 +1169,25 @@ export default {
         this.settings.minimizeToTray = !this.settings.minimizeToTray
       }
     },
+    
+    async onDisguiseModeChange() {
+      // 伪装模式设置变化时的处理
+      console.log('伪装模式设置已更新:', this.settings.disguiseMode)
+      
+      // 清除伪装图片缓存
+      try {
+        const disguiseManager = await import('../utils/DisguiseManager.js')
+        disguiseManager.default.clearCache()
+        console.log('伪装图片缓存已清除')
+      } catch (error) {
+        console.error('清除伪装图片缓存失败:', error)
+      }
+      
+      this.showToastNotification(
+        '伪装模式设置已更新', 
+        this.settings.disguiseMode ? '已开启伪装模式，图片封面将随机替换' : '已关闭伪装模式，显示原始封面'
+      )
+    },
     async onScreenshotKeyChange() {
       // 实时更新全局快捷键
       try {
@@ -1217,6 +1250,7 @@ export default {
             theme: 'auto',
             autoStart: false,
             minimizeToTray: true,
+            disguiseMode: false,
             sageMode: false,
             safetyKey: 'Ctrl+Alt+Q',
             safetyAppPath: '',

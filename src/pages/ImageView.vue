@@ -360,6 +360,7 @@ export default {
       imageCache: new Map(), // 使用Map替代Object，支持LRU
       imageCacheSize: 0,
       maxCacheSize: 50 * 1024 * 1024, // 50MB缓存限制
+      disguiseImageCache: {}, // 伪装图片缓存
       preloadQueue: [], // 预加载队列
       isPreloading: false,
       // 图片质量设置
@@ -1834,10 +1835,22 @@ export default {
       return fileUrl
     },
     
-    // 解析封面图 - 用于详情页封面和对话框预览，始终使用原图
+    // 解析封面图 - 用于详情页封面和对话框预览，支持伪装模式
     resolveCoverImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
         return './default-image.svg'
+      }
+      
+      // 检查是否启用伪装模式
+      if (this.isDisguiseModeEnabled()) {
+        // 检查伪装图片缓存
+        if (this.disguiseImageCache && this.disguiseImageCache[imagePath]) {
+          return this.disguiseImageCache[imagePath]
+        }
+        
+        // 异步获取伪装图片
+        this.loadDisguiseImage(imagePath)
+        return './default-image.svg' // 先返回默认图片，等异步加载完成
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -2008,6 +2021,42 @@ export default {
       // 从完整路径中提取文件名
       const fileName = imagePath.split(/[\\/]/).pop()
       return fileName || imagePath
+    },
+    
+    /**
+     * 异步加载伪装图片
+     * @param {string} imagePath - 原始图片路径
+     */
+    async loadDisguiseImage(imagePath) {
+      try {
+        const disguiseManager = await import('../utils/DisguiseManager.js')
+        const disguiseImage = await disguiseManager.default.getRandomDisguiseImage(imagePath)
+        // 使用Vue的响应式更新
+        this.$set ? this.$set(this.disguiseImageCache, imagePath, disguiseImage) : (this.disguiseImageCache[imagePath] = disguiseImage)
+        // 强制更新组件
+        this.$forceUpdate()
+      } catch (error) {
+        console.error('加载伪装图片失败:', error)
+      }
+    },
+    
+    /**
+     * 检查伪装模式是否启用
+     * @returns {boolean} 是否启用伪装模式
+     */
+    isDisguiseModeEnabled() {
+      try {
+        // 从localStorage中获取伪装模式设置
+        const settings = localStorage.getItem('butter-manager-settings')
+        if (settings) {
+          const parsedSettings = JSON.parse(settings)
+          return parsedSettings.disguiseMode === true
+        }
+        return false
+      } catch (error) {
+        console.error('检查伪装模式设置失败:', error)
+        return false
+      }
     },
     
     // 格式化文件大小
