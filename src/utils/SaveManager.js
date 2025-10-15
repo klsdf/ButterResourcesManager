@@ -314,7 +314,8 @@ class SaveManager {
             user: {
               name: '',
               joinDate: new Date().toISOString(),
-              lastActive: new Date().toISOString()
+              lastActive: new Date().toISOString(),
+              checkInDays: []
             }
           }
           break
@@ -1332,14 +1333,16 @@ class SaveManager {
       return {
         name: '',
         joinDate: new Date().toISOString(),
-        lastActive: new Date().toISOString()
+        lastActive: new Date().toISOString(),
+        checkInDays: []
       }
     } catch (error) {
       console.error('加载用户资料失败:', error)
       return {
         name: '',
         joinDate: new Date().toISOString(),
-        lastActive: new Date().toISOString()
+        lastActive: new Date().toISOString(),
+        checkInDays: []
       }
     }
   }
