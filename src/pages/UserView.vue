@@ -1,11 +1,7 @@
 <template>
   <div class="user-view">
     <div class="user-content">
-      <div class="user-header">
-        <h3>用户管理</h3>
-        <p>管理用户信息和设置</p>
-      </div>
-      
+
       <!-- 子页面导航 -->
       <div class="user-nav">
         <div 
@@ -22,30 +18,28 @@
       
       <!-- 子页面内容 -->
       <div class="user-body">
+        <!-- 用户资料页面 -->
+        <ProfileView v-if="currentTab === 'profile'" />
+        
         <!-- 成就页面 -->
         <AchievementView v-if="currentTab === 'achievements'" />
         
         <!-- 统计页面 -->
         <StatisticsView v-if="currentTab === 'statistics'" />
-        
-        <!-- 默认页面 -->
-        <div v-if="currentTab === 'profile'" class="placeholder-content">
-          <div class="placeholder-icon">👤</div>
-          <h4>用户资料</h4>
-          <p>此页面正在开发中，敬请期待...</p>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import ProfileView from './user/ProfileView.vue'
 import AchievementView from './user/AchievementView.vue'
 import StatisticsView from './user/StatisticsView.vue'
 
 export default {
   name: 'UserView',
   components: {
+    ProfileView,
     AchievementView,
     StatisticsView
   },
@@ -98,11 +92,7 @@ export default {
   overflow: hidden;
 }
 
-.user-header {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-secondary);
-}
+
 
 .user-header h3 {
   margin: 0 0 8px 0;

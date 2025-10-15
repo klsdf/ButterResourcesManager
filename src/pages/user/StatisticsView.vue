@@ -245,36 +245,6 @@
           </div>
         </div>
 
-        <!-- 其他功能预览 -->
-        <div class="statistics-section">
-          <h5>🚀 即将推出</h5>
-          <div class="feature-list">
-            <div class="feature-item">
-              <span class="feature-icon">🎮</span>
-              <span>游戏时长统计</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">📚</span>
-              <span>阅读进度统计</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">🎬</span>
-              <span>观影时长统计</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">🎵</span>
-              <span>音乐播放统计</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">📈</span>
-              <span>使用趋势分析</span>
-            </div>
-            <div class="feature-item">
-              <span class="feature-icon">📅</span>
-              <span>年度报告</span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -781,37 +751,6 @@ export default {
   opacity: 0.8;
 }
 
-.feature-list {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-}
-
-.feature-item:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent-color);
-}
-
-.feature-icon {
-  margin-right: 8px;
-  font-size: 1.2rem;
-}
-
-.feature-item span:last-child {
-  font-size: 0.9rem;
-  color: var(--text-primary);
-}
 
 /* 统计区域样式 */
 .statistics-section {

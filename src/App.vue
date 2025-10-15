@@ -200,7 +200,14 @@ export default {
           name: '声音',
           icon: '🎵',
           description: '管理你的音频资源'
+        },
+        {
+          id: 'users',
+          name: '用户',
+          icon: '👤',
+          description: '管理你的用户资源'
         }
+
       ]
     }
   },

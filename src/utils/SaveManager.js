@@ -26,6 +26,7 @@ class SaveManager {
       websites: `${this.dataDirectories.websites}/websites.json`,
       novels: `${this.dataDirectories.novels}/novels.json`,
       settings: `${this.dataDirectories.settings}/settings.json`,
+      user: `${this.dataDirectories.settings}/user.json`, // 用户数据文件
       backup: `${this.dataDirectory}/backup.json` // 备份文件仍在根目录
     }
     
@@ -186,6 +187,7 @@ class SaveManager {
         websites: `${this.dataDirectories.websites}/websites.json`,
         novels: `${this.dataDirectories.novels}/novels.json`,
         settings: `${this.dataDirectories.settings}/settings.json`,
+        user: `${this.dataDirectories.settings}/user.json`,
         backup: `${this.dataDirectory}/backup.json`
       }
       
@@ -235,7 +237,7 @@ class SaveManager {
       console.log('=== 初始化数据文件 ===')
       
       // 检查并创建各种数据文件
-      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings']
+      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings', 'user']
       
       for (const dataType of dataTypes) {
         const filePath = this.filePaths[dataType]
@@ -306,6 +308,15 @@ class SaveManager {
           break
         case 'settings':
           defaultData = { settings: this.defaultData.settings }
+          break
+        case 'user':
+          defaultData = { 
+            user: {
+              name: '',
+              joinDate: new Date().toISOString(),
+              lastActive: new Date().toISOString()
+            }
+          }
           break
         default:
           console.warn('未知的数据类型:', dataType)
@@ -1275,6 +1286,139 @@ class SaveManager {
     } catch (error) {
       console.error(`获取${pageType}页面排序方式失败:`, error)
       return 'name'
+    }
+  }
+
+  /**
+   * 保存用户资料数据到本地 JSON 文件
+   * @param {Object} userProfile - 用户资料数据对象
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveUserProfile(userProfile) {
+    try {
+      await this.ensureDataTypeDirectory('settings')
+      
+      const data = {
+        user: userProfile,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+      
+      const success = await this.writeJsonFile(this.filePaths.user, data)
+      if (success) {
+        console.log('用户资料保存成功')
+      }
+      return success
+    } catch (error) {
+      console.error('保存用户资料失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从本地 JSON 文件加载用户资料数据
+   * @returns {Promise<Object>} 用户资料数据对象
+   */
+  async loadUserProfile() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.user)
+      if (data && data.user) {
+        console.log('用户资料加载成功')
+        return data.user
+      }
+      
+      // 如果文件不存在，返回默认用户资料
+      console.log('用户资料文件不存在，返回默认资料')
+      return {
+        name: '',
+        joinDate: new Date().toISOString(),
+        lastActive: new Date().toISOString()
+      }
+    } catch (error) {
+      console.error('加载用户资料失败:', error)
+      return {
+        name: '',
+        joinDate: new Date().toISOString(),
+        lastActive: new Date().toISOString()
+      }
+    }
+  }
+
+  /**
+   * 导出用户数据为 JSON 文件
+   * @returns {Promise<boolean>} 导出是否成功
+   */
+  async exportUserData() {
+    try {
+      const userProfile = await this.loadUserProfile()
+      
+      const exportData = {
+        type: 'user',
+        data: userProfile,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+
+      const dataStr = JSON.stringify(exportData, null, 2)
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(dataBlob)
+      
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `butter-manager-user-${new Date().toISOString().split('T')[0]}.json`
+      link.click()
+      
+      URL.revokeObjectURL(url)
+      console.log('用户数据导出成功')
+      return true
+    } catch (error) {
+      console.error('导出用户数据失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从文件导入用户数据
+   * @param {File} file - 要导入的文件
+   * @returns {Promise<Object>} 导入结果
+   */
+  async importUserData(file) {
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      
+      // 验证数据格式
+      if (!data.type || data.type !== 'user' || !data.data) {
+        throw new Error('无效的用户数据文件格式')
+      }
+
+      const result = {
+        success: true,
+        imported: {
+          user: false
+        },
+        errors: []
+      }
+
+      // 导入用户数据
+      if (data.data && typeof data.data === 'object') {
+        if (await this.saveUserProfile(data.data)) {
+          result.imported.user = true
+        } else {
+          result.errors.push('用户数据导入失败')
+        }
+      }
+
+      console.log('用户数据导入成功:', result)
+      return result
+    } catch (error) {
+      console.error('导入用户数据失败:', error)
+      return {
+        success: false,
+        error: error.message,
+        imported: { user: false },
+        errors: [error.message]
+      }
     }
   }
 }
