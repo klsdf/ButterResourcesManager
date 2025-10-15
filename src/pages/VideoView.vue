@@ -7,6 +7,8 @@
           :toolbar-config="videoToolbarConfig"
           :context-menu-items="videoContextMenuItems"
           :pagination-config="videoPaginationConfig"
+          :sort-by="sortBy"
+          :search-query="searchQuery"
           @empty-state-action="handleEmptyStateAction"
           @add-item="showAddVideoDialog"
           @sort-changed="handleSortChanged"
@@ -1244,6 +1246,7 @@ export default {
     // 处理排序变化
     handleSortByChanged(newValue) {
       this.sortBy = newValue
+      console.log('✅ VideoView 排序方式已更新:', newValue)
     },
 
     /**

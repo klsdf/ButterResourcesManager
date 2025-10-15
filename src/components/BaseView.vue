@@ -3,9 +3,16 @@
         <!-- 基础视图内容 -->
         <div class="base-view-content">
             <!-- 工具栏 -->
-            <GameToolbar v-model:searchQuery="searchQuery" v-model:sortBy="sortBy"
-                :add-button-text="toolbarConfig.addButtonText" :search-placeholder="toolbarConfig.searchPlaceholder"
-                :sort-options="toolbarConfig.sortOptions" :page-type="toolbarConfig.pageType" @add-item="handleAddItem"
+            <GameToolbar ref="toolbar" 
+                :search-query="searchQuery" 
+                :sort-by="sortBy"
+                :add-button-text="toolbarConfig.addButtonText" 
+                :search-placeholder="toolbarConfig.searchPlaceholder"
+                :sort-options="toolbarConfig.sortOptions" 
+                :page-type="toolbarConfig.pageType" 
+                @add-item="handleAddItem"
+                @update:searchQuery="$emit('search-query-changed', $event)"
+                @update:sortBy="$emit('sort-by-changed', $event)"
                 @sort-changed="handleSortChanged" />
 
             <!-- 分页导航 -->
@@ -92,6 +99,15 @@ export default {
                 totalItems: 0,
                 itemType: '项目'
             })
+        },
+        // 工具栏状态属性
+        sortBy: {
+            type: String,
+            default: 'name'
+        },
+        searchQuery: {
+            type: String,
+            default: ''
         }
     },
     computed: {
@@ -126,25 +142,16 @@ export default {
     },
     data() {
         return {
-            // 工具栏相关数据
-            searchQuery: '',
-            sortBy: 'name',
             // 右键菜单相关数据
             showContextMenu: false,
             contextMenuPos: { x: 0, y: 0 },
             selectedItem: null
         }
     },
-    watch: {
-        // 监听搜索查询变化，同步到父组件
-        searchQuery(newValue) {
-            this.$emit('search-query-changed', newValue)
-        },
-        // 监听排序变化，同步到父组件
-        sortBy(newValue) {
-            this.$emit('sort-by-changed', newValue)
-        }
+    mounted() {
+        console.log('🔍 BaseView mounted, 初始 sortBy:', this.sortBy)
     },
+    // 移除了 watch 监听器，因为现在通过事件直接传递
     methods: {
         // 处理空状态按钮点击
         handleEmptyStateAction() {

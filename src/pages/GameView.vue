@@ -7,6 +7,8 @@
           :toolbar-config="gameToolbarConfig"
           :context-menu-items="gameContextMenuItems"
           :pagination-config="gamePaginationConfig"
+          :sort-by="sortBy"
+          :search-query="searchQuery"
           @empty-state-action="handleEmptyStateAction"
           @add-item="showAddGameDialog"
           @sort-changed="handleSortChanged"
@@ -2168,6 +2170,7 @@ export default {
     // 处理排序变化
     handleSortByChanged(newValue) {
       this.sortBy = newValue
+      console.log('✅ GameView 排序方式已更新:', newValue)
     }
   },
   watch: {
@@ -2230,10 +2233,14 @@ export default {
     // document.removeEventListener('keydown', this.handleKeyDown)
     
     // 清理全局截图事件监听器
-    if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.onGlobalScreenshotTrigger) {
-      // 移除所有全局截图事件监听器
-      window.electronAPI.onGlobalScreenshotTrigger(() => {})
+    if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.removeGlobalScreenshotListener) {
+      // 移除全局截图事件监听器
+      window.electronAPI.removeGlobalScreenshotListener()
       console.log('清理全局截图事件监听器')
+    } else if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.removeAllListeners) {
+      // 降级方案：移除所有监听器
+      window.electronAPI.removeAllListeners('global-screenshot-trigger')
+      console.log('清理所有全局截图事件监听器')
     }
   }
 }

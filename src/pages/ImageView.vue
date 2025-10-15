@@ -7,6 +7,8 @@
           :toolbar-config="albumToolbarConfig"
           :context-menu-items="albumContextMenuItems"
           :pagination-config="albumPaginationConfig"
+          :sort-by="sortBy"
+          :search-query="searchQuery"
           @empty-state-action="handleEmptyStateAction"
           @add-item="showAddAlbumDialog"
           @sort-changed="handleSortChanged"
@@ -152,14 +154,14 @@
               <div class="page-jump-group">
                 <input 
                   type="number" 
-                  v-model.number="jumpToPageGroup" 
+                  v-model.number="jumpToPageInput" 
                   :min="1" 
                   :max="totalPages"
-                  @keyup.enter="jumpToPageGroup(jumpToPageGroup)"
+                  @keyup.enter="jumpToPageGroup(jumpToPageInput)"
                   class="page-input-group"
                   placeholder="页码"
                 >
-                <button class="btn-jump-group" @click="jumpToPageGroup(jumpToPageGroup)">跳转</button>
+                <button class="btn-jump-group" @click="jumpToPageGroup(jumpToPageInput)">跳转</button>
               </div>
               <button 
                 class="btn-pagination" 
@@ -405,7 +407,7 @@ export default {
       currentPage: 1,
       pageSize: 50, // 默认值，将从设置中加载
       totalPages: 0,
-      jumpToPageGroup: 1,
+      jumpToPageInput: 1,
       // 漫画列表分页相关
       currentAlbumPage: 1,
       albumPageSize: 20, // 默认每页显示20个漫画
@@ -1153,6 +1155,7 @@ export default {
     // 处理排序变化
     handleSortByChanged(newValue) {
       this.sortBy = newValue
+      console.log('✅ ImageView 排序方式已更新:', newValue)
     },
     
     showAddAlbumDialog() {
@@ -2504,6 +2507,7 @@ export default {
       }
     },
     async handleSortChanged({ pageType, sortBy }) {
+      console.log('🚀 handleSortChanged 方法开始执行')
       try {
         const saveManager = (await import('../utils/SaveManager.js')).default
         await saveManager.saveSortSetting(pageType, sortBy)
@@ -2513,12 +2517,18 @@ export default {
       }
     },
     async loadSortSetting() {
+      console.log('🚀 loadSortSetting 方法开始执行')
       try {
         const saveManager = (await import('../utils/SaveManager.js')).default
         const savedSortBy = await saveManager.getSortSetting('images')
+        console.log('🔍 从存档加载的排序方式:', savedSortBy)
+        console.log('🔍 当前组件的sortBy:', this.sortBy)
+        
         if (savedSortBy && savedSortBy !== this.sortBy) {
           this.sortBy = savedSortBy
           console.log('✅ 已加载图片页面排序方式:', savedSortBy)
+        } else {
+          console.log('ℹ️ 排序方式无需更新，当前值:', this.sortBy)
         }
       } catch (error) {
         console.warn('加载排序方式失败:', error)
@@ -2526,6 +2536,7 @@ export default {
     }
   },
   async mounted() {
+    console.log('🚀 ImageView mounted 方法开始执行')
     await this.loadAlbums()
     
     // 加载图片设置
@@ -2537,6 +2548,7 @@ export default {
     // 初始化筛选器数据
     this.updateFilterData()
     
+    console.log('✅ ImageView mounted 方法执行完成')
   }
 }
 </script>

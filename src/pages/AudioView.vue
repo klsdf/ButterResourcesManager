@@ -7,6 +7,8 @@
           :toolbar-config="audioToolbarConfig"
           :context-menu-items="audioContextMenuItems"
           :pagination-config="audioPaginationConfig"
+          :sort-by="sortBy"
+          :search-query="searchQuery"
           @empty-state-action="handleEmptyStateAction"
           @add-item="showAddDialog = true"
           @sort-changed="handleSortChanged"
@@ -856,6 +858,7 @@ export default {
     // 处理排序变化
     handleSortByChanged(newValue) {
       this.sortBy = newValue
+      console.log('✅ AudioView 排序方式已更新:', newValue)
     },
     
     editAudio(audio) {

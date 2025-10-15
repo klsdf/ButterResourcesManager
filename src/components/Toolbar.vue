@@ -71,9 +71,18 @@ export default {
     'update:sortBy',
     'sort-changed'
   ],
+  mounted() {
+    console.log('🔍 Toolbar mounted, 初始 sortBy:', this.sortBy)
+  },
+  watch: {
+    sortBy(newValue, oldValue) {
+      console.log('🔍 Toolbar sortBy 变化:', oldValue, '→', newValue)
+    }
+  },
   methods: {
     handleSortChange(event) {
       const newSortBy = event.target.value
+      console.log('🔍 Toolbar 用户选择排序:', newSortBy)
       this.$emit('update:sortBy', newSortBy)
       this.$emit('sort-changed', { pageType: this.pageType, sortBy: newSortBy })
     }

@@ -6,12 +6,16 @@
     :empty-state-config="websiteEmptyStateConfig"
     :toolbar-config="websiteToolbarConfig"
     :context-menu-items="websiteContextMenuItems"
+    :pagination-config="websitePaginationConfig"
+    :sort-by="sortBy"
+    :search-query="searchQuery"
     @empty-state-action="handleEmptyStateAction"
     @add-item="showAddDialog = true"
     @sort-changed="handleSortChanged"
     @search-query-changed="handleSearchQueryChanged"
     @sort-by-changed="handleSortByChanged"
     @context-menu-click="handleContextMenuClick"
+    @page-change="handleWebsitePageChange"
   >
     <!-- 主内容区域 -->
     <div class="website-content">
@@ -22,9 +26,9 @@
       </div>
 
       <!-- 网站列表 -->
-      <div class="websites-grid" v-else-if="filteredWebsites.length > 0">
+      <div class="websites-grid" v-else-if="paginatedWebsites.length > 0">
         <MediaCard 
-          v-for="website in filteredWebsites" 
+          v-for="website in paginatedWebsites" 
           :key="website.id"
           :item="formatWebsiteForMediaCard(website)"
           type="image"
@@ -199,6 +203,10 @@ export default {
       showAddDialog: false,
       showEditDialog: false,
       selectedWebsite: null,
+      // 分页相关
+      currentWebsitePage: 1,
+      websitePageSize: 20, // 默认每页显示20个网站
+      totalWebsitePages: 0,
       newWebsite: {
         name: '',
         url: '',
@@ -325,6 +333,23 @@ export default {
           return filtered
       }
     },
+    // 分页显示的网站列表
+    paginatedWebsites() {
+      if (!this.filteredWebsites || this.filteredWebsites.length === 0) return []
+      const start = (this.currentWebsitePage - 1) * this.websitePageSize
+      const end = start + this.websitePageSize
+      return this.filteredWebsites.slice(start, end)
+    },
+    // 动态更新分页配置
+    websitePaginationConfig() {
+      return {
+        currentPage: this.currentWebsitePage,
+        totalPages: this.totalWebsitePages,
+        pageSize: this.websitePageSize,
+        totalItems: this.filteredWebsites.length,
+        itemType: '网站'
+      }
+    },
     categories() {
       return websiteManager.getCategories()
     },
@@ -373,6 +398,21 @@ export default {
     }
   },
   watch: {
+    // 监听筛选结果变化，更新分页信息
+    filteredWebsites: {
+      handler() {
+        this.updateWebsitePagination()
+      },
+      immediate: false
+    },
+    // 监听搜索查询变化，重置到第一页
+    searchQuery() {
+      this.currentWebsitePage = 1
+    },
+    // 监听排序变化，重置到第一页
+    sortBy() {
+      this.currentWebsitePage = 1
+    },
     'newWebsite.url'(newUrl) {
       if (newUrl && !websiteManager.validateUrl(newUrl)) {
         this.urlError = '请输入有效的URL格式'
@@ -735,11 +775,50 @@ export default {
     // 处理排序变化
     handleSortByChanged(newValue) {
       this.sortBy = newValue
+      console.log('✅ WebsiteView 排序方式已更新:', newValue)
     },
     
-    // 处理排序变化（兼容原有方法）
-    handleSortChanged(data) {
-      // 这个方法可以保持为空，因为 BaseView 会处理排序
+    // 处理排序变化
+    async handleSortChanged({ pageType, sortBy }) {
+      console.log('🚀 WebsiteView handleSortChanged 方法开始执行')
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        await saveManager.saveSortSetting(pageType, sortBy)
+        console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
+      } catch (error) {
+        console.warn('保存排序方式失败:', error)
+      }
+    },
+
+    async loadSortSetting() {
+      try {
+        const saveManager = (await import('../utils/SaveManager.js')).default
+        const savedSortBy = await saveManager.getSortSetting('websites')
+        if (savedSortBy && savedSortBy !== this.sortBy) {
+          this.sortBy = savedSortBy
+          console.log('✅ 已加载网站页面排序方式:', savedSortBy)
+        }
+      } catch (error) {
+        console.warn('加载排序方式失败:', error)
+      }
+    },
+    
+    // 处理分页组件的事件
+    handleWebsitePageChange(pageNum) {
+      this.currentWebsitePage = pageNum
+    },
+    
+    // 更新网站列表分页信息
+    updateWebsitePagination() {
+      this.totalWebsitePages = Math.ceil(this.filteredWebsites.length / this.websitePageSize)
+      // 确保当前页不超过总页数
+      if (this.currentWebsitePage > this.totalWebsitePages && this.totalWebsitePages > 0) {
+        this.currentWebsitePage = this.totalWebsitePages
+      }
+      // 如果当前页为0且没有数据，重置为1
+      if (this.currentWebsitePage === 0 && this.filteredWebsites.length > 0) {
+        this.currentWebsitePage = 1
+      }
     },
     
     editWebsite(website) {
@@ -1018,6 +1097,12 @@ export default {
     this.isElectronEnvironment = !!(window.electronAPI && window.electronAPI.openExternal)
     
     await this.loadWebsites()
+    
+    // 加载排序设置
+    await this.loadSortSetting()
+    
+    // 初始化分页信息
+    this.updateWebsitePagination()
     
     // 初始化筛选器数据
     this.updateFilterData()

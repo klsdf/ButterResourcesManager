@@ -104,6 +104,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onGameProcessEnded: (callback) => ipcRenderer.on('game-process-ended', callback),
   onGlobalScreenshotTrigger: (callback) => ipcRenderer.on('global-screenshot-trigger', callback),
   
+  // 移除事件监听器
+  removeGlobalScreenshotListener: () => ipcRenderer.removeAllListeners('global-screenshot-trigger'),
+  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+  
   // 自动更新事件监听
   onUpdateChecking: (callback) => ipcRenderer.on('update-checking', callback),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),

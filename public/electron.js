@@ -1527,7 +1527,7 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
 // 检查文件是否存在
 ipcMain.handle('check-file-exists', async (event, filePath) => {
   try {
-    console.log('检查文件是否存在:', filePath)
+    // console.log('检查文件是否存在:', filePath)
     
     // 处理空路径或无效路径
     if (!filePath || filePath.trim() === '') {
@@ -1540,11 +1540,11 @@ ipcMain.handle('check-file-exists', async (event, filePath) => {
       absolutePath = path.resolve(process.cwd(), filePath)
     }
     
-    console.log('解析后的绝对路径:', absolutePath)
+    // console.log('解析后的绝对路径:', absolutePath)
     
     // 检查文件是否存在
     const exists = fs.existsSync(absolutePath)
-    console.log('文件存在性检查结果:', exists)
+    // console.log('文件存在性检查结果:', exists)
     
     return { success: true, exists: exists }
   } catch (error) {
@@ -1556,7 +1556,7 @@ ipcMain.handle('check-file-exists', async (event, filePath) => {
 // 获取文件夹大小
 ipcMain.handle('get-folder-size', async (event, filePath) => {
   try {
-    console.log('获取文件夹大小:', filePath)
+    // console.log('获取文件夹大小:', filePath)
     
     // 处理空路径或无效路径
     if (!filePath || filePath.trim() === '') {
@@ -1569,7 +1569,7 @@ ipcMain.handle('get-folder-size', async (event, filePath) => {
       absolutePath = path.resolve(process.cwd(), filePath)
     }
     
-    console.log('解析后的绝对路径:', absolutePath)
+    // console.log('解析后的绝对路径:', absolutePath)
     
     // 确保文件/文件夹存在
     if (!fs.existsSync(absolutePath)) {
@@ -1586,11 +1586,11 @@ ipcMain.handle('get-folder-size', async (event, filePath) => {
     if (stats.isFile()) {
       // 如果是文件，获取其所在文件夹的路径
       targetFolderPath = path.dirname(absolutePath)
-      console.log('文件路径，计算其所在文件夹大小:', targetFolderPath)
+      // console.log('文件路径，计算其所在文件夹大小:', targetFolderPath)
     } else if (stats.isDirectory()) {
       // 如果是文件夹，直接使用该路径
       targetFolderPath = absolutePath
-      console.log('文件夹路径，直接计算大小:', targetFolderPath)
+      // console.log('文件夹路径，直接计算大小:', targetFolderPath)
     }
     
     // 递归计算文件夹大小
@@ -1894,10 +1894,10 @@ ipcMain.handle('read-json-file', async (event, filePath) => {
     }
     
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-    console.log('JSON 文件读取成功:', filePath)
+    // console.log('JSON 文件读取成功:', filePath)
     return { success: true, data }
   } catch (error) {
-    console.error('读取 JSON 文件失败:', error)
+    // console.error('读取 JSON 文件失败:', error)
     return { success: false, error: error.message }
   }
 })
@@ -1908,7 +1908,7 @@ ipcMain.handle('delete-file', async (event, filePath) => {
     
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath)
-      console.log('文件删除成功:', filePath)
+      // console.log('文件删除成功:', filePath)
     }
     return { success: true }
   } catch (error) {
@@ -1923,7 +1923,7 @@ ipcMain.handle('ensure-directory', async (event, dirPath) => {
     
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true })
-      console.log('目录创建成功:', dirPath)
+      // console.log('目录创建成功:', dirPath)
     }
     return { success: true }
   } catch (error) {

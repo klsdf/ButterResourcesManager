@@ -2004,23 +2004,21 @@ export default {
       // 初始化完成，启用watcher
       this.isInitializing = false
       console.log('设置页面已加载，自动保存功能已启用')
+      
+      // 获取当前版本信息
+      if (window.electronAPI && window.electronAPI.getAppVersion) {
+        window.electronAPI.getAppVersion().then(version => {
+          this.currentVersion = version
+        }).catch(error => {
+          console.error('获取版本信息失败:', error)
+        })
+      }
+      
+      // 设置自动更新事件监听
+      this.setupUpdateListeners()
     } catch (error) {
       console.error('加载设置失败:', error)
     }
-  },
-  
-  mounted() {
-    // 获取当前版本信息
-    if (window.electronAPI && window.electronAPI.getAppVersion) {
-      window.electronAPI.getAppVersion().then(version => {
-        this.currentVersion = version
-      }).catch(error => {
-        console.error('获取版本信息失败:', error)
-      })
-    }
-    
-    // 设置自动更新事件监听
-    this.setupUpdateListeners()
   },
   
   beforeUnmount() {

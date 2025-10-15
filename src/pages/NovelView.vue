@@ -7,6 +7,8 @@
           :toolbar-config="novelToolbarConfig"
           :context-menu-items="novelContextMenuItems"
           :pagination-config="novelPaginationConfig"
+          :sort-by="sortBy"
+          :search-query="searchQuery"
           @empty-state-action="handleEmptyStateAction"
           @add-item="showAddNovelDialog"
           @sort-changed="handleSortChanged"
@@ -736,6 +738,7 @@ export default {
     // 处理排序变化
     handleSortByChanged(newValue) {
       this.sortBy = newValue
+      console.log('✅ NovelView 排序方式已更新:', newValue)
     },
     editNovel(novel) {
       this.showContextMenu = false
