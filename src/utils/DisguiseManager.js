@@ -8,6 +8,60 @@ class DisguiseManager {
     this.disguiseImages = []
     this.disguiseCache = new Map() // 缓存已选择的伪装图片
     this.isInitialized = false
+    
+    // 伪装文字数组
+    this.disguiseTexts = [
+      '大学物理',
+      '大学数学',
+      '高等数学',
+      '线性代数',
+      '概率论与数理统计',
+      '大学英语',
+      '计算机基础',
+      '数据结构与算法',
+      '操作系统原理',
+      '计算机网络',
+      '数据库原理',
+      '软件工程',
+      '人工智能导论',
+      '机器学习基础',
+      '深度学习入门',
+      '数字图像处理',
+      '计算机图形学',
+      '编译原理',
+      '计算机组成原理',
+      '离散数学',
+      '微积分',
+      '复变函数',
+      '实变函数',
+      '泛函分析',
+      '拓扑学',
+      '微分几何',
+      '数论基础',
+      '代数几何',
+      '组合数学',
+      '运筹学',
+      '统计学原理',
+      '计量经济学',
+      '宏观经济学',
+      '微观经济学',
+      '管理学原理',
+      '市场营销学',
+      '财务管理',
+      '会计学原理',
+      '审计学',
+      '税法',
+      '经济法',
+      '国际金融',
+      '投资学',
+      '保险学',
+      '银行学',
+      '证券投资分析',
+      '金融工程',
+      '风险管理',
+      '公司金融',
+      '行为金融学'
+    ]
   }
 
   /**
@@ -64,20 +118,32 @@ class DisguiseManager {
          } else {
            console.warn('❌ 所有路径都读取失败，尝试手动设置图片列表')
            // 手动设置已知的图片文件
-           this.disguiseImages = ['photo_2023-06-17_11-31-26.jpg', 'photo_2023-06-17_20-55-22.jpg']
+           this.disguiseImages = [
+             'photo_2023-06-17_11-31-26.jpg', 
+             'photo_2023-06-17_20-55-22.jpg',
+             'photo_2024-11-19_01-39-14 (2).jpg'
+           ]
            console.log('✅ 手动设置了伪装图片列表:', this.disguiseImages)
          }
        } else {
          // 在浏览器环境中的降级处理
          console.warn('❌ 当前环境不支持读取disguise文件夹，electronAPI:', !!window.electronAPI, 'readDirectory:', !!(window.electronAPI && window.electronAPI.readDirectory))
          // 手动设置已知的图片文件
-         this.disguiseImages = ['photo_2023-06-17_11-31-26.jpg', 'photo_2023-06-17_20-55-22.jpg']
+         this.disguiseImages = [
+           'photo_2023-06-17_11-31-26.jpg', 
+           'photo_2023-06-17_20-55-22.jpg',
+           'photo_2024-11-19_01-39-14 (2).jpg'
+         ]
          console.log('✅ 降级处理：手动设置了伪装图片列表:', this.disguiseImages)
        }
      } catch (error) {
        console.error('❌ 初始化伪装图片失败:', error)
        // 即使出错也设置一个默认图片
-       this.disguiseImages = ['photo_2023-06-17_11-31-26.jpg', 'photo_2023-06-17_20-55-22.jpg']
+       this.disguiseImages = [
+         'photo_2023-06-17_11-31-26.jpg', 
+         'photo_2023-06-17_20-55-22.jpg',
+         'photo_2024-11-19_01-39-14 (2).jpg'
+       ]
        console.log('✅ 错误处理：手动设置了伪装图片列表:', this.disguiseImages)
      }
 
@@ -113,6 +179,17 @@ class DisguiseManager {
      
      console.log(`✅ 为图片 ${originalPath} 随机选择伪装图片: ${disguiseImagePath} (索引: ${randomIndex}, 总数量: ${this.disguiseImages.length})`)
      return disguiseImagePath
+  }
+
+  /**
+   * 获取随机伪装文字
+   * @returns {string} 随机选择的伪装文字
+   */
+  getRandomDisguiseText() {
+    const randomIndex = Math.floor(Math.random() * this.disguiseTexts.length)
+    const selectedText = this.disguiseTexts[randomIndex]
+    console.log(`✅ 随机选择伪装文字: ${selectedText} (索引: ${randomIndex})`)
+    return selectedText
   }
 
   /**

@@ -25,7 +25,7 @@
       </div>
     </div>
     <div class="media-info">
-      <h3 class="media-title">{{ item.name }}</h3>
+      <h3 class="media-title">{{ displayName }}</h3>
       
       <!-- 游戏特有信息 -->
       <template v-if="type === 'game'">
@@ -184,7 +184,8 @@ export default {
   data() {
     return {
       imageCache: {},
-      disguiseImageCache: {} // 伪装图片缓存
+      disguiseImageCache: {}, // 伪装图片缓存
+      disguiseTextCache: {} // 伪装文字缓存
     }
   },
   computed: {
@@ -194,6 +195,21 @@ export default {
       if (this.type === 'video') return '▶️'
       if (this.type === 'audio') return '▶️'
       return '📖' // image 类型也使用阅读图标
+    },
+    
+    // 获取显示的名称（支持伪装模式）
+    displayName() {
+      if (this.type === 'image' && this.isDisguiseModeEnabled()) {
+        // 检查伪装文字缓存
+        if (this.disguiseTextCache[this.item.id]) {
+          return this.disguiseTextCache[this.item.id]
+        }
+        
+        // 异步获取伪装文字
+        this.loadDisguiseText(this.item.id)
+        return this.item.name // 先返回原始名称，等异步加载完成
+      }
+      return this.item.name
     },
     badgeText() {
       if (this.type === 'game') {
@@ -462,6 +478,25 @@ export default {
         console.log('MediaCard: 伪装图片已更新到缓存')
       } catch (error) {
         console.error('MediaCard: 加载伪装图片失败:', error)
+      }
+    },
+    
+    /**
+     * 异步加载伪装文字
+     * @param {string} itemId - 项目ID
+     */
+    async loadDisguiseText(itemId) {
+      console.log('MediaCard: 开始加载伪装文字，项目ID:', itemId)
+      try {
+        const disguiseText = disguiseManager.getRandomDisguiseText()
+        console.log('MediaCard: 获取到伪装文字:', disguiseText)
+        // 使用Vue的响应式更新
+        this.$set ? this.$set(this.disguiseTextCache, itemId, disguiseText) : (this.disguiseTextCache[itemId] = disguiseText)
+        // 强制更新组件
+        this.$forceUpdate()
+        console.log('MediaCard: 伪装文字已更新到缓存')
+      } catch (error) {
+        console.error('MediaCard: 加载伪装文字失败:', error)
       }
     },
     
