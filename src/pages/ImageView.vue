@@ -1317,10 +1317,9 @@ export default {
         this.pages = files
         this.totalPages = Math.ceil(files.length / this.pageSize)
         album.pagesCount = files.length
-        album.lastViewed = new Date().toISOString()
         
-        // 增加浏览次数
-        album.viewCount = (album.viewCount || 0) + 1
+        // 注意：这里不再增加浏览次数，只有真正开始阅读时才增加
+        // 浏览次数将在 openAlbum() 或 viewPage() 方法中增加
         
         await this.saveAlbums()
       } catch (e) {
@@ -2132,14 +2131,9 @@ export default {
            pageSize: this.pageSize
          })
          
-         // 更新专辑的页数信息
-         this.currentAlbum.pagesCount = files.length
-         this.currentAlbum.lastViewed = new Date().toISOString()
-         
-         // 增加浏览次数（如果还没有增加过）
-         if (!this.currentAlbum.viewCount) {
-           this.currentAlbum.viewCount = 1
-         }
+        // 更新专辑的页数信息
+        this.currentAlbum.pagesCount = files.length
+        // 注意：这里不设置lastViewed和viewCount，这些应该在真正开始阅读时设置
          
          console.log('专辑信息更新:', {
            pagesCount: this.currentAlbum.pagesCount,
