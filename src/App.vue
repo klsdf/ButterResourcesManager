@@ -28,6 +28,11 @@
 
       <!-- 底部按钮 -->
       <div class="nav-footer">
+        <div :class="{ active: currentView === 'users' }" @click="switchView('users')"
+          class="nav-item users-item">
+          <span class="nav-icon">👤</span>
+          <span class="nav-text">用户</span>
+        </div>
         <div :class="{ active: currentView === 'messages' }" @click="switchView('messages')"
           class="nav-item messages-item">
           <span class="nav-icon">📢</span>
@@ -86,6 +91,9 @@
           <!-- 声音页面 -->
           <AudioView v-if="currentView === 'audio'" ref="audioView" @filter-data-updated="updateFilterData" />
 
+          <!-- 用户页面 -->
+          <UserView v-if="currentView === 'users'" />
+
           <!-- 信息中心页面 -->
           <MessageCenterView v-if="currentView === 'messages'" />
 
@@ -113,6 +121,7 @@ import VideoView from './pages/VideoView.vue'
 import NovelView from './pages/NovelView.vue'
 import WebsiteView from './pages/WebsiteView.vue'
 import AudioView from './pages/AudioView.vue'
+import UserView from './pages/UserView.vue'
 import SettingsView from './pages/SettingsView.vue'
 import MessageCenterView from './pages/MessageCenterView.vue'
 import HelpView from './pages/HelpView.vue'
@@ -129,6 +138,7 @@ export default {
     NovelView,
     WebsiteView,
     AudioView,
+    UserView,
     SettingsView,
     MessageCenterView,
     HelpView,
@@ -474,7 +484,7 @@ export default {
         const settings = await saveManager.loadSettings()
         if (settings && settings.lastView) {
           // 验证页面ID是否有效
-          const validViews = ['games', 'images', 'videos', 'novels', 'websites', 'audio', 'messages', 'help', 'settings']
+          const validViews = ['games', 'images', 'videos', 'novels', 'websites', 'audio', 'users', 'messages', 'help', 'settings']
           if (validViews.includes(settings.lastView)) {
             console.log('✅ 加载最后访问页面:', settings.lastView)
             return settings.lastView
