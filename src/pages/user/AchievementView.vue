@@ -28,22 +28,26 @@
           <div 
             v-for="achievement in allAchievements" 
             :key="achievement.id"
-            :class="['achievement-item', { unlocked: achievement.unlocked, locked: !achievement.unlocked }]"
+            :class="['achievement-item', { completed: achievement.unlocked, inProgress: !achievement.unlocked }]"
           >
             <div class="achievement-icon">
               <span v-if="achievement.unlocked">🏆</span>
-              <span v-else>🔒</span>
+              <span v-else>📋</span>
             </div>
             <div class="achievement-info">
-              <div class="achievement-title">{{ achievement.title }}</div>
+              <div class="achievement-title">
+                {{ achievement.title }}
+                <span v-if="achievement.unlocked" class="status-badge completed">已完成</span>
+                <span v-else class="status-badge inProgress">进行中</span>
+              </div>
               <div class="achievement-description">{{ achievement.description }}</div>
               <div class="achievement-progress">
-                <div class="progress-bar">
-                  <div 
-                    class="progress-fill" 
-                    :style="{ width: achievement.progress + '%' }"
-                  ></div>
-                </div>
+                <progress 
+                  :value="achievement.current" 
+                  :max="achievement.target"
+                  :title="`进度: ${achievement.progress.toFixed(1)}%`"
+                  class="progress-bar"
+                ></progress>
                 <span class="progress-text">{{ achievement.current }}/{{ achievement.target }}</span>
               </div>
             </div>
@@ -310,21 +314,30 @@ export default {
     updateImageCollectorAchievements() {
       this.imageCollectorAchievements.forEach(achievement => {
         achievement.current = this.imageCount
-        achievement.progress = Math.min((this.imageCount / achievement.target) * 100, 100)
+        // 确保进度条准确反映真实进度，使用更精确的计算
+        const progress = (this.imageCount / achievement.target) * 100
+        achievement.progress = Math.min(Math.max(progress, 0), 100)
         achievement.unlocked = this.imageCount >= achievement.target
+        
+        // 调试日志
+        if (achievement.id === 'image_collector_50') {
+          console.log(`图片新手成就进度: ${this.imageCount}/${achievement.target} = ${achievement.progress.toFixed(2)}%`)
+        }
       })
     },
     updateGameCollectorAchievements() {
       this.gameCollectorAchievements.forEach(achievement => {
         achievement.current = this.gameCount
-        achievement.progress = Math.min((this.gameCount / achievement.target) * 100, 100)
+        const progress = (this.gameCount / achievement.target) * 100
+        achievement.progress = Math.min(Math.max(progress, 0), 100)
         achievement.unlocked = this.gameCount >= achievement.target
       })
     },
     updateVideoCollectorAchievements() {
       this.videoCollectorAchievements.forEach(achievement => {
         achievement.current = this.videoCount
-        achievement.progress = Math.min((this.videoCount / achievement.target) * 100, 100)
+        const progress = (this.videoCount / achievement.target) * 100
+        achievement.progress = Math.min(Math.max(progress, 0), 100)
         achievement.unlocked = this.videoCount >= achievement.target
       })
     },
@@ -341,7 +354,8 @@ export default {
       const totalHours = Math.floor(this.totalGameTime / 3600) // 转换为小时
       this.gameTimeAchievements.forEach(achievement => {
         achievement.current = totalHours
-        achievement.progress = Math.min((totalHours / achievement.target) * 100, 100)
+        const progress = (totalHours / achievement.target) * 100
+        achievement.progress = Math.min(Math.max(progress, 0), 100)
         achievement.unlocked = totalHours >= achievement.target
       })
     },
@@ -454,24 +468,86 @@ export default {
   overflow: hidden;
 }
 
-.achievement-item.unlocked {
-  border-color: var(--accent-color);
-  background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(var(--accent-color-rgb), 0.05) 100%);
+.achievement-item.completed {
+  border-color: #4CAF50;
+  background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(76, 175, 80, 0.05) 100%);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.1);
 }
 
-.achievement-item.unlocked::before {
+.achievement-item.completed::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
 }
 
-.achievement-item.locked {
-  opacity: 0.6;
-  background: var(--bg-secondary);
+.achievement-item.completed .progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+}
+
+.achievement-item.completed .progress-bar::-webkit-progress-value::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+}
+
+.achievement-item.completed .progress-bar::-moz-progress-bar {
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+}
+
+.achievement-item.inProgress {
+  border-color: var(--accent-color);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(var(--accent-color-rgb), 0.03) 100%);
+  position: relative;
+}
+
+.achievement-item.inProgress::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  opacity: 0.7;
+}
+
+.achievement-item.inProgress .progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.achievement-item.inProgress .progress-bar::-webkit-progress-value::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+.achievement-item.inProgress .progress-bar::-moz-progress-bar {
+  background: linear-gradient(90deg, #4CAF50, #8BC34A);
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .achievement-item:hover {
@@ -496,6 +572,30 @@ export default {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.completed {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.status-badge.inProgress {
+  background: rgba(var(--accent-color-rgb), 0.1);
+  color: var(--accent-color);
+  border: 1px solid rgba(var(--accent-color-rgb), 0.3);
 }
 
 .achievement-description {
@@ -512,17 +612,60 @@ export default {
 
 .progress-bar {
   flex: 1;
-  height: 6px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  border: none;
   background: var(--border-color);
-  border-radius: 3px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.progress-bar::-webkit-progress-bar {
+  background: var(--border-color);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar::-webkit-progress-value {
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  border-radius: 4px;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
   overflow: hidden;
 }
 
-.progress-fill {
-  height: 100%;
+.progress-bar::-webkit-progress-value::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+.progress-bar::-moz-progress-bar {
   background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  border-radius: 4px;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .progress-text {

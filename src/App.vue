@@ -200,13 +200,8 @@ export default {
           name: '声音',
           icon: '🎵',
           description: '管理你的音频资源'
-        },
-        {
-          id: 'users',
-          name: '用户',
-          icon: '👤',
-          description: '管理你的用户资源'
         }
+  
 
       ]
     }
@@ -428,6 +423,9 @@ export default {
       if (this.currentView === 'help') {
         return '帮助'
       }
+      if (this.currentView === 'users') {
+        return '用户'
+      }
       const item = this.navItems.find(item => item.id === this.currentView)
       return item ? item.name : '未知，请配置'
     },
@@ -440,6 +438,9 @@ export default {
       }
       if (this.currentView === 'help') {
         return '了解应用功能和使用方法'
+      }
+      if (this.currentView === 'users') {
+        return '管理你的用户资源'
       }
       const item = this.navItems.find(item => item.id === this.currentView)
       return item ? item.description : '无描述，请配置'
