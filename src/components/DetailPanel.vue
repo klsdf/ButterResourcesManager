@@ -381,6 +381,7 @@ export default {
   font-weight: 700;
   margin: 0;
   transition: color 0.3s ease;
+  word-break: break-all;
 }
 
 .detail-author,
