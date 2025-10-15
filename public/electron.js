@@ -1840,13 +1840,13 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
     const fs = require('fs')
     const path = require('path')
     
-    console.log('=== 开始写入 JSON 文件 ===')
-    console.log('文件路径:', filePath)
+    // console.log('=== 开始写入 JSON 文件 ===')
+    // console.log('文件路径:', filePath)
     // 确保目录存在
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
-      console.log('创建目录:', dir)
+      // console.log('创建目录:', dir)
     }
     
     // 验证数据是否可以序列化
@@ -1854,10 +1854,10 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
     try {
       if (typeof data === 'string') {
         jsonString = data
-        console.log('使用传入的字符串数据')
+        // console.log('使用传入的字符串数据')
       } else {
         jsonString = JSON.stringify(data, null, 2)
-        console.log('序列化对象数据')
+        // console.log('序列化对象数据')
       }
     } catch (serializeError) {
       console.error('数据序列化失败:', serializeError)
@@ -1866,17 +1866,17 @@ ipcMain.handle('write-json-file', async (event, filePath, data) => {
     
     // 写入 JSON 文件
     fs.writeFileSync(filePath, jsonString, 'utf8')
-    console.log('JSON 文件写入成功:', filePath)
+    // console.log('JSON 文件写入成功:', filePath)
     
     // 验证文件是否真的写入了
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath)
-      console.log('文件大小:', stats.size, 'bytes')
+      // console.log('文件大小:', stats.size, 'bytes')
     } else {
       console.error('文件写入后不存在!')
     }
     
-    console.log('=== JSON 文件写入完成 ===')
+    // console.log('=== JSON 文件写入完成 ===')
     return { success: true }
   } catch (error) {
     console.error('写入 JSON 文件失败:', error)
@@ -1938,31 +1938,31 @@ ipcMain.handle('write-file', async (event, filePath, buffer) => {
     const fs = require('fs')
     const path = require('path')
     
-    console.log('=== 开始写入文件 ===')
-    console.log('文件路径:', filePath)
-    console.log('Buffer 类型:', typeof buffer)
-    console.log('Buffer 长度:', buffer ? buffer.length : 'N/A')
+    // console.log('=== 开始写入文件 ===')
+    // console.log('文件路径:', filePath)
+    // console.log('Buffer 类型:', typeof buffer)
+    // console.log('Buffer 长度:', buffer ? buffer.length : 'N/A')
     
     // 确保目录存在
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
-      console.log('创建目录:', dir)
+      // console.log('创建目录:', dir)
     }
     
     // 写入文件
     fs.writeFileSync(filePath, buffer)
-    console.log('文件写入成功:', filePath)
+    // console.log('文件写入成功:', filePath)
     
     // 验证文件是否真的写入了
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath)
-      console.log('文件大小:', stats.size, 'bytes')
+      // console.log('文件大小:', stats.size, 'bytes')
     } else {
       console.error('文件写入后不存在!')
     }
     
-    console.log('=== 文件写入完成 ===')
+    // console.log('=== 文件写入完成 ===')
     return { success: true }
   } catch (error) {
     console.error('写入文件失败:', error)
@@ -1977,15 +1977,15 @@ ipcMain.handle('save-thumbnail', async (event, filePath, dataUrl) => {
     const fs = require('fs')
     const path = require('path')
     
-    console.log('=== 开始保存缩略图 ===')
-    console.log('文件路径:', filePath)
-    console.log('dataURL 长度:', dataUrl ? dataUrl.length : 'N/A')
+    // console.log('=== 开始保存缩略图 ===')
+    // console.log('文件路径:', filePath)
+    // console.log('dataURL 长度:', dataUrl ? dataUrl.length : 'N/A')
     
     // 确保目录存在
     const dir = path.dirname(filePath)
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
-      console.log('创建目录:', dir)
+      // console.log('创建目录:', dir)
     }
     
     // 解析 base64 数据
@@ -2001,21 +2001,21 @@ ipcMain.handle('save-thumbnail', async (event, filePath, dataUrl) => {
     
     // 转换为 Buffer
     const buffer = Buffer.from(base64Data, 'base64')
-    console.log('转换后的 Buffer 长度:', buffer.length)
+    // console.log('转换后的 Buffer 长度:', buffer.length)
     
     // 写入文件
     fs.writeFileSync(filePath, buffer)
-    console.log('缩略图保存成功:', filePath)
+    // console.log('缩略图保存成功:', filePath)
     
     // 验证文件是否真的写入了
     if (fs.existsSync(filePath)) {
       const stats = fs.statSync(filePath)
-      console.log('缩略图文件大小:', stats.size, 'bytes')
+      // console.log('缩略图文件大小:', stats.size, 'bytes')
     } else {
       console.error('缩略图文件写入后不存在!')
     }
     
-    console.log('=== 缩略图保存完成 ===')
+    // console.log('=== 缩略图保存完成 ===')
     return { success: true }
   } catch (error) {
     console.error('保存缩略图失败:', error)
@@ -2030,8 +2030,8 @@ ipcMain.handle('list-files', async (event, dirPath) => {
     const fs = require('fs')
     const path = require('path')
     
-    console.log('=== 列出目录文件 ===')
-    console.log('目录路径:', dirPath)
+    // console.log('=== 列出目录文件 ===')
+    // console.log('目录路径:', dirPath)
     
     // 检查目录是否存在
     if (!fs.existsSync(dirPath)) {
