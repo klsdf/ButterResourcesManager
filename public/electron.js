@@ -347,7 +347,6 @@ ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
       
       // 检查路径是否存在
       try {
-        const fs = require('fs')
         const path = require('path')
         
         // 将相对路径转换为绝对路径

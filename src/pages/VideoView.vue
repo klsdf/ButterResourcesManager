@@ -231,7 +231,7 @@
   </BaseView>
 </template>
 
-<script>
+<script lang="ts">
 import VideoManager from '../utils/VideoManager.ts'
 import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
@@ -393,11 +393,11 @@ export default {
           case 'name':
             return a.name.localeCompare(b.name)
           case 'lastWatched':
-            return new Date(b.lastWatched || 0) - new Date(a.lastWatched || 0)
+            return new Date(b.lastWatched || 0).getTime() - new Date(a.lastWatched || 0).getTime()
           case 'watchCount':
             return b.watchCount - a.watchCount
           case 'added':
-            return new Date(b.addedDate) - new Date(a.addedDate)
+            return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime()
           default:
             return 0
         }

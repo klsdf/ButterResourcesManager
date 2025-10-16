@@ -1260,7 +1260,7 @@ class SaveManager {
       }
     })
     
-    return slots.sort((a, b) => new Date(b.date) - new Date(a.date))
+    return slots.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
 
   /**

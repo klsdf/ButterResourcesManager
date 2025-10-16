@@ -31,7 +31,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import ProfileView from './user/ProfileView.vue'
 import AchievementView from './user/AchievementView.vue'
 import StatisticsView from './user/StatisticsView.vue'

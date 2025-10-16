@@ -14,8 +14,8 @@
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
   },
-  "include": ["src/**/*", "src/**/*.js", "src/**/*.ts", "src/**/*.vue"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "dist-electron"]
 }

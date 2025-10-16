@@ -238,7 +238,7 @@
   </BaseView>
 </template>
 
-<script>
+<script lang="js">
 import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
 import MediaCard from '../components/MediaCard.vue'

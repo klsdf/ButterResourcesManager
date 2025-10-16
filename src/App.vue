@@ -114,7 +114,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import GameView from './pages/GameView.vue'
 import ImageView from './pages/ImageView.vue'
 import VideoView from './pages/VideoView.vue'
