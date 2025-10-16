@@ -257,24 +257,24 @@ class NotificationService {
 }
 
 // 创建全局实例
-const notificationService = new NotificationService()
+const notify = new NotificationService()
 
 // 导出服务实例和便捷方法
-export default notificationService
+export default notify
 
-// 便捷方法导出
-export const notify = {
-  success: (title, message, options) => notificationService.success(title, message, options),
-  error: (title, message, options) => notificationService.error(title, message, options),
-  warning: (title, message, options) => notificationService.warning(title, message, options),
-  info: (title, message, options) => notificationService.info(title, message, options),
-  batch: (title, results, options) => notificationService.batchResult(title, results, options),
-  file: (operation, fileName, success, error) => notificationService.fileOperation(operation, fileName, success, error),
-  network: (url, success, error) => notificationService.networkRequest(url, success, error),
-  drag: (operation, count, success, error) => notificationService.dragDrop(operation, count, success, error),
-  settings: (operation, success, error) => notificationService.settings(operation, success, error),
-  autoSaveSettings: (success, error) => notificationService.autoSaveSettings(success, error),
-  manualSaveSettings: (success, error) => notificationService.manualSaveSettings(success, error),
-  achievement: (achievement) => notificationService.achievementUnlocked(achievement),
-  achievements: (achievements) => notificationService.achievementsUnlocked(achievements)
-}
+// // 便捷方法导出
+// export const notify = {
+//   success: (title, message, options = {}) => notificationService.success(title, message, options),
+//   error: (title, message, options = {}) => notificationService.error(title, message, options),
+//   warning: (title, message, options = {}) => notificationService.warning(title, message, options),
+//   info: (title, message, options = {}) => notificationService.info(title, message, options),
+//   batch: (title, results, options = {}) => notificationService.batchResult(title, results, options),
+//   file: (operation, fileName, success, error) => notificationService.fileOperation(operation, fileName, success, error),
+//   network: (url, success, error) => notificationService.networkRequest(url, success, error),
+//   drag: (operation, count, success, error) => notificationService.dragDrop(operation, count, success, error),
+//   settings: (operation, success, error) => notificationService.settings(operation, success, error),
+//   autoSaveSettings: (success, error) => notificationService.autoSaveSettings(success, error),
+//   manualSaveSettings: (success, error) => notificationService.manualSaveSettings(success, error),
+//   achievement: (achievement) => notificationService.achievementUnlocked(achievement),
+//   achievements: (achievements) => notificationService.achievementsUnlocked(achievements)
+// }

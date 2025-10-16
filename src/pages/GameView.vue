@@ -238,7 +238,7 @@
   </BaseView>
 </template>
 
-<script lang="js">
+<script lang="ts">
 import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
 import MediaCard from '../components/MediaCard.vue'
@@ -248,6 +248,7 @@ import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
 
 import saveManager from '../utils/SaveManager.ts'
+import notify from '../utils/NotificationService.ts'
 
 export default {
   name: 'GameView',
@@ -389,11 +390,11 @@ export default {
           case 'name':
             return a.name.localeCompare(b.name)
           case 'lastPlayed':
-            return new Date(b.lastPlayed) - new Date(a.lastPlayed)
+            return new Date(b.lastPlayed).getTime() - new Date(a.lastPlayed).getTime()
           case 'playTime':
             return b.playTime - a.playTime
           case 'added':
-            return new Date(b.addedDate) - new Date(a.addedDate)
+            return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime()
           default:
             return 0
         }
@@ -668,11 +669,10 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.ts')
         
         if (results && results.length > 0) {
           // 批量操作结果通知
-          notify.batch(title, results)
+          notify.batchResult(title, results)
         } else {
           // 普通通知
           const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'

@@ -68,7 +68,7 @@
 
 <script>
 import saveManager from '../../utils/SaveManager.ts'
-import { notify } from '../../utils/NotificationService.ts'
+import  notify  from '../../utils/NotificationService.ts'
 
 export default {
   name: 'AchievementView',

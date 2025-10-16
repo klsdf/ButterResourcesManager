@@ -37,7 +37,7 @@
           :isElectronEnvironment="true"
           :file-exists="video.fileExists"
           @click="showVideoDetail"
-          @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, video)"
+          @contextmenu="(event) => ($refs.baseView as any).showContextMenuHandler(event, video)"
           @action="playVideo"
         />
       </div>
@@ -240,6 +240,7 @@ import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
 import saveManager from '../utils/SaveManager.ts'
+import notify from '../utils/NotificationService.ts'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -628,9 +629,9 @@ export default {
         
         try {
           const result = await window.electronAPI.checkFileExists(video.filePath)
-          video.fileExists = result.exists
+          video.fileExists = result
           
-          if (!result.exists) {
+          if (!result) {
             missingCount++
             console.log(`❌ 视频文件不存在: ${video.name} - ${video.filePath}`)
           } 
@@ -788,7 +789,7 @@ export default {
         
         console.log('=== 拖拽调试信息 ===')
         console.log('拖拽文件数量:', files.length)
-        console.log('拖拽文件详细信息:', files.map(f => ({
+        console.log('拖拽文件详细信息:', files.map((f: any) => ({
           name: f.name,
           path: f.path,
           type: f.type,
@@ -807,7 +808,7 @@ export default {
         }
         
         // 筛选出视频文件
-        const videoFiles = files.filter(file => {
+        const videoFiles = files.filter((file:File) => {
           const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ogv']
           const fileName = file.name.toLowerCase()
           return videoExtensions.some(ext => fileName.endsWith(ext))
@@ -1615,7 +1616,7 @@ export default {
       
       const date = new Date(dateString)
       const now = new Date()
-      const diffTime = Math.abs(now - date)
+      const diffTime = Math.abs(now.getTime() - date.getTime())
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
       
       if (diffDays === 1) return '昨天'
@@ -1630,7 +1631,7 @@ export default {
       
       const date = new Date(dateString)
       const now = new Date()
-      const diffTime = Math.abs(now - date)
+      const diffTime = Math.abs(now.getTime() - date.getTime())
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
       
       if (diffDays === 0) return '今天'
@@ -1646,7 +1647,7 @@ export default {
       
       const date = new Date(dateString)
       const now = new Date()
-      const diffTime = Math.abs(now - date)
+      const diffTime = Math.abs(now.getTime() - date.getTime())
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
       
       if (diffDays === 0) return '今天'
@@ -2376,11 +2377,11 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.ts')
+
         
         if (results && results.length > 0) {
           // 批量操作结果通知
-          notify.batch(title, results)
+          notify.batchResult(title, results)
         } else {
           // 普通通知
           const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'

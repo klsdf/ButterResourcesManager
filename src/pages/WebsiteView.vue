@@ -178,7 +178,7 @@
   </BaseView>
 </template>
 
-<script>
+<script lang="ts">
 import websiteManager from '../utils/WebsiteManager.js'
 import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
@@ -186,7 +186,7 @@ import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 
 import saveManager from '../utils/SaveManager.ts'
-
+import notify from '../utils/NotificationService.ts'
 export default {
   name: 'WebsiteView',
   components: {
@@ -1110,11 +1110,11 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.ts')
+
         
         if (results && results.length > 0) {
           // 批量操作结果通知
-          notify.batch(title, results)
+          notify.batchResult(title, results)
         } else {
           // 普通通知
           const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'

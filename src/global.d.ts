@@ -16,7 +16,7 @@ declare global {
       selectExecutableFile: () => Promise<string>
       selectImageFile: (defaultPath?: string) => Promise<string>
       selectScreenshotImage: (defaultPath?: string) => Promise<string>
-      checkFileExists: (filePath: string) => Promise<boolean>
+      checkFileExists: (filePath: string) => Promise<{ success: boolean; exists?: boolean; error?: string }>
       ensureDirectory: (dirPath: string) => Promise<any>
       getFolderSize: (folderPath: string) => Promise<any>
       openFileFolder: (filePath: string) => Promise<any>

@@ -225,6 +225,7 @@ import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
 
 import saveManager from '../utils/SaveManager.ts'
+import notify from '../utils/NotificationService.ts'
 
 export default {
   name: 'AudioView',
@@ -1229,8 +1230,6 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.ts')
-        
         if (results && results.length > 0) {
           // 批量操作结果通知
           notify.batch(title, results)

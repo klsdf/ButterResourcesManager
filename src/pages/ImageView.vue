@@ -307,7 +307,7 @@
   
 </template>
 
-<script>
+<script lang="ts">
 import saveManager from '../utils/SaveManager.ts'
 import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -316,6 +316,8 @@ import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import ComicViewer from '../components/ComicViewer.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+
+import notify from '../utils/NotificationService.ts'
 
 export default {
   name: 'ImageView',
@@ -476,9 +478,9 @@ export default {
           case 'count':
             return (b.pagesCount || 0) - (a.pagesCount || 0)
           case 'added':
-            return new Date(b.addedDate || 0) - new Date(a.addedDate || 0)
+            return new Date(b.addedDate || 0).getTime() - new Date(a.addedDate || 0).getTime()
           case 'lastViewed':
-            return new Date(b.lastViewed || 0) - new Date(a.lastViewed || 0)
+            return new Date(b.lastViewed || 0).getTime() - new Date(a.lastViewed || 0).getTime()
           default:
             return 0
         }
@@ -1122,7 +1124,6 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.ts')
         
         if (results && results.length > 0) {
           // 批量操作结果通知
