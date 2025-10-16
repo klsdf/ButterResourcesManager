@@ -4,6 +4,9 @@
       <div class="achievement-header">
         <h4>🏆 成就系统</h4>
         <p>查看你的成就和里程碑</p>
+        <button @click="testAchievementNotification" class="test-button">
+          测试成就通知
+        </button>
       </div>
       
       <div class="achievement-body">
@@ -60,6 +63,7 @@
 
 <script>
 import saveManager from '../../utils/SaveManager.js'
+import { notify } from '../../utils/NotificationService.js'
 
 export default {
   name: 'AchievementView',
@@ -70,6 +74,7 @@ export default {
       gameCount: 0,
       videoCount: 0,
       totalGameTime: 0, // 总游戏时长（秒）
+      previousAchievementStates: new Map(), // 存储之前的成就状态，用于检测新解锁的成就
       imageCollectorAchievements: [
         {
           id: 'image_collector_50',
@@ -297,6 +302,9 @@ export default {
         this.updateVideoCollectorAchievements()
         this.updateGameTimeAchievements()
         
+        // 检测新解锁的成就并发送通知
+        this.checkNewlyUnlockedAchievements()
+        
         console.log('成就数据加载完成:', {
           图片数量: this.imageCount,
           游戏数量: this.gameCount,
@@ -304,6 +312,13 @@ export default {
           总游戏时长: Math.floor(this.totalGameTime / 3600) + '小时',
           已解锁成就: this.unlockedAchievements
         })
+        
+        // 初始化成就状态记录（避免首次加载时误触发通知）
+        if (this.previousAchievementStates.size === 0) {
+          this.allAchievements.forEach(achievement => {
+            this.previousAchievementStates.set(achievement.id, achievement.unlocked)
+          })
+        }
         
       } catch (error) {
         console.error('加载成就数据失败:', error)
@@ -361,6 +376,63 @@ export default {
     },
     async refreshAchievements() {
       await this.loadAchievementData()
+    },
+    
+    // 检测新解锁的成就
+    checkNewlyUnlockedAchievements() {
+      const newlyUnlocked = []
+      
+      this.allAchievements.forEach(achievement => {
+        const previousState = this.previousAchievementStates.get(achievement.id)
+        
+        // 如果之前未解锁，现在解锁了，则认为是新解锁的成就
+        if (!previousState && achievement.unlocked) {
+          newlyUnlocked.push(achievement)
+        }
+        
+        // 更新成就状态记录
+        this.previousAchievementStates.set(achievement.id, achievement.unlocked)
+      })
+      
+      // 发送成就解锁通知 - 一个一个弹出
+      if (newlyUnlocked.length > 0) {
+        console.log('检测到新解锁的成就:', newlyUnlocked.map(a => a.title))
+        
+        // 每个成就单独弹出通知，添加延迟避免重叠
+        newlyUnlocked.forEach((achievement, index) => {
+          setTimeout(() => {
+            notify.achievement(achievement)
+          }, index * 1000) // 每个成就间隔1秒弹出
+        })
+      }
+    },
+    
+    // 测试成就通知功能
+    testAchievementNotification() {
+      const testAchievements = [
+        {
+          id: 'test_achievement_1',
+          title: '测试成就1',
+          description: '这是第一个测试成就，用于验证通知功能'
+        },
+        {
+          id: 'test_achievement_2',
+          title: '测试成就2',
+          description: '这是第二个测试成就，验证连续弹出效果'
+        },
+        {
+          id: 'test_achievement_3',
+          title: '测试成就3',
+          description: '这是第三个测试成就，验证间隔弹出'
+        }
+      ]
+      
+      // 模拟多个成就解锁，一个一个弹出
+      testAchievements.forEach((achievement, index) => {
+        setTimeout(() => {
+          notify.achievement(achievement)
+        }, index * 1000) // 每个成就间隔1秒弹出
+      })
     }
   },
   async mounted() {
@@ -402,6 +474,24 @@ export default {
   margin: 0;
   color: var(--text-secondary);
   font-size: 0.9rem;
+}
+
+.test-button {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.test-button:hover {
+  background: var(--accent-color-dark, #0056b3);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .achievement-body {

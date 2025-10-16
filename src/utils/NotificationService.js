@@ -194,6 +194,45 @@ class NotificationService {
     return this.show(success ? 'success' : 'error', title, message)
   }
 
+  // 成就解锁通知
+  achievementUnlocked(achievement) {
+    if (!this.checkInitialized()) return null
+    
+    const title = '🏆 成就解锁！'
+    const message = `${achievement.title}\n${achievement.description}`
+    
+    return this.show('success', title, message, {
+      duration: 5000, // 成就通知显示更久一些
+      persistent: false,
+      icon: '🏆',
+      position: 'bottom-right',
+      animation: 'slide-in-right',
+      sound: true // 可以添加音效
+    })
+  }
+
+  // 批量成就解锁通知
+  achievementsUnlocked(achievements) {
+    if (!this.checkInitialized()) return null
+    
+    if (achievements.length === 1) {
+      return this.achievementUnlocked(achievements[0])
+    }
+    
+    const title = `🏆 解锁了 ${achievements.length} 个成就！`
+    const message = achievements
+      .map((achievement, index) => `${index + 1}. ${achievement.title}`)
+      .join('\n')
+    
+    return this.show('success', title, message, {
+      duration: 6000,
+      persistent: false,
+      icon: '🏆',
+      position: 'bottom-right',
+      animation: 'slide-in-right'
+    })
+  }
+
   // 测试通知（用于演示信息中心功能）
   testNotifications() {
     if (!this.checkInitialized()) return null
@@ -232,5 +271,7 @@ export const notify = {
   drag: (operation, count, success, error) => notificationService.dragDrop(operation, count, success, error),
   settings: (operation, success, error) => notificationService.settings(operation, success, error),
   autoSaveSettings: (success, error) => notificationService.autoSaveSettings(success, error),
-  manualSaveSettings: (success, error) => notificationService.manualSaveSettings(success, error)
+  manualSaveSettings: (success, error) => notificationService.manualSaveSettings(success, error),
+  achievement: (achievement) => notificationService.achievementUnlocked(achievement),
+  achievements: (achievements) => notificationService.achievementsUnlocked(achievements)
 }
