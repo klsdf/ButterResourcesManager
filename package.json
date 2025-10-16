@@ -41,7 +41,7 @@
     "appId": "com.example.butter-resources-manager",
     "productName": "ButterResourcesManager",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron/v${version}"
     },
     "artifactName": "${productName} ${version}.${ext}",
     "files": [
