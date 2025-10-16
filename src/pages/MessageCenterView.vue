@@ -324,7 +324,7 @@ export default {
     // 测试通知
     async testNotifications() {
       try {
-        const notificationService = (await import('../utils/NotificationService.js')).default
+        const notificationService = (await import('../utils/NotificationService.ts')).default
         notificationService.testNotifications()
       } catch (error) {
         console.error('测试通知失败:', error)

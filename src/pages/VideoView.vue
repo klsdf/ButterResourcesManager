@@ -232,7 +232,7 @@
 </template>
 
 <script>
-import VideoManager from '../utils/VideoManager.js'
+import VideoManager from '../utils/VideoManager.ts'
 import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
@@ -2378,7 +2378,7 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.js')
+        const { notify } = await import('../utils/NotificationService.ts')
         
         if (results && results.length > 0) {
           // 批量操作结果通知

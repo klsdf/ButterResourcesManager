@@ -1226,7 +1226,7 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.js')
+        const { notify } = await import('../utils/NotificationService.ts')
         
         if (results && results.length > 0) {
           // 批量操作结果通知

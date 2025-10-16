@@ -543,7 +543,7 @@ export default {
 
     // 初始化通知服务
     try {
-      const notificationService = (await import('./utils/NotificationService.js')).default
+      const notificationService = (await import('./utils/NotificationService.ts')).default
       notificationService.init(this.$refs.toastNotification)
       console.log('✅ 通知服务初始化成功')
     } catch (error) {

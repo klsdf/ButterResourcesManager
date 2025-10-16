@@ -1079,13 +1079,13 @@ export default {
           console.log('设置自动保存成功')
           
           // 使用NotificationService显示成功通知
-          const { notify } = await import('../utils/NotificationService.js')
+          const { notify } = await import('../utils/NotificationService.ts')
           notify.autoSaveSettings(true)
         } else {
           console.error('设置自动保存失败')
           
           // 使用NotificationService显示错误通知
-          const { notify } = await import('../utils/NotificationService.js')
+          const { notify } = await import('../utils/NotificationService.ts')
           notify.autoSaveSettings(false)
         }
       } catch (error) {
@@ -1093,7 +1093,7 @@ export default {
         
         // 使用NotificationService显示错误通知
         try {
-          const { notify } = await import('../utils/NotificationService.js')
+          const { notify } = await import('../utils/NotificationService.ts')
           notify.autoSaveSettings(false, error.message)
         } catch (importError) {
           console.error('无法导入NotificationService:', importError)
@@ -1310,7 +1310,7 @@ export default {
           this.applyTheme(this.settings.theme)
           
           // 使用NotificationService显示重置成功通知
-          const { notify } = await import('../utils/NotificationService.js')
+          const { notify } = await import('../utils/NotificationService.ts')
           notify.success('设置已重置', '所有设置已恢复为默认值')
           
           // 自动保存重置后的设置
@@ -1318,7 +1318,7 @@ export default {
         } catch (error) {
           console.error('重置设置失败:', error)
           try {
-            const { notify } = await import('../utils/NotificationService.js')
+            const { notify } = await import('../utils/NotificationService.ts')
             notify.error('重置设置失败', '重置设置时发生错误: ' + error.message)
           } catch (importError) {
             console.error('无法导入NotificationService:', importError)
@@ -1516,7 +1516,7 @@ export default {
     // 显示 Toast 通知
     async showToastNotification(title, message, results = null) {
       try {
-        const { notify } = await import('../utils/NotificationService.js')
+        const { notify } = await import('../utils/NotificationService.ts')
         
         if (results && results.length > 0) {
           // 批量操作结果通知
