@@ -5,6 +5,7 @@
 class SaveManager {
   constructor() {
     this.dataDirectory = 'SaveData'
+    this.version = '0.0.0' // 默认版本号，将在初始化时更新
     
     // 各种数据类型的根目录
     this.dataDirectories = {
@@ -85,6 +86,29 @@ class SaveManager {
    * @returns {Promise<boolean>} 写入是否成功
    */
   /**
+   * 获取应用版本号
+   * @returns {Promise<string>} 版本号
+   */
+  async getAppVersion() {
+    try {
+      
+      
+      //从 package.json 导入
+      try {
+        const packageJson = await import('../../package.json')
+        return packageJson.version || '0.0.0'
+      } catch (importError) {
+        console.warn('无法从 package.json 获取版本号:', importError)
+      }
+      
+      return '0.0.0'
+    } catch (error) {
+      console.warn('获取版本号失败:', error)
+      return '0.0.0'
+    }
+  }
+
+  /**
    * 初始化存档系统
    * 检查并创建必要的文件夹和默认文件
    * @returns {Promise<boolean>} 初始化是否成功
@@ -92,6 +116,10 @@ class SaveManager {
   async initialize() {
     try {
       console.log('=== 初始化存档系统 ===')
+      
+      // 获取应用版本号
+      this.version = await this.getAppVersion()
+      console.log('应用版本号:', this.version)
       
       // 首先从根目录读取设置，确定真正的存档位置
       try {
@@ -609,7 +637,7 @@ class SaveManager {
       const data = {
         images: images,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       const success = await this.writeJsonFile(this.filePaths.images, data)
       if (success) {
@@ -652,7 +680,7 @@ class SaveManager {
       const data = {
         games: games,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       
       const success = await this.writeJsonFile(this.filePaths.games, data)
@@ -678,7 +706,7 @@ class SaveManager {
       const data = {
         videos: videos,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
 
       const success = await this.writeJsonFile(this.filePaths.videos, data)
@@ -716,7 +744,7 @@ class SaveManager {
       const data = {
         audios: audios,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       const success = await this.writeJsonFile(this.filePaths.audios, data)
       if (success) {
@@ -749,7 +777,7 @@ class SaveManager {
       const data = {
         websites: websites,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       const success = await this.writeJsonFile(this.filePaths.websites, data)
       if (success) {
@@ -782,7 +810,7 @@ class SaveManager {
       const data = {
         novels: novels,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       const success = await this.writeJsonFile(this.filePaths.novels, data)
       if (success) {
@@ -851,7 +879,7 @@ class SaveManager {
       const data = {
         settings: settings,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       
       const success = await this.writeJsonFile(this.filePaths.settings, data)
@@ -950,7 +978,7 @@ class SaveManager {
             type: 'games',
             data: await this.loadGames(),
             timestamp: new Date().toISOString(),
-            version: '1.0.0'
+            version: this.version
           }
           defaultFilename = 'butter-manager-games'
           break
@@ -959,7 +987,7 @@ class SaveManager {
             type: 'settings',
             data: await this.loadSettings(),
             timestamp: new Date().toISOString(),
-            version: '1.0.0'
+            version: this.version
           }
           defaultFilename = 'butter-manager-settings'
           break
@@ -970,7 +998,7 @@ class SaveManager {
             games: await this.loadGames(),
             settings: await this.loadSettings(),
             timestamp: new Date().toISOString(),
-            version: '1.0.0'
+            version: this.version
           }
           defaultFilename = 'butter-manager-backup'
           break
@@ -1049,32 +1077,6 @@ class SaveManager {
     }
   }
 
-  /**
-   * 创建数据备份
-   * @returns {Promise<boolean>} 备份是否成功
-   */
-  async createBackup() {
-    try {
-      await this.ensureDataDirectory()
-      
-      const backupData = {
-        games: await this.loadGames(),
-        settings: await this.loadSettings(),
-        timestamp: new Date().toISOString(),
-        version: '1.0.0',
-        type: 'backup'
-      }
-      
-      const success = await this.writeJsonFile(this.filePaths.backup, backupData)
-      if (success) {
-        console.log('数据备份创建成功')
-      }
-      return success
-    } catch (error) {
-      console.error('创建备份失败:', error)
-      return false
-    }
-  }
 
   /**
    * 从备份恢复数据
@@ -1312,7 +1314,7 @@ class SaveManager {
       const data = {
         user: userProfile,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       
       const success = await this.writeJsonFile(this.filePaths.user, data)
@@ -1357,38 +1359,6 @@ class SaveManager {
     }
   }
 
-  /**
-   * 导出用户数据为 JSON 文件
-   * @returns {Promise<boolean>} 导出是否成功
-   */
-  async exportUserData() {
-    try {
-      const userProfile = await this.loadUserProfile()
-      
-      const exportData = {
-        type: 'user',
-        data: userProfile,
-        timestamp: new Date().toISOString(),
-        version: '1.0.0'
-      }
-
-      const dataStr = JSON.stringify(exportData, null, 2)
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = URL.createObjectURL(dataBlob)
-      
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `butter-manager-user-${new Date().toISOString().split('T')[0]}.json`
-      link.click()
-      
-      URL.revokeObjectURL(url)
-      console.log('用户数据导出成功')
-      return true
-    } catch (error) {
-      console.error('导出用户数据失败:', error)
-      return false
-    }
-  }
 
   /**
    * 从文件导入用户数据
@@ -1447,7 +1417,7 @@ class SaveManager {
       const data = {
         achievements: achievementStates,
         timestamp: new Date().toISOString(),
-        version: '1.0.0'
+        version: this.version
       }
       
       const success = await this.writeJsonFile(this.filePaths.achievements, data)

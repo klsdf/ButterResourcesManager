@@ -22,11 +22,14 @@
   "author": "Yan",
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^24.8.0",
     "@vitejs/plugin-vue": "^4.5.0",
+    "@vue/tsconfig": "^0.8.1",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^27.1.0",
     "electron-builder": "^24.6.4",
+    "typescript": "^5.9.3",
     "vite": "^5.0.0",
     "wait-on": "^7.2.0"
   },
@@ -70,11 +73,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "public/butter-icon.ico"
