@@ -4,9 +4,14 @@
       <div class="achievement-header">
         <h4>🏆 成就系统</h4>
         <p>查看你的成就和里程碑</p>
-        <button @click="testAchievementNotification" class="test-button">
-          测试成就通知
-        </button>
+        <div class="test-buttons">
+          <button @click="testAchievementNotification" class="test-button">
+            测试成就通知
+          </button>
+          <button @click="resetAchievementStates" class="test-button reset-button">
+            重置成就状态
+          </button>
+        </div>
       </div>
       
       <div class="achievement-body">
@@ -74,7 +79,7 @@ export default {
       gameCount: 0,
       videoCount: 0,
       totalGameTime: 0, // 总游戏时长（秒）
-      previousAchievementStates: new Map(), // 存储之前的成就状态，用于检测新解锁的成就
+      savedAchievementStates: new Map(), // 存储已保存的成就状态，用于检测新解锁的成就
       imageCollectorAchievements: [
         {
           id: 'image_collector_50',
@@ -282,12 +287,17 @@ export default {
         this.isLoading = true
         console.log('开始加载成就数据...')
         
-        // 并行加载所有媒体数据
-        const [images, games, videos] = await Promise.all([
+        // 并行加载所有媒体数据和成就状态
+        const [images, games, videos, achievementStates] = await Promise.all([
           saveManager.loadImages(),
           saveManager.loadGames(),
-          saveManager.loadVideos()
+          saveManager.loadVideos(),
+          saveManager.loadAchievementStates()
         ])
+        
+        // 加载已保存的成就状态
+        this.savedAchievementStates = achievementStates.unlockedAchievements || new Map()
+        console.log('已加载成就状态:', this.savedAchievementStates.size, '个成就')
         
         this.imageCount = images.length
         this.gameCount = games.length
@@ -312,13 +322,6 @@ export default {
           总游戏时长: Math.floor(this.totalGameTime / 3600) + '小时',
           已解锁成就: this.unlockedAchievements
         })
-        
-        // 初始化成就状态记录（避免首次加载时误触发通知）
-        if (this.previousAchievementStates.size === 0) {
-          this.allAchievements.forEach(achievement => {
-            this.previousAchievementStates.set(achievement.id, achievement.unlocked)
-          })
-        }
         
       } catch (error) {
         console.error('加载成就数据失败:', error)
@@ -379,19 +382,20 @@ export default {
     },
     
     // 检测新解锁的成就
-    checkNewlyUnlockedAchievements() {
+    async checkNewlyUnlockedAchievements() {
       const newlyUnlocked = []
+      const currentAchievementStates = new Map()
       
       this.allAchievements.forEach(achievement => {
-        const previousState = this.previousAchievementStates.get(achievement.id)
+        const savedState = this.savedAchievementStates.get(achievement.id)
         
         // 如果之前未解锁，现在解锁了，则认为是新解锁的成就
-        if (!previousState && achievement.unlocked) {
+        if (!savedState && achievement.unlocked) {
           newlyUnlocked.push(achievement)
         }
         
-        // 更新成就状态记录
-        this.previousAchievementStates.set(achievement.id, achievement.unlocked)
+        // 记录当前成就状态
+        currentAchievementStates.set(achievement.id, achievement.unlocked)
       })
       
       // 发送成就解锁通知 - 一个一个弹出
@@ -404,6 +408,13 @@ export default {
             notify.achievement(achievement)
           }, index * 1000) // 每个成就间隔1秒弹出
         })
+        
+        // 保存新的成就状态到文件
+        await saveManager.updateAchievementStates(currentAchievementStates)
+        console.log('成就状态已保存到文件')
+      } else {
+        // 即使没有新解锁的成就，也要更新保存的状态（以防数据不同步）
+        await saveManager.updateAchievementStates(currentAchievementStates)
       }
     },
     
@@ -433,6 +444,27 @@ export default {
           notify.achievement(achievement)
         }, index * 1000) // 每个成就间隔1秒弹出
       })
+    },
+    
+    // 重置成就状态（用于测试）
+    async resetAchievementStates() {
+      try {
+        // 清空保存的成就状态
+        this.savedAchievementStates.clear()
+        
+        // 重置文件中的成就状态
+        const emptyStates = new Map()
+        await saveManager.updateAchievementStates(emptyStates)
+        
+        console.log('成就状态已重置')
+        notify.success('成就状态已重置', '下次进入成就页面时会重新检测解锁的成就')
+        
+        // 重新加载成就数据以触发通知
+        await this.loadAchievementData()
+      } catch (error) {
+        console.error('重置成就状态失败:', error)
+        notify.error('重置失败', '无法重置成就状态')
+      }
     }
   },
   async mounted() {
@@ -476,8 +508,14 @@ export default {
   font-size: 0.9rem;
 }
 
-.test-button {
+.test-buttons {
   margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.test-button {
   padding: 8px 16px;
   background: var(--accent-color);
   color: white;
@@ -492,6 +530,14 @@ export default {
   background: var(--accent-color-dark, #0056b3);
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.test-button.reset-button {
+  background: #dc3545;
+}
+
+.test-button.reset-button:hover {
+  background: #c82333;
 }
 
 .achievement-body {

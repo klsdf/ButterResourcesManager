@@ -27,6 +27,7 @@ class SaveManager {
       novels: `${this.dataDirectories.novels}/novels.json`,
       settings: `${this.dataDirectories.settings}/settings.json`,
       user: `${this.dataDirectories.settings}/user.json`, // 用户数据文件
+      achievements: `${this.dataDirectories.settings}/achievements.json`, // 成就状态文件
       backup: `${this.dataDirectory}/backup.json` // 备份文件仍在根目录
     }
     
@@ -188,6 +189,7 @@ class SaveManager {
         novels: `${this.dataDirectories.novels}/novels.json`,
         settings: `${this.dataDirectories.settings}/settings.json`,
         user: `${this.dataDirectories.settings}/user.json`,
+        achievements: `${this.dataDirectories.settings}/achievements.json`,
         backup: `${this.dataDirectory}/backup.json`
       }
       
@@ -237,7 +239,7 @@ class SaveManager {
       console.log('=== 初始化数据文件 ===')
       
       // 检查并创建各种数据文件
-      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings', 'user']
+      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings', 'user', 'achievements']
       
       for (const dataType of dataTypes) {
         const filePath = this.filePaths[dataType]
@@ -316,6 +318,14 @@ class SaveManager {
               joinDate: new Date().toISOString(),
               lastActive: new Date().toISOString(),
               checkInDays: []
+            }
+          }
+          break
+        case 'achievements':
+          defaultData = { 
+            achievements: {
+              unlockedAchievements: new Map(), // 存储已解锁的成就ID和状态
+              lastCheckTime: new Date().toISOString()
             }
           }
           break
@@ -1422,6 +1432,145 @@ class SaveManager {
         imported: { user: false },
         errors: [error.message]
       }
+    }
+  }
+
+  /**
+   * 保存成就状态数据到本地 JSON 文件
+   * @param {Object} achievementStates - 成就状态数据对象
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveAchievementStates(achievementStates) {
+    try {
+      await this.ensureDataTypeDirectory('settings')
+      
+      const data = {
+        achievements: achievementStates,
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+      }
+      
+      const success = await this.writeJsonFile(this.filePaths.achievements, data)
+      if (success) {
+        console.log('成就状态保存成功')
+      }
+      return success
+    } catch (error) {
+      console.error('保存成就状态失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从本地 JSON 文件加载成就状态数据
+   * @returns {Promise<Object>} 成就状态数据对象
+   */
+  async loadAchievementStates() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.achievements)
+      if (data && data.achievements) {
+        console.log('成就状态加载成功')
+        // 将Map对象从普通对象转换回来
+        const achievementStates = data.achievements
+        if (achievementStates.unlockedAchievements && typeof achievementStates.unlockedAchievements === 'object') {
+          achievementStates.unlockedAchievements = new Map(Object.entries(achievementStates.unlockedAchievements))
+        } else {
+          achievementStates.unlockedAchievements = new Map()
+        }
+        return achievementStates
+      }
+      
+      // 如果文件不存在，返回默认成就状态
+      console.log('成就状态文件不存在，返回默认状态')
+      return {
+        unlockedAchievements: new Map(),
+        lastCheckTime: new Date().toISOString()
+      }
+    } catch (error) {
+      console.error('加载成就状态失败:', error)
+      return {
+        unlockedAchievements: new Map(),
+        lastCheckTime: new Date().toISOString()
+      }
+    }
+  }
+
+  /**
+   * 更新单个成就的解锁状态
+   * @param {string} achievementId - 成就ID
+   * @param {boolean} unlocked - 是否已解锁
+   * @returns {Promise<boolean>} 更新是否成功
+   */
+  async updateAchievementState(achievementId, unlocked) {
+    try {
+      const achievementStates = await this.loadAchievementStates()
+      achievementStates.unlockedAchievements.set(achievementId, unlocked)
+      achievementStates.lastCheckTime = new Date().toISOString()
+      
+      return await this.saveAchievementStates(achievementStates)
+    } catch (error) {
+      console.error('更新成就状态失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 批量更新成就解锁状态
+   * @param {Map} newAchievementStates - 新的成就状态Map
+   * @returns {Promise<boolean>} 更新是否成功
+   */
+  async updateAchievementStates(newAchievementStates) {
+    try {
+      const achievementStates = await this.loadAchievementStates()
+      
+      // 更新所有成就状态
+      newAchievementStates.forEach((unlocked, achievementId) => {
+        achievementStates.unlockedAchievements.set(achievementId, unlocked)
+      })
+      
+      achievementStates.lastCheckTime = new Date().toISOString()
+      
+      return await this.saveAchievementStates(achievementStates)
+    } catch (error) {
+      console.error('批量更新成就状态失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 检查成就是否已解锁
+   * @param {string} achievementId - 成就ID
+   * @returns {Promise<boolean>} 是否已解锁
+   */
+  async isAchievementUnlocked(achievementId) {
+    try {
+      const achievementStates = await this.loadAchievementStates()
+      return achievementStates.unlockedAchievements.get(achievementId) || false
+    } catch (error) {
+      console.error('检查成就状态失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 获取所有已解锁的成就ID列表
+   * @returns {Promise<Array>} 已解锁的成就ID数组
+   */
+  async getUnlockedAchievementIds() {
+    try {
+      const achievementStates = await this.loadAchievementStates()
+      const unlockedIds = []
+      
+      achievementStates.unlockedAchievements.forEach((unlocked, achievementId) => {
+        if (unlocked) {
+          unlockedIds.push(achievementId)
+        }
+      })
+      
+      return unlockedIds
+    } catch (error) {
+      console.error('获取已解锁成就列表失败:', error)
+      return []
     }
   }
 }
