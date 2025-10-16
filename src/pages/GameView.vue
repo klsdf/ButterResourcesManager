@@ -39,7 +39,7 @@
           :is-electron-environment="isElectronEnvironment"
           :file-exists="game.fileExists"
           @click="showGameDetail"
-          @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, game)"
+          @contextmenu="(event) => ($refs.baseView as any).showContextMenuHandler(event, game)"
           @action="launchGame"
         />
     </div>
@@ -503,7 +503,7 @@ export default {
       input.type = 'file'
       input.accept = type === 'executable' ? '.exe,.app' : 'image/*'
       input.onchange = (e) => {
-        const file = e.target.files[0]
+        const file = (e.target as HTMLInputElement).files[0]
         if (file) {
           if (type === 'executable') {
             this.newGame.executablePath = file.path || file.name
@@ -1618,7 +1618,7 @@ export default {
         input.type = 'file'
         input.accept = '.json'
         input.onchange = async (event) => {
-          const file = event.target.files[0]
+          const file = (event.target as HTMLInputElement).files[0]
           if (file) {
             const result = await saveManager.importData(file)
             if (result.success) {
@@ -1628,7 +1628,7 @@ export default {
                 `成功导入 ${result.imported.games} 个游戏`
               )
             } else {
-              this.showNotification('导入失败', result.error || '导入失败')
+              this.showNotification('导入失败', (result as any).error || '导入失败')
             }
           }
         }
@@ -1639,39 +1639,7 @@ export default {
       }
     },
     
-    async createBackup() {
-      try {
-        const success = await saveManager.createBackup()
-        if (success) {
-          this.showNotification('备份成功', '数据备份已创建')
-        } else {
-          this.showNotification('备份失败', '数据备份创建失败')
-        }
-      } catch (error) {
-        console.error('创建备份失败:', error)
-        this.showNotification('备份失败', `备份失败: ${error.message}`)
-      }
-    },
-    
-    async restoreFromBackup() {
-      try {
-        if (confirm('确定要从备份恢复数据吗？这将覆盖当前数据。')) {
-          const result = await saveManager.restoreFromBackup()
-          if (result.success) {
-            this.games = await saveManager.loadGames()
-            this.showNotification(
-              '恢复成功', 
-              `成功恢复 ${result.restored.games} 个游戏`
-            )
-          } else {
-            this.showNotification('恢复失败', result.error || '恢复失败')
-          }
-        }
-      } catch (error) {
-        console.error('从备份恢复失败:', error)
-        this.showNotification('恢复失败', `恢复失败: ${error.message}`)
-      }
-    },
+ 
     
     async getStorageInfo() {
       const info = await saveManager.getStorageInfo()
@@ -1832,7 +1800,7 @@ export default {
       this.isDragOver = false
       
       try {
-        const files = Array.from(event.dataTransfer.files)
+        const files = Array.from(event.dataTransfer.files) as File[]
         
         console.log('=== 拖拽调试信息 ===')
         console.log('拖拽文件数量:', files.length)

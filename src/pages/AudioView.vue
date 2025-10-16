@@ -39,7 +39,7 @@
             :isElectronEnvironment="true"
             :file-exists="audio.fileExists"
             @click="showAudioDetail"
-            @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, audio)"
+            @contextmenu="(event) => ($refs.baseView as any).showContextMenuHandler(event, audio)"
             @action="playAudio"
           />
         </div>
@@ -215,7 +215,7 @@
   </BaseView>
 </template>
 
-<script>
+<script lang="ts">
 import audioManager from '../utils/AudioManager.js'
 import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
@@ -381,7 +381,7 @@ export default {
         case 'playCount':
           return filtered.sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
         case 'addedDate':
-          return filtered.sort((a, b) => new Date(b.addedDate || 0) - new Date(a.addedDate || 0))
+          return filtered.sort((a, b) => new Date(b.addedDate || 0).getTime() - new Date(a.addedDate || 0).getTime())
         default:
           return filtered
       }
@@ -1091,12 +1091,12 @@ export default {
             try {
               console.log('🔄 尝试使用 readFileAsDataUrl 方法...')
               const result = await window.electronAPI.readFileAsDataUrl(filePath)
-              if (result.success) {
-                audioSrc = result.dataUrl
+              if (result) {
+                audioSrc = result
                 console.log('✅ 使用 readFileAsDataUrl 成功')
                 audio.src = audioSrc
               } else {
-                throw new Error(result.error || 'readFileAsDataUrl 失败')
+                throw new Error('readFileAsDataUrl 失败')
               }
             } catch (error) {
               console.warn('⚠️ readFileAsDataUrl 失败，尝试 getFileUrl:', error)
@@ -1232,7 +1232,7 @@ export default {
       try {
         if (results && results.length > 0) {
           // 批量操作结果通知
-          notify.batch(title, results)
+          notify.batchResult(title, results)
         } else {
           // 普通通知
           const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
@@ -1265,7 +1265,7 @@ export default {
       this.isDragOver = false
       
       try {
-        const files = Array.from(event.dataTransfer.files)
+        const files = Array.from(event.dataTransfer.files) as File[]
         
         console.log('=== 拖拽调试信息 ===')
         console.log('拖拽文件数量:', files.length)

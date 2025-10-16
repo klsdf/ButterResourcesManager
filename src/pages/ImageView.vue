@@ -38,7 +38,7 @@
         :isElectronEnvironment="true"
         :file-exists="album.fileExists"
         @click="showAlbumDetail"
-        @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, album)"
+        @contextmenu="(event) => ($refs.baseView as any).showContextMenuHandler(event, album)"
         @action="openAlbum"
       />
     </div>
@@ -351,6 +351,7 @@ export default {
         description: '',
         tags: [],
         folderPath: '',
+        cover: '',
         viewCount: 0
       },
       tagInput: '',
@@ -632,7 +633,7 @@ export default {
       this.isDragOver = false
       
       try {
-        const files = Array.from(event.dataTransfer.files)
+        const files = Array.from(event.dataTransfer.files) as File[]
         
         console.log('=== 拖拽调试信息 ===')
         console.log('拖拽文件数量:', files.length)
@@ -644,7 +645,7 @@ export default {
           size: f.size,
           lastModified: f.lastModified,
           // 检查是否有其他可能的属性
-          webkitGetAsEntry: f.webkitGetAsEntry ? 'exists' : 'not exists'
+          webkitGetAsEntry: (f as any).webkitGetAsEntry ? 'exists' : 'not exists'
         })))
         console.log('当前漫画库状态:')
         this.albums.forEach((album, index) => {
@@ -1127,7 +1128,7 @@ export default {
         
         if (results && results.length > 0) {
           // 批量操作结果通知
-          notify.batch(title, results)
+          notify.batchResult(title, results)
         } else {
           // 普通通知
           const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
@@ -2445,7 +2446,7 @@ export default {
       try {
         // 动态导入SaveManager以避免循环依赖
 
-        const settings = await saveManager.default.loadSettings()
+        const settings = await saveManager.loadSettings()
         
         if (settings && settings.image) {
           // 从image对象中更新图片相关配置，确保转换为数字

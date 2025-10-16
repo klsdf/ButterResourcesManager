@@ -1194,12 +1194,7 @@ export default {
         if (window.electronAPI && window.electronAPI.updateGlobalShortcut) {
           const result = await window.electronAPI.updateGlobalShortcut(this.settings.screenshotKey)
           if (result.success) {
-            if (result.fallback) {
-              console.log('使用备用全局快捷键:', result.key)
-              alert(`快捷键 ${this.settings.screenshotKey} 被占用，已自动使用 ${result.key}`)
-            } else {
-              console.log('全局快捷键更新成功:', result.key)
-            }
+            console.log('全局快捷键更新成功:', result.key)
           } else {
             console.error('全局快捷键更新失败:', result.error)
             alert(`快捷键设置失败: ${result.error}\n将使用应用内快捷键。`)
@@ -1377,15 +1372,9 @@ export default {
             const message = result.message || '存档目录已更新'
             let detailMessage = `已设置自定义存档目录: ${result.directory}`
             
-            if (result.useExistingData) {
-              // 使用现有数据的情况
-              detailMessage += `\n\n${message}`
-            } else if (result.copiedFiles > 0) {
+            if (result.copiedFiles && result.copiedFiles > 0) {
               // 复制数据的情况
               detailMessage += `\n\n成功复制 ${result.copiedFiles} 个文件`
-              if (result.copiedFolders > 0) {
-                detailMessage += ` 和 ${result.copiedFolders} 个文件夹`
-              }
               detailMessage += `\n${message}`
             } else {
               detailMessage += `\n\n${message}`
@@ -1395,11 +1384,10 @@ export default {
             this.showToastNotification('存档目录设置成功', detailMessage)
             
             // 如果有复制文件，显示更详细的信息
-            if (result.copiedFiles > 0) {
+            if (result.copiedFiles && result.copiedFiles > 0) {
               console.log('存档数据复制完成:', {
                 directory: result.directory,
                 copiedFiles: result.copiedFiles,
-                copiedFolders: result.copiedFolders,
                 message: result.message
               })
             }

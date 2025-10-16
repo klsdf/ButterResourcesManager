@@ -437,7 +437,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import DetailCard from '../components/DetailCard.vue'
 
 export default {

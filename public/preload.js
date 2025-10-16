@@ -10,9 +10,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
   closeWindow: () => ipcRenderer.invoke('close-window'),
   
-  // 文件操作
-  openFile: () => ipcRenderer.invoke('open-file'),
-  saveFile: (data) => ipcRenderer.invoke('save-file', data),
+  // 文件操作（已移除 openFile 和 saveFile，因为 electron.js 中没有对应的 IPC 处理程序）
   
   // JSON 文件操作
   writeJsonFile: (filePath, data) => ipcRenderer.invoke('write-json-file', filePath, data),
@@ -97,6 +95,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 自动更新功能
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
   
   // 监听事件
   onMenuAction: (callback) => ipcRenderer.on('menu-action', callback),

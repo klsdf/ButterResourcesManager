@@ -34,7 +34,7 @@
           type="image"
           :is-electron-environment="isElectronEnvironment"
           @click="showWebsiteDetail"
-          @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, website)"
+          @contextmenu="(event) => ($refs.baseView as any).showContextMenuHandler(event, website)"
           @action="(item) => visitWebsite(item)"
         />
       </div>
@@ -326,13 +326,13 @@ export default {
         case 'visitCount':
           return [...filtered].sort((a, b) => (b.visitCount || 0) - (a.visitCount || 0))
         case 'addedDate':
-          return [...filtered].sort((a, b) => new Date(b.addedDate) - new Date(a.addedDate))
+          return [...filtered].sort((a, b) => new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime())
         case 'lastVisited':
           return [...filtered].sort((a, b) => {
             if (!a.lastVisited && !b.lastVisited) return 0
             if (!a.lastVisited) return 1
             if (!b.lastVisited) return -1
-            return new Date(b.lastVisited) - new Date(a.lastVisited)
+            return new Date(b.lastVisited).getTime() - new Date(a.lastVisited).getTime()
           })
         default:
           return filtered

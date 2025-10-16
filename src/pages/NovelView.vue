@@ -42,7 +42,7 @@
               :isElectronEnvironment="true"
               :file-exists="novel.fileExists"
               @click="showNovelDetail"
-              @contextmenu="(event) => $refs.baseView.showContextMenuHandler(event, novel)"
+              @contextmenu="(event) => ($refs.baseView as any).showContextMenuHandler(event, novel)"
               @action="handleNovelClick"
             />
           </div>
@@ -250,7 +250,7 @@
   </BaseView>
 </template>
 
-<script>
+<script lang="ts">
 import novelManager from '../utils/NovelManager.js'
 import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
@@ -433,7 +433,7 @@ export default {
           case 'readProgress':
             return (b.readProgress || 0) - (a.readProgress || 0)
           case 'added':
-            return new Date(b.addedDate) - new Date(a.addedDate)
+            return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime()
           default:
             return 0
         }
@@ -599,7 +599,7 @@ export default {
       input.type = 'file'
       input.accept = type === 'novel' ? '.txt,.epub,.mobi' : 'image/*'
       input.onchange = (e) => {
-        const file = e.target.files[0]
+        const file = (e.target as HTMLInputElement).files[0]
         if (file) {
           if (type === 'novel') {
             this.newNovel.filePath = file.path || file.name
@@ -942,7 +942,7 @@ export default {
       if (!dateString) return '从未阅读'
       const date = new Date(dateString)
       const now = new Date()
-      const diffTime = Math.abs(now - date)
+      const diffTime = Math.abs(now.getTime() - date.getTime())
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
       const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
       const diffMinutes = Math.floor(diffTime / (1000 * 60))
@@ -1040,7 +1040,7 @@ export default {
         
         if (results && results.length > 0) {
           // 批量操作结果通知
-          notify.batch(title, results)
+          notify.batchResult(title, results)
         } else {
           // 普通通知
           const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
@@ -1472,11 +1472,11 @@ export default {
       this.isDragOver = false
       
       try {
-        const files = Array.from(event.dataTransfer.files)
+        const files = Array.from(event.dataTransfer.files) as File[]
         
         console.log('=== 拖拽调试信息 ===')
         console.log('拖拽文件数量:', files.length)
-        console.log('拖拽文件详细信息:', files.map(f => ({
+        console.log('拖拽文件详细信息:', files.map((f :File) => ({
           name: f.name,
           path: f.path,
           type: f.type,

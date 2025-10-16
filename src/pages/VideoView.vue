@@ -1831,7 +1831,7 @@ export default {
 
      // 获取视频时长
      async getVideoDuration(filePath) {
-       return new Promise((resolve, reject) => {
+       return new Promise(async (resolve, reject) => {
          try {
            if (!filePath) {
              console.warn('⚠️ getVideoDuration: 文件路径为空')
@@ -1845,12 +1845,12 @@ export default {
            if (window.electronAPI && window.electronAPI.getFileUrl) {
              try {
                console.log('📡 调用 getFileUrl API...')
-               const url = window.electronAPI.getFileUrl(filePath)
-               if (url && typeof url === 'string' && url.startsWith('file://')) {
-                 src = url
+               const result = await window.electronAPI.getFileUrl(filePath)
+               if (result && result.success && result.url && result.url.startsWith('file://')) {
+                 src = result.url
                  console.log('✅ 使用 getFileUrl 生成的 URL:', src)
                } else {
-                 console.warn('⚠️ getFileUrl 返回格式不正确:', url)
+                 console.warn('⚠️ getFileUrl 返回格式不正确:', result)
                  src = this.buildFileUrl(filePath)
                }
              } catch (e) {
@@ -1955,13 +1955,13 @@ export default {
            if (window.electronAPI && window.electronAPI.getFileUrl) {
              try {
                console.log('📡 调用 getFileUrl API...')
-               const url = await window.electronAPI.getFileUrl(filePath)
-               console.log('📡 getFileUrl 返回:', url)
-               if (url && typeof url === 'string' && url.startsWith('file://')) {
-                 src = url
+               const result = await window.electronAPI.getFileUrl(filePath)
+               console.log('📡 getFileUrl 返回:', result)
+               if (result && result.success && result.url && result.url.startsWith('file://')) {
+                 src = result.url
                  console.log('✅ 使用 getFileUrl 生成的 URL:', src)
                } else {
-                 console.warn('⚠️ getFileUrl 返回格式不正确:', url)
+                 console.warn('⚠️ getFileUrl 返回格式不正确:', result)
                  // 手动构建 file:// URL
                  src = this.buildFileUrl(filePath)
                }
