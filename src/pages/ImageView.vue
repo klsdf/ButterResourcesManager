@@ -1283,23 +1283,25 @@ export default {
      removeEditTag(index) {
        this.editAlbumForm.tags.splice(index, 1)
      },
-     async openAlbum(album) {
-       // 直接打开漫画阅读器，从第一页开始
-       this.currentAlbum = album
-       this.currentPageIndex = 0
-       this.showComicViewer = true
-       
-       // 清空之前的页面数据，确保重新加载
-       this.pages = []
-       
-       // 增加浏览次数
-       album.viewCount = (album.viewCount || 0) + 1
-       album.lastViewed = new Date().toISOString()
-       await this.saveAlbums()
-       
-       // 加载当前漫画的图片文件
-       await this.loadAlbumPages()
-     },
+    async openAlbum(album) {
+      // 直接打开漫画阅读器，从第一页开始
+      this.currentAlbum = album
+      this.currentPageIndex = 0
+      
+      // 清空之前的页面数据，确保重新加载
+      this.pages = []
+      
+      // 增加浏览次数
+      album.viewCount = (album.viewCount || 0) + 1
+      album.lastViewed = new Date().toISOString()
+      await this.saveAlbums()
+      
+      // 先加载当前漫画的图片文件，再显示阅读器
+      await this.loadAlbumPages()
+      
+      // 确保pages数组已加载完成后再显示阅读器
+      this.showComicViewer = true
+    },
     async showAlbumDetail(album) {
       try {
         this.currentAlbum = album
@@ -1651,7 +1653,6 @@ export default {
       // 打开漫画阅读器，index是当前分页中的相对索引
       const actualIndex = this.currentPageStartIndex + index
       this.currentPageIndex = actualIndex
-      this.showComicViewer = true
       
       // 增加浏览次数
       if (this.currentAlbum) {
@@ -1659,6 +1660,9 @@ export default {
         this.currentAlbum.lastViewed = new Date().toISOString()
         await this.saveAlbums()
       }
+      
+      // 确保pages数组已加载完成后再显示阅读器
+      this.showComicViewer = true
     },
 
     // 处理页面变化事件
@@ -2204,13 +2208,14 @@ export default {
              totalPages: files.length
            })
            
-           this.currentPageImage = await this.resolveImageAsync(files[targetIndex])
-           this.jumpToPage = targetIndex + 1
+           // 注意：这里不再设置currentPageImage，因为ComicViewer组件会自己处理图片加载
+           // this.currentPageImage = await this.resolveImageAsync(files[targetIndex])
+           // this.jumpToPage = targetIndex + 1
            
-           // 获取当前文件大小
-           this.currentFileSize = await this.getFileSize(files[targetIndex])
+           // 获取当前文件大小（可选，ComicViewer也会自己获取）
+           // this.currentFileSize = await this.getFileSize(files[targetIndex])
            
-           console.log('当前页图片加载完成')
+           console.log('页面数据加载完成，等待ComicViewer组件加载图片')
          } else {
            console.log('没有图片文件，跳过当前页加载')
          }

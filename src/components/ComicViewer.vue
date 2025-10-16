@@ -181,6 +181,16 @@ export default {
         this.jumpToPage = newVal + 1
         this.loadCurrentPage()
       }
+    },
+    pages: {
+      handler(newPages, oldPages) {
+        // 当pages数组从空变为有内容时，重新加载当前页
+        if (this.visible && newPages && newPages.length > 0 && (!oldPages || oldPages.length === 0)) {
+          console.log('ComicViewer: pages数组已加载，重新加载当前页')
+          this.loadCurrentPage()
+        }
+      },
+      immediate: false
     }
   },
   methods: {
