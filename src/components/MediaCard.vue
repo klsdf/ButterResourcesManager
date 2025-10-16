@@ -18,6 +18,10 @@
       <div v-if="showFileError" class="file-error-icon" title="本地文件不存在">
         ⚠️
       </div>
+      <!-- 文件夹标识 -->
+      <div v-if="type === 'folder'" class="folder-indicator" title="文件夹">
+        📁
+      </div>
       <div class="media-overlay">
         <div class="action-button" @click.stop="$emit('action', item)">
           <span class="action-icon">{{ actionIcon }}</span>
@@ -146,6 +150,31 @@
           </div>
         </div>
       </template>
+      
+      <!-- 文件夹特有信息 -->
+      <template v-if="type === 'folder'">
+        <p class="media-subtitle" v-if="item.series">{{ item.series }}</p>
+        <p class="media-description" v-if="item.description">{{ item.description }}</p>
+        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+          <span 
+            v-for="tag in item.tags.slice(0, 3)" 
+            :key="tag" 
+            class="media-tag"
+          >{{ tag }}</span>
+          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+        </div>
+        <div class="media-actors" v-if="item.actors && item.actors.length > 0">
+          <span class="actors-label">演员:</span>
+          <span class="actors-list">{{ item.actors.slice(0, 2).join(', ') }}</span>
+          <span v-if="item.actors.length > 2" class="actors-more">等{{ item.actors.length }}人</span>
+        </div>
+        <div class="media-stats">
+          <div class="stats-row">
+            <span class="stat-item">{{ item.videoCount || 0 }} 个视频</span>
+            <span class="stat-item">{{ formatAddedDate(item.addedDate) }}</span>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -165,7 +194,7 @@ export default {
     type: {
       type: String,
       required: true,
-      validator: value => ['game', 'image', 'novel', 'video', 'audio'].includes(value)
+      validator: value => ['game', 'image', 'novel', 'video', 'audio', 'folder'].includes(value)
     },
     isRunning: {
       type: Boolean,
@@ -194,6 +223,7 @@ export default {
       if (this.type === 'novel') return '📖'
       if (this.type === 'video') return '▶️'
       if (this.type === 'audio') return '▶️'
+      if (this.type === 'folder') return '📁'
       return '📖' // image 类型也使用阅读图标
     },
     
@@ -222,11 +252,13 @@ export default {
         return this.formatDuration(this.item.duration)
       } else if (this.type === 'audio') {
         return this.formatDuration(this.item.duration)
+      } else if (this.type === 'folder') {
+        return `${this.item.videoCount || 0} 个视频`
       }
       return ''
     },
     showFileError() {
-      return ['game', 'audio', 'image', 'novel', 'video'].includes(this.type) && this.fileExists === false
+      return ['game', 'audio', 'image', 'novel', 'video', 'folder'].includes(this.type) && this.fileExists === false
     }
   },
   methods: {
@@ -305,6 +337,21 @@ export default {
       if (diffDays < 7) return `${diffDays}天前观看`
       if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前观看`
       return this.formatDateTime(date)
+    },
+    formatAddedDate(dateString) {
+      if (!dateString) return ''
+      
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffTime = Math.abs(now.getTime() - date.getTime())
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      
+      if (diffDays === 0) return '今天'
+      if (diffDays === 1) return '昨天'
+      if (diffDays < 7) return `${diffDays}天前`
+      if (diffDays < 30) return `${Math.ceil(diffDays / 7)}周前`
+      if (diffDays < 365) return `${Math.ceil(diffDays / 30)}个月前`
+      return `${Math.ceil(diffDays / 365)}年前`
     },
     formatDuration(minutes) {
       if (!minutes || minutes === 0) return '未知时长'
@@ -455,6 +502,7 @@ export default {
       if (this.type === 'video') return './default-video.svg' // 视频使用视频默认图标
       if (this.type === 'audio') return './default-audio.svg' // 音频使用音频默认图标
       if (this.type === 'image') return './default-image.svg' // 图片使用图片默认图标
+      if (this.type === 'folder') return './default-video.svg' // 文件夹使用视频默认图标
       return './default-novel.svg' // 默认使用小说图标
     },
     handleImageError(event) {
@@ -763,6 +811,25 @@ export default {
   z-index: 10;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   animation: pulse 2s infinite;
+}
+
+.folder-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(59, 130, 246, 0.9);
+  color: white;
+  border-radius: 6px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 @keyframes pulse {

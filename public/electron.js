@@ -934,7 +934,7 @@ ipcMain.handle('get-file-url', async (event, filePath) => {
     }).join('/')
     
     const fileUrl = `file://${encodedPath}`
-    console.log('生成文件URL:', fileUrl)
+    // console.log('生成文件URL:', fileUrl)
     return { success: true, url: fileUrl }
   } catch (error) {
     console.error('获取文件URL失败:', error)

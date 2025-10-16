@@ -7,10 +7,12 @@
                 :search-query="searchQuery" 
                 :sort-by="sortBy"
                 :add-button-text="toolbarConfig.addButtonText" 
+                :add-folder-button-text="toolbarConfig.addFolderButtonText"
                 :search-placeholder="toolbarConfig.searchPlaceholder"
                 :sort-options="toolbarConfig.sortOptions" 
                 :page-type="toolbarConfig.pageType" 
                 @add-item="handleAddItem"
+                @add-folder="handleAddFolder"
                 @update:searchQuery="$emit('search-query-changed', $event)"
                 @update:sortBy="$emit('sort-by-changed', $event)"
                 @sort-changed="handleSortChanged" />
@@ -164,6 +166,11 @@ export default {
         // 处理添加项目按钮点击
         handleAddItem() {
             this.$emit('add-item')
+        },
+
+        // 处理添加文件夹按钮点击
+        handleAddFolder() {
+            this.$emit('add-folder')
         },
 
         // 处理排序变化

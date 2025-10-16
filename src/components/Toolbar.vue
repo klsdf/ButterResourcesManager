@@ -5,6 +5,10 @@
         <span class="btn-icon">➕</span>
         {{ addButtonText }}
       </button>
+      <button v-if="addFolderButtonText" class="btn-add-folder" @click="handleAddFolderClick">
+        <span class="btn-icon">📁</span>
+        {{ addFolderButtonText }}
+      </button>
       <div class="search-box">
         <input 
           type="text" 
@@ -47,6 +51,10 @@ export default {
       type: String,
       default: '添加游戏'
     },
+    addFolderButtonText: {
+      type: String,
+      default: ''
+    },
     searchPlaceholder: {
       type: String,
       default: '搜索游戏...'
@@ -67,6 +75,7 @@ export default {
   },
   emits: [
     'add-item',
+    'add-folder',
     'update:searchQuery',
     'update:sortBy',
     'sort-changed'
@@ -85,6 +94,10 @@ export default {
       console.log('🔍 Toolbar 用户选择排序:', newSortBy)
       this.$emit('update:sortBy', newSortBy)
       this.$emit('sort-changed', { pageType: this.pageType, sortBy: newSortBy })
+    },
+    handleAddFolderClick() {
+      console.log('📁 添加文件夹按钮被点击')
+      this.$emit('add-folder')
     }
   }
 }
@@ -125,6 +138,24 @@ export default {
   background: var(--accent-hover);
 }
 
+.btn-add-folder {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-add-folder:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+}
 
 .btn-icon {
   font-size: 1.2rem;
