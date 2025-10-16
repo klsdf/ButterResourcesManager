@@ -1,4 +1,4 @@
-import saveManager from './SaveManager.js'
+import saveManager from './SaveManager.ts'
 
 class AudioManager {
   constructor() {

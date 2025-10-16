@@ -223,6 +223,9 @@ import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
+
+import saveManager from '../utils/SaveManager.ts'
+
 export default {
   name: 'AudioView',
   components: {
@@ -1463,7 +1466,6 @@ export default {
     },
     async handleSortChanged({ pageType, sortBy }) {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         await saveManager.saveSortSetting(pageType, sortBy)
         console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
       } catch (error) {
@@ -1472,7 +1474,6 @@ export default {
     },
     async loadSortSetting() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const savedSortBy = await saveManager.getSortSetting('audio')
         if (savedSortBy && savedSortBy !== this.sortBy) {
           this.sortBy = savedSortBy
@@ -1504,7 +1505,6 @@ export default {
     // 从设置中加载音频分页配置
     async loadAudioPaginationSettings() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const settings = await saveManager.loadSettings()
         
         if (settings && settings.audio) {

@@ -3,6 +3,9 @@
 import saveManager from './SaveManager'
 
 class VideoManager {
+  videos: Video[]
+  dataFile: string
+
   constructor() {
     this.videos = []
     this.dataFile = 'videos.json'

@@ -129,6 +129,12 @@ import GlobalAudioPlayer from './components/GlobalAudioPlayer.vue'
 import ToastNotification from './components/ToastNotification.vue'
 import FilterSidebar from './components/FilterSidebar.vue'
 
+
+import notificationService from './utils/NotificationService.ts'
+
+import saveManager from './utils/SaveManager.ts'
+
+
 export default {
   name: 'App',
   components: {
@@ -475,7 +481,6 @@ export default {
     },
     async saveCurrentView(viewId) {
       try {
-        const saveManager = (await import('./utils/SaveManager.js')).default
         const settings = await saveManager.loadSettings()
         if (settings) {
           settings.lastView = viewId
@@ -488,7 +493,6 @@ export default {
     },
     async loadLastView() {
       try {
-        const saveManager = (await import('./utils/SaveManager.js')).default
         const settings = await saveManager.loadSettings()
         if (settings && settings.lastView) {
           // 验证页面ID是否有效
@@ -516,7 +520,6 @@ export default {
 
     // 首先初始化存档系统
     try {
-      const saveManager = (await import('./utils/SaveManager.js')).default
       console.log('正在初始化存档系统...')
       const initSuccess = await saveManager.initialize()
       if (initSuccess) {
@@ -543,16 +546,13 @@ export default {
 
     // 初始化通知服务
     try {
-      const notificationService = (await import('./utils/NotificationService.ts')).default
       notificationService.init(this.$refs.toastNotification)
-      console.log('✅ 通知服务初始化成功')
     } catch (error) {
       console.error('通知服务初始化失败:', error)
     }
 
     // 然后从 SaveManager 加载设置
     try {
-      const saveManager = (await import('./utils/SaveManager.js')).default
       const settings = await saveManager.loadSettings()
       if (settings && settings.theme) {
         console.log('从 SaveManager 加载主题设置:', settings.theme)

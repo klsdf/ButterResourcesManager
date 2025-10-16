@@ -257,6 +257,8 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import saveManager from '../utils/SaveManager.ts'
+
 
 export default {
   name: 'NovelView',
@@ -1407,7 +1409,7 @@ export default {
     async getGlobalSettings() {
       try {
         // 从 SaveManager 获取全局设置
-        const saveManager = (await import('../utils/SaveManager.js')).default
+
         const settings = await saveManager.loadSettings()
         console.log('原始设置数据:', settings)
         console.log('novel对象:', settings.novel)
@@ -1657,7 +1659,6 @@ export default {
     },
     async handleSortChanged({ pageType, sortBy }) {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         await saveManager.saveSortSetting(pageType, sortBy)
         console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
       } catch (error) {
@@ -1666,7 +1667,6 @@ export default {
     },
     async loadSortSetting() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const savedSortBy = await saveManager.getSortSetting('novels')
         if (savedSortBy && savedSortBy !== this.sortBy) {
           this.sortBy = savedSortBy
@@ -1698,7 +1698,6 @@ export default {
     // 从设置中加载小说分页配置
     async loadNovelPaginationSettings() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const settings = await saveManager.loadSettings()
         
         if (settings && settings.novel) {

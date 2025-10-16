@@ -4,6 +4,10 @@
  */
 
 class NotificationService {
+
+  toastComponent: any
+  isInitialized: boolean
+
   constructor() {
     this.toastComponent = null
     this.isInitialized = false
@@ -13,7 +17,6 @@ class NotificationService {
   init(toastComponent) {
     this.toastComponent = toastComponent
     this.isInitialized = true
-    console.log('通知服务已初始化')
   }
 
   // 检查是否已初始化

@@ -239,7 +239,6 @@
 </template>
 
 <script>
-import saveManager from '../utils/SaveManager.js'
 import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
 import MediaCard from '../components/MediaCard.vue'
@@ -247,6 +246,8 @@ import FormField from '../components/FormField.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
+
+import saveManager from '../utils/SaveManager.ts'
 
 export default {
   name: 'GameView',
@@ -808,7 +809,6 @@ export default {
         }
         
         // 获取用户设置的截图选项
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const settings = await saveManager.loadSettings()
         
         // 根据截图位置设置确定基础路径
@@ -914,7 +914,6 @@ export default {
         }
         
         // 获取用户设置的截图选项
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const settings = await saveManager.loadSettings()
         
         // 根据截图位置设置确定基础路径
@@ -1443,7 +1442,7 @@ export default {
         const gameName = runningGame ? runningGame.name : 'Screenshot'
         
         // 获取用户设置的截图选项
-        const saveManager = (await import('../utils/SaveManager.js')).default
+ 
         const settings = await saveManager.loadSettings()
         console.log('加载的设置:', settings)
         
@@ -1739,7 +1738,7 @@ export default {
         }
         
         // 获取用户设置的截图选项
-        const saveManager = (await import('../utils/SaveManager.js')).default
+
         const settings = await saveManager.loadSettings()
         
         // 根据截图位置设置确定基础路径
@@ -2091,7 +2090,7 @@ export default {
     },
     async handleSortChanged({ pageType, sortBy }) {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
+
         await saveManager.saveSortSetting(pageType, sortBy)
         console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
       } catch (error) {
@@ -2100,7 +2099,7 @@ export default {
     },
     async loadSortSetting() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
+
         const savedSortBy = await saveManager.getSortSetting('games')
         if (savedSortBy && savedSortBy !== this.sortBy) {
           this.sortBy = savedSortBy

@@ -185,6 +185,8 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 
+import saveManager from '../utils/SaveManager.ts'
+
 export default {
   name: 'WebsiteView',
   components: {
@@ -885,7 +887,6 @@ export default {
     async handleSortChanged({ pageType, sortBy }) {
       console.log('🚀 WebsiteView handleSortChanged 方法开始执行')
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         await saveManager.saveSortSetting(pageType, sortBy)
         console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
       } catch (error) {
@@ -895,7 +896,6 @@ export default {
 
     async loadSortSetting() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const savedSortBy = await saveManager.getSortSetting('websites')
         if (savedSortBy && savedSortBy !== this.sortBy) {
           this.sortBy = savedSortBy

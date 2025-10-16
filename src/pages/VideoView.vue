@@ -238,6 +238,8 @@ import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+
+import saveManager from '../utils/SaveManager.ts'
 // 通过 preload 暴露的 electronAPI 进行调用
 
 export default {
@@ -2055,8 +2057,7 @@ export default {
                    if (existingThumbnail && existingThumbnail.trim()) {
                      await this.deleteOldThumbnail(existingThumbnail)
                    }
-                   
-                   const saveManager = (await import('../utils/SaveManager.js')).default
+                  
                    const savedPath = await saveManager.saveThumbnail('videos', filename, dataUrl)
                    
                    if (savedPath) {
@@ -2178,7 +2179,6 @@ export default {
         }
 
         // 获取视频缩略图目录
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const thumbnailDir = saveManager.thumbnailDirectories?.videos || 'SaveData/Video/Covers'
         
         // 列出目录中的所有文件
@@ -2226,7 +2226,6 @@ export default {
 
         console.log('🗑️ 准备删除旧缩略图:', thumbnailPath)
         
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const success = await saveManager.deleteThumbnail(thumbnailPath)
         
         if (success) {
@@ -2262,7 +2261,6 @@ export default {
     // 加载设置
     async loadSettings() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         return await saveManager.loadSettings()
       } catch (error) {
         console.error('加载设置失败:', error)
@@ -2724,7 +2722,6 @@ export default {
     },
     async handleSortChanged({ pageType, sortBy }) {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         await saveManager.saveSortSetting(pageType, sortBy)
         console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
       } catch (error) {
@@ -2733,7 +2730,6 @@ export default {
     },
     async loadSortSetting() {
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
         const savedSortBy = await saveManager.getSortSetting('videos')
         if (savedSortBy && savedSortBy !== this.sortBy) {
           this.sortBy = savedSortBy

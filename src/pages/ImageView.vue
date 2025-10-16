@@ -308,7 +308,7 @@
 </template>
 
 <script>
-import saveManager from '../utils/SaveManager.js'
+import saveManager from '../utils/SaveManager.ts'
 import BaseView from '../components/BaseView.vue'
 import EmptyState from '../components/EmptyState.vue'
 import FormField from '../components/FormField.vue'
@@ -2443,7 +2443,7 @@ export default {
     async loadImageSettings() {
       try {
         // 动态导入SaveManager以避免循环依赖
-        const saveManager = await import('../utils/SaveManager.js')
+
         const settings = await saveManager.default.loadSettings()
         
         if (settings && settings.image) {
@@ -2557,7 +2557,7 @@ export default {
     async handleSortChanged({ pageType, sortBy }) {
       console.log('🚀 handleSortChanged 方法开始执行')
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
+
         await saveManager.saveSortSetting(pageType, sortBy)
         console.log(`✅ 已保存${pageType}页面排序方式:`, sortBy)
       } catch (error) {
@@ -2567,7 +2567,7 @@ export default {
     async loadSortSetting() {
       console.log('🚀 loadSortSetting 方法开始执行')
       try {
-        const saveManager = (await import('../utils/SaveManager.js')).default
+  
         const savedSortBy = await saveManager.getSortSetting('images')
         console.log('🔍 从存档加载的排序方式:', savedSortBy)
         console.log('🔍 当前组件的sortBy:', this.sortBy)

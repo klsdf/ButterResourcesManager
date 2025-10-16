@@ -102,7 +102,7 @@
 </template>
 
 <script>
-import saveManager from '../../utils/SaveManager.js'
+import saveManager from '../../utils/SaveManager.ts'
 
 export default {
   name: 'ProfileView',

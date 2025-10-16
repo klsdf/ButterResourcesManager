@@ -3,6 +3,13 @@
  * 支持本地 JSON 文件存储、文件导入导出、数据备份等功能
  */
 class SaveManager {
+  dataDirectory: string
+  version: string
+  dataDirectories: Record<string, string>
+  filePaths: Record<string, string>
+  thumbnailDirectories: Record<string, string>
+  defaultData: Record<string, any>
+
   constructor() {
     this.dataDirectory = 'SaveData'
     this.version = '0.0.0' // 默认版本号，将在初始化时更新

@@ -67,7 +67,7 @@
 </template>
 
 <script>
-import saveManager from '../../utils/SaveManager.js'
+import saveManager from '../../utils/SaveManager.ts'
 import { notify } from '../../utils/NotificationService.ts'
 
 export default {
