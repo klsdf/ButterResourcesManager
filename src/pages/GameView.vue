@@ -1153,11 +1153,16 @@ export default {
       
       let checkedCount = 0
       let missingCount = 0
+      const missingFiles = [] // 收集丢失的文件信息
       
       for (const game of this.games) {
         if (!game.executablePath) {
           game.fileExists = false
           missingCount++
+          missingFiles.push({
+            name: game.name,
+            path: '未设置路径'
+          })
           continue
         }
         
@@ -1166,12 +1171,20 @@ export default {
           game.fileExists = result.exists        
           if (!result.exists) {
             missingCount++
+            missingFiles.push({
+              name: game.name,
+              path: game.executablePath
+            })
             console.log(`❌ 游戏文件不存在: ${game.name} - ${game.executablePath}`)
           } 
         } catch (error) {
           console.error(`❌ 检测游戏文件存在性失败: ${game.name}`, error)
           game.fileExists = false
           missingCount++
+          missingFiles.push({
+            name: game.name,
+            path: game.executablePath || '路径检测失败'
+          })
         }
         
         checkedCount++
@@ -1179,13 +1192,37 @@ export default {
       
       console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个游戏，${missingCount} 个文件不存在`)
       
-      // 如果有文件不存在，保存更新后的数据
+      // 如果有丢失的文件，显示提醒
       if (missingCount > 0) {
+        this.showMissingFilesAlert(missingFiles)
         await this.saveGames()
       }
       
       // 强制更新视图
       this.$forceUpdate()
+    },
+
+    // 显示丢失文件提醒
+    showMissingFilesAlert(missingFiles) {
+      // 构建文件列表文本
+      const fileList = missingFiles.map(file => 
+        `• ${file.name}${file.path !== '未设置路径' && file.path !== '路径检测失败' ? ` (${file.path})` : ''}`
+      ).join('\n')
+      
+      // 显示 toast 通知，包含详细信息
+      this.showToastNotification(
+        '游戏文件丢失提醒', 
+        `发现 ${missingFiles.length} 个游戏文件丢失：\n${fileList}\n\n请检查文件路径或重新添加这些游戏。`
+      )
+      
+      // 在控制台输出详细信息
+      console.warn('📋 丢失的游戏文件列表:')
+      missingFiles.forEach((file, index) => {
+        console.warn(`${index + 1}. ${file.name}`)
+        if (file.path !== '未设置路径' && file.path !== '路径检测失败') {
+          console.warn(`   路径: ${file.path}`)
+        }
+      })
     },
     
     async updateGameFolderSize(game) {

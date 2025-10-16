@@ -175,13 +175,15 @@
               :rows="3"
             />
 
-            <FormField
-              label="文件夹路径"
-              type="file"
-              v-model="newFolder.folderPath"
-              placeholder="选择文件夹..."
-              @browse="selectFolderPath"
-            />
+            <div class="form-group">
+              <label>选择视频</label>
+              <VideoSelector
+                :videos="videos"
+                :selectedVideos="newFolder.videoIds"
+                title="选择要添加到文件夹的视频"
+                @update:selectedVideos="handleVideoSelection"
+              />
+            </div>
 
             <FormField
               label="缩略图"
@@ -310,11 +312,13 @@
 
 <script lang="ts">
 import VideoManager from '../utils/VideoManager.ts'
+import FolderManager from '../utils/FolderManager.ts'
 import BaseView from '../components/BaseView.vue'
 import FormField from '../components/FormField.vue'
 import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
+import VideoSelector from '../components/VideoSelector.vue'
 
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'
@@ -328,11 +332,13 @@ export default {
     MediaCard,
     DetailPanel,
     PathUpdateDialog,
+    VideoSelector,
   },
   emits: ['filter-data-updated'],
   data() {
     return {
       videoManager: null,
+      folderManager: null,
       videos: [],
       folders: [], // 文件夹列表
       searchQuery: '',
@@ -340,6 +346,7 @@ export default {
       showAddDialog: false,
       showFolderDialog: false,
       isDragOver: false,
+      isUpdatingDurations: false, // 防止重复执行时长更新
       // 伪装模式相关
       disguiseImageCache: {},
       disguiseTextCache: {},
@@ -368,7 +375,7 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        folderPath: '',
+        videoIds: [], // 存储选中的视频ID列表
         thumbnail: '',
         videoCount: 0
       },
@@ -461,6 +468,7 @@ export default {
       return [...videoItems, ...folderItems]
     },
     
+    
     filteredVideos() {
       let filtered = this.allItems.filter(item => {
         // 搜索筛选
@@ -528,7 +536,7 @@ export default {
         return [
           { label: '系列', value: this.selectedVideo.series || '未知' },
           { label: '视频数量', value: `${this.selectedVideo.videoCount || 0} 个` },
-          { label: '文件夹路径', value: this.selectedVideo.folderPath || '未知' },
+          { label: '包含视频', value: this.getFolderVideoNames(this.selectedVideo) },
           { label: '添加时间', value: this.formatAddedDate(this.selectedVideo.addedDate) }
         ]
       } else {
@@ -679,7 +687,13 @@ export default {
   },
   async mounted() {
     this.videoManager = new VideoManager()
+    this.folderManager = new FolderManager()
+    
+    // 初始化管理器
+    await this.folderManager.init(saveManager)
+    
     await this.loadVideos()
+    await this.loadFolders()
     
     // 加载视频分页设置
     await this.loadVideoPaginationSettings()
@@ -726,6 +740,13 @@ export default {
       }
     },
 
+    async loadFolders() {
+      if (this.folderManager) {
+        this.folders = this.folderManager.getFolders()
+        console.log('加载文件夹完成:', this.folders.length, '个文件夹')
+      }
+    },
+
     async checkFileExistence() {
       console.log('🔍 开始检测视频文件存在性...')
       
@@ -740,26 +761,38 @@ export default {
       
       let checkedCount = 0
       let missingCount = 0
+      const missingFiles = [] // 收集丢失的文件信息
       
       for (const video of this.videos) {
         if (!video.filePath) {
           video.fileExists = false
           missingCount++
+          missingFiles.push({
+            name: video.name,
+            path: '未设置路径'
+          })
           continue
         }
         
         try {
           const result = await window.electronAPI.checkFileExists(video.filePath)
-          video.fileExists = result
-          
-          if (!result) {
+          video.fileExists = result.exists       
+          if (!result.exists) {
             missingCount++
+            missingFiles.push({
+              name: video.name,
+              path: video.filePath
+            })
             console.log(`❌ 视频文件不存在: ${video.name} - ${video.filePath}`)
           } 
         } catch (error) {
           console.error(`❌ 检测视频文件存在性失败: ${video.name}`, error)
           video.fileExists = false
           missingCount++
+          missingFiles.push({
+            name: video.name,
+            path: video.filePath || '路径检测失败'
+          })
         }
         
         checkedCount++
@@ -767,24 +800,60 @@ export default {
       
       console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个视频，${missingCount} 个文件不存在`)
       
+      // 如果有丢失的文件，显示提醒
+      if (missingCount > 0) {
+        this.showMissingFilesAlert(missingFiles)
+      }
+      
       // 强制更新视图
       this.$forceUpdate()
     },
 
+    // 显示丢失文件提醒
+    showMissingFilesAlert(missingFiles) {
+      // 构建文件列表文本
+      const fileList = missingFiles.map(file => 
+        `• ${file.name}${file.path !== '未设置路径' && file.path !== '路径检测失败' ? ` (${file.path})` : ''}`
+      ).join('\n')
+      
+      // 显示 toast 通知，包含详细信息
+      this.showToastNotification(
+        '文件丢失提醒', 
+        `发现 ${missingFiles.length} 个视频文件丢失：\n${fileList}\n\n请检查文件路径或重新添加这些视频。`
+      )
+      
+      // 在控制台输出详细信息
+      console.warn('📋 丢失的视频文件列表:')
+      missingFiles.forEach((file, index) => {
+        console.warn(`${index + 1}. ${file.name}`)
+        if (file.path !== '未设置路径' && file.path !== '路径检测失败') {
+          console.warn(`   路径: ${file.path}`)
+        }
+      })
+    },
+
     // 自动更新未知时长的视频
     async autoUpdateUnknownDurations() {
+      // 防止重复执行
+      if (this.isUpdatingDurations) {
+        console.log('⏭️ 视频时长更新正在进行中，跳过重复执行')
+        return
+      }
+      
+      this.isUpdatingDurations = true
       console.log('🔄 开始自动更新未知时长的视频...')
       
-      // 检查设置，看是否启用自动更新
       try {
-        const settings = await this.loadSettings()
-        if (settings.autoUpdateVideoDuration === false) {
-          console.log('⏭️ 自动更新视频时长已禁用，跳过')
-          return
+        // 检查设置，看是否启用自动更新
+        try {
+          const settings = await this.loadSettings()
+          if (settings.autoUpdateVideoDuration === false) {
+            console.log('⏭️ 自动更新视频时长已禁用，跳过')
+            return
+          }
+        } catch (error) {
+          console.warn('⚠️ 无法加载设置，继续执行自动更新:', error)
         }
-      } catch (error) {
-        console.warn('⚠️ 无法加载设置，继续执行自动更新:', error)
-      }
       
       // 筛选出需要更新时长的视频
       const videosToUpdate = this.videos.filter(video => {
@@ -821,11 +890,7 @@ export default {
       let updatedCount = 0
       let failedCount = 0
       
-      // 显示更新进度通知
-      this.showToastNotification(
-        '正在更新视频时长', 
-        `发现 ${videosToUpdate.length} 个视频需要更新时长，正在处理中...`
-      )
+
       
       // 批量更新视频时长
       for (const video of videosToUpdate) {
@@ -858,9 +923,8 @@ export default {
         await new Promise(resolve => setTimeout(resolve, 100))
       }
       
-      // 重新加载视频列表以保存更改
-      await this.videoManager.loadVideos()
-      this.videos = this.videoManager.getVideos()
+      // 保存视频数据到文件
+      await this.videoManager.saveVideos()
       
       // 显示更新结果
       if (updatedCount > 0) {
@@ -874,8 +938,12 @@ export default {
           `所有 ${failedCount} 个视频的时长更新失败，请检查视频文件是否有效`
         )
       }
-      
-      console.log(`📊 视频时长更新完成: 成功 ${updatedCount} 个，失败 ${failedCount} 个`)
+        
+        console.log(`📊 视频时长更新完成: 成功 ${updatedCount} 个，失败 ${failedCount} 个`)
+      } finally {
+        // 重置标志
+        this.isUpdatingDurations = false
+      }
     },
 
     // 拖拽处理方法
@@ -1186,7 +1254,7 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        folderPath: '',
+        videoIds: [],
         thumbnail: '',
         videoCount: 0
       }
@@ -1226,6 +1294,31 @@ export default {
     },
     removeFolderTag(index) {
       this.newFolder.tags.splice(index, 1)
+    },
+
+    // 处理视频选择
+    handleVideoSelection(selectedVideoIds) {
+      this.newFolder.videoIds = selectedVideoIds || []
+      this.newFolder.videoCount = this.newFolder.videoIds.length
+      console.log('选择的视频:', selectedVideoIds)
+    },
+
+    // 获取文件夹包含的视频名称
+    getFolderVideoNames(folder) {
+      if (!folder.videoIds || folder.videoIds.length === 0) {
+        return '无视频'
+      }
+      
+      const videoNames = folder.videoIds.map(videoId => {
+        const video = this.videos.find(v => v.id === videoId)
+        return video ? video.name : '未知视频'
+      })
+      
+      if (videoNames.length <= 3) {
+        return videoNames.join(', ')
+      } else {
+        return videoNames.slice(0, 3).join(', ') + ` 等${videoNames.length}个视频`
+      }
     },
 
     async selectVideoFile() {
@@ -1280,23 +1373,6 @@ export default {
       }
     },
 
-    async selectFolderPath() {
-      try {
-        const result = await window.electronAPI.selectFolder()
-        if (result && result.success && result.path) {
-          this.newFolder.folderPath = result.path
-          if (!this.newFolder.name || !this.newFolder.name.trim()) {
-            // 从路径中提取文件夹名称
-            const pathParts = result.path.split(/[\\/]/)
-            this.newFolder.name = pathParts[pathParts.length - 1] || '新文件夹'
-          }
-        } else if (result && !result.success) {
-          console.warn('选择文件夹失败:', result.error)
-        }
-      } catch (error) {
-        console.error('选择文件夹失败:', error)
-      }
-    },
 
     async selectFolderThumbnailFile() {
       try {
@@ -1350,6 +1426,11 @@ export default {
         return
       }
 
+      if (!this.newFolder.videoIds || this.newFolder.videoIds.length === 0) {
+        alert('请至少选择一个视频添加到文件夹')
+        return
+      }
+
       this.parseFolderActors()
 
       try {
@@ -1360,18 +1441,24 @@ export default {
           tags: this.newFolder.tags,
           actors: this.newFolder.actors,
           series: this.newFolder.series,
-          folderPath: this.newFolder.folderPath,
+          videoIds: [...this.newFolder.videoIds], // 复制视频ID数组
           thumbnail: this.newFolder.thumbnail,
-          videoCount: 0,
+          videoCount: this.newFolder.videoIds.length,
           addedDate: new Date().toISOString()
         }
 
-        // 添加到文件夹列表
-        this.folders.push(folder)
-        this.closeAddFolderDialog()
-        
-        // 成功时使用 toast 通知
-        this.showToastNotification('添加成功', `文件夹 "${this.newFolder.name}" 已成功添加`)
+        // 使用文件夹管理器添加文件夹
+        const success = await this.folderManager.addFolder(folder)
+        if (success) {
+          // 重新加载文件夹列表
+          await this.loadFolders()
+          this.closeAddFolderDialog()
+          
+          // 成功时使用 toast 通知
+          this.showToastNotification('添加成功', `文件夹 "${this.newFolder.name}" 已成功添加，包含 ${folder.videoCount} 个视频`)
+        } else {
+          this.showToastNotification('添加失败', '文件夹添加失败，请重试')
+        }
       } catch (error) {
         console.error('添加文件夹失败:', error)
         this.showToastNotification('添加失败', `添加文件夹失败: ${error.message}`)
@@ -1394,16 +1481,14 @@ export default {
     },
 
     openFolder(folder) {
-      try {
-        if (window.electronAPI && window.electronAPI.openFileFolder) {
-          window.electronAPI.openFileFolder(folder.folderPath)
-        } else {
-          alert(`文件夹位置:\n${folder.folderPath}`)
-        }
-      } catch (error) {
-        console.error('打开文件夹失败:', error)
-        alert(`打开文件夹失败: ${error.message}`)
-      }
+      // 虚拟文件夹，显示包含的视频列表
+      const videoNames = folder.videoIds.map(videoId => {
+        const video = this.videos.find(v => v.id === videoId)
+        return video ? video.name : '未知视频'
+      })
+      
+      const message = `文件夹 "${folder.name}" 包含以下视频：\n\n${videoNames.join('\n')}`
+      alert(message)
     },
     handleDetailAction(actionKey, item) {
       if (item.type === 'folder') {
@@ -1621,6 +1706,13 @@ export default {
       
       try {
         await this.videoManager.deleteVideo(video.id)
+        
+        // 从所有文件夹中移除该视频的引用
+        if (this.folderManager) {
+          await this.folderManager.removeVideoFromFolders(video.id)
+          await this.loadFolders()
+        }
+        
         await this.loadVideos()
         
         // 显示删除成功通知
@@ -1645,17 +1737,20 @@ export default {
       if (!confirm(`确定要删除文件夹 "${folder.name}" 吗？`)) return
       
       try {
-        // 从文件夹列表中删除
-        const index = this.folders.findIndex(f => f.id === folder.id)
-        if (index > -1) {
-          this.folders.splice(index, 1)
+        // 使用文件夹管理器删除文件夹
+        const success = await this.folderManager.deleteFolder(folder.id)
+        if (success) {
+          // 重新加载文件夹列表
+          await this.loadFolders()
+          
+          // 显示删除成功通知
+          this.showToastNotification('删除成功', `已成功删除文件夹 "${folder.name}"`)
+          console.log('文件夹删除成功:', folder.name)
+          
+          this.closeVideoDetail()
+        } else {
+          this.showToastNotification('删除失败', '文件夹删除失败，请重试')
         }
-        
-        // 显示删除成功通知
-        this.showToastNotification('删除成功', `已成功删除文件夹 "${folder.name}"`)
-        console.log('文件夹删除成功:', folder.name)
-        
-        this.closeVideoDetail()
       } catch (error) {
         console.error('删除文件夹失败:', error)
         // 显示删除失败通知
@@ -2120,8 +2215,7 @@ export default {
       }
       
       // 重新加载视频列表以保存更改
-      await this.videoManager.loadVideos()
-      this.videos = this.videoManager.getVideos()
+      await this.loadVideos()
       
       // 显示更新结果
       if (updatedCount > 0) {

@@ -48,6 +48,37 @@
       >
       <button class="btn-browse" @click="$emit('browse')">浏览</button>
     </div>
+    <div v-else-if="type === 'multiselect'" class="multiselect-container">
+      <div class="multiselect-display">
+        <span
+          v-for="(selectedId, index) in modelValue"
+          :key="index"
+          class="multiselect-item"
+        >
+          {{ getOptionLabel(selectedId) }}
+          <button
+            type="button"
+            class="multiselect-remove"
+            @click="removeSelection(index)"
+          >×</button>
+        </span>
+      </div>
+      <select
+        @change="addSelection"
+        :class="inputClass"
+        :disabled="disabled"
+      >
+        <option value="" disabled>{{ placeholder }}</option>
+        <option
+          v-for="option in availableOptions"
+          :key="option.value"
+          :value="option.value"
+          :disabled="option.disabled"
+        >
+          {{ option.label }}
+        </option>
+      </select>
+    </div>
     <div v-else-if="type === 'tags'" class="tags-input-container">
       <div class="tags-display">
         <span
@@ -91,7 +122,7 @@ export default {
     type: {
       type: String,
       default: 'text',
-      validator: (value) => ['text', 'email', 'password', 'number', 'textarea', 'select', 'file', 'tags'].includes(value)
+      validator: (value) => ['text', 'email', 'password', 'number', 'textarea', 'select', 'file', 'tags', 'multiselect'].includes(value)
     },
     placeholder: {
       type: String,
@@ -131,8 +162,36 @@ export default {
     'update:tagInput',
     'addTag',
     'removeTag',
-    'browse'
-  ]
+    'browse',
+    'change'
+  ],
+  computed: {
+    availableOptions() {
+      if (!this.options) return []
+      return this.options.filter(option => !this.modelValue.includes(option.value))
+    }
+  },
+  methods: {
+    getOptionLabel(value) {
+      const option = this.options.find(opt => opt.value === value)
+      return option ? option.label : value
+    },
+    addSelection(event) {
+      const value = event.target.value
+      if (value && !this.modelValue.includes(value)) {
+        const newValue = [...this.modelValue, value]
+        this.$emit('update:modelValue', newValue)
+        this.$emit('change', newValue)
+        event.target.value = '' // 重置选择框
+      }
+    },
+    removeSelection(index) {
+      const newValue = [...this.modelValue]
+      newValue.splice(index, 1)
+      this.$emit('update:modelValue', newValue)
+      this.$emit('change', newValue)
+    }
+  }
 }
 </script>
 
@@ -266,5 +325,70 @@ select:disabled {
 
 .tag-input::placeholder {
   color: var(--text-primary);
+}
+
+/* Multiselect styles */
+.multiselect-container {
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.multiselect-container:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.multiselect-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  min-height: 2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.multiselect-item {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--accent-color);
+  color: #ffffff;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  gap: 0.25rem;
+  transition: background-color 0.3s ease;
+}
+
+.multiselect-remove {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.875rem;
+  line-height: 1;
+  padding: 0;
+  width: 1rem;
+  height: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.multiselect-remove:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.multiselect-container select {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  outline: none;
 }
 </style>

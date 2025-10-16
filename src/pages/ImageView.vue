@@ -578,11 +578,16 @@ export default {
       
       let checkedCount = 0
       let missingCount = 0
+      const missingFiles = [] // 收集丢失的文件信息
       
       for (const album of this.albums) {
         if (!album.folderPath) {
           album.fileExists = false
           missingCount++
+          missingFiles.push({
+            name: album.name,
+            path: '未设置路径'
+          })
           continue
         }
         
@@ -591,12 +596,20 @@ export default {
           album.fileExists = result.exists       
           if (!result.exists) {
             missingCount++
+            missingFiles.push({
+              name: album.name,
+              path: album.folderPath
+            })
             console.log(`❌ 图片文件夹不存在: ${album.name} - ${album.folderPath}`)
           } 
         } catch (error) {
           console.error(`❌ 检测图片文件夹存在性失败: ${album.name}`, error)
           album.fileExists = false
           missingCount++
+          missingFiles.push({
+            name: album.name,
+            path: album.folderPath || '路径检测失败'
+          })
         }
         
         checkedCount++
@@ -604,8 +617,36 @@ export default {
       
       console.log(`📊 文件存在性检测完成: 检查了 ${checkedCount} 个图片文件夹，${missingCount} 个文件夹不存在`)
       
+      // 如果有丢失的文件，显示提醒
+      if (missingCount > 0) {
+        this.showMissingFilesAlert(missingFiles)
+      }
+      
       // 强制更新视图
       this.$forceUpdate()
+    },
+
+    // 显示丢失文件提醒
+    showMissingFilesAlert(missingFiles) {
+      // 构建文件列表文本
+      const fileList = missingFiles.map(file => 
+        `• ${file.name}${file.path !== '未设置路径' && file.path !== '路径检测失败' ? ` (${file.path})` : ''}`
+      ).join('\n')
+      
+      // 显示 toast 通知，包含详细信息
+      this.showToastNotification(
+        '文件夹丢失提醒', 
+        `发现 ${missingFiles.length} 个图片文件夹丢失：\n${fileList}\n\n请检查文件夹路径或重新添加这些图片。`
+      )
+      
+      // 在控制台输出详细信息
+      console.warn('📋 丢失的图片文件夹列表:')
+      missingFiles.forEach((file, index) => {
+        console.warn(`${index + 1}. ${file.name}`)
+        if (file.path !== '未设置路径' && file.path !== '路径检测失败') {
+          console.warn(`   路径: ${file.path}`)
+        }
+      })
     },
     
     // 拖拽处理方法

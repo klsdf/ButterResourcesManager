@@ -30,6 +30,7 @@ class SaveManager {
       games: `${this.dataDirectories.games}/games.json`,
       images: `${this.dataDirectories.images}/images.json`,
       videos: `${this.dataDirectories.videos}/videos.json`,
+      videoFolders: `${this.dataDirectories.videos}/folders.json`, // 视频文件夹
       audios: `${this.dataDirectories.audios}/audios.json`,
       websites: `${this.dataDirectories.websites}/websites.json`,
       novels: `${this.dataDirectories.novels}/novels.json`,
@@ -51,6 +52,7 @@ class SaveManager {
     this.defaultData = {
       games: [],
       images: [],
+      videoFolders: [], // 视频文件夹默认数据
       settings: {
         theme: 'auto',
         sidebarWidth: 280,
@@ -219,6 +221,7 @@ class SaveManager {
         games: `${this.dataDirectories.games}/games.json`,
         images: `${this.dataDirectories.images}/images.json`,
         videos: `${this.dataDirectories.videos}/videos.json`,
+        videoFolders: `${this.dataDirectories.videos}/videofolders.json`, // 视频文件夹
         audios: `${this.dataDirectories.audios}/audios.json`,
         websites: `${this.dataDirectories.websites}/websites.json`,
         novels: `${this.dataDirectories.novels}/novels.json`,
@@ -451,6 +454,13 @@ class SaveManager {
 
   async writeJsonFile(filePath, data) {
     try {
+      // 添加调试信息
+      if (!filePath) {
+        console.error('writeJsonFile: filePath 参数为空')
+        console.error('当前 filePaths:', this.filePaths)
+        throw new Error('文件路径不能为空')
+      }
+      
       if (window.electronAPI && window.electronAPI.writeJsonFile) {
         // 清理数据，移除不可序列化的内容
         const cleanedData = this.cleanDataForSerialization(data)
@@ -741,6 +751,55 @@ class SaveManager {
       return []
     } catch (error) {
       console.error('加载视频数据失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 保存视频文件夹数据到本地 JSON 文件
+   * @param {Array} folders - 文件夹数据数组
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveVideoFolders(folders) {
+    try {
+      await this.ensureDataTypeDirectory('videos')
+
+      const data = {
+        folders: folders,
+        timestamp: new Date().toISOString(),
+        version: this.version
+      }
+
+      console.log('准备保存视频文件夹数据:')
+      console.log('文件夹数量:', folders.length)
+      console.log('文件路径:', this.filePaths.videoFolders)
+      console.log('数据内容:', data)
+
+      const success = await this.writeJsonFile(this.filePaths.videoFolders, data)
+      if (success) {
+        console.log('视频文件夹数据保存成功:', folders.length, '个文件夹')
+      }
+      return success
+    } catch (error) {
+      console.error('保存视频文件夹数据失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从本地 JSON 文件加载视频文件夹数据
+   * @returns {Promise<Array>} 文件夹数据数组
+   */
+  async loadVideoFolders() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.videoFolders)
+      if (data && Array.isArray(data.folders)) {
+        console.log('加载视频文件夹数据:', data.folders.length, '个文件夹')
+        return data.folders
+      }
+      return []
+    } catch (error) {
+      console.error('加载视频文件夹数据失败:', error)
       return []
     }
   }
