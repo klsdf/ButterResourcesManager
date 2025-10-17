@@ -35,6 +35,7 @@ class SaveManager {
       websites: `${this.dataDirectories.websites}/websites.json`,
       novels: `${this.dataDirectories.novels}/novels.json`,
       settings: `${this.dataDirectories.settings}/settings.json`,
+      collections: `${this.dataDirectories.settings}/collections.json`,
       user: `${this.dataDirectories.settings}/user.json`, // 用户数据文件
       achievements: `${this.dataDirectories.settings}/achievements.json`, // 成就状态文件
       backup: `${this.dataDirectory}/backup.json` // 备份文件仍在根目录
@@ -226,6 +227,7 @@ class SaveManager {
         websites: `${this.dataDirectories.websites}/websites.json`,
         novels: `${this.dataDirectories.novels}/novels.json`,
         settings: `${this.dataDirectories.settings}/settings.json`,
+        collections: `${this.dataDirectories.settings}/collections.json`,
         user: `${this.dataDirectories.settings}/user.json`,
         achievements: `${this.dataDirectories.settings}/achievements.json`,
         backup: `${this.dataDirectory}/backup.json`
@@ -277,7 +279,7 @@ class SaveManager {
       console.log('=== 初始化数据文件 ===')
       
       // 检查并创建各种数据文件
-      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings', 'user', 'achievements']
+      const dataTypes = ['games', 'images', 'videos', 'audios', 'websites', 'novels', 'settings', 'user', 'achievements', 'collections']
       
       for (const dataType of dataTypes) {
         const filePath = this.filePaths[dataType]
@@ -369,6 +371,9 @@ class SaveManager {
               lastCheckTime: new Date().toISOString()
             }
           }
+          break
+        case 'collections':
+          defaultData = { collections: [] }
           break
         default:
           console.warn('未知的数据类型:', dataType)
@@ -902,6 +907,48 @@ class SaveManager {
       return []
     } catch (error) {
       console.error('加载小说数据失败:', error)
+      return []
+    }
+  }
+
+  /**
+   * 保存合集数据到本地 JSON 文件
+   * @param {Array} collections - 合集数据数组
+   * @returns {Promise<boolean>} 保存是否成功
+   */
+  async saveCollections(collections) {
+    try {
+      await this.ensureDataTypeDirectory('settings')
+      const data = {
+        collections: collections,
+        timestamp: new Date().toISOString(),
+        version: this.version
+      }
+      const success = await this.writeJsonFile(this.filePaths.collections, data)
+      if (success) {
+        console.log('合集数据保存成功:', collections.length, '个合集')
+      }
+      return success
+    } catch (error) {
+      console.error('保存合集数据失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 从本地 JSON 文件加载合集数据
+   * @returns {Promise<Array>} 合集数据数组
+   */
+  async loadCollections() {
+    try {
+      const data = await this.readJsonFile(this.filePaths.collections)
+      if (data && Array.isArray(data.collections)) {
+        console.log('加载合集数据:', data.collections.length, '个合集')
+        return data.collections
+      }
+      return []
+    } catch (error) {
+      console.error('加载合集数据失败:', error)
       return []
     }
   }

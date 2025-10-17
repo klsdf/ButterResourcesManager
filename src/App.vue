@@ -102,6 +102,9 @@
 
           <!-- 帮助页面 -->
           <HelpView v-if="currentView === 'help'" />
+
+          <!-- 合集页面 -->
+          <CollectionsView v-if="currentView === 'collections'" />
         </div>
       </div>
       <!-- 全局音频播放器 -->
@@ -125,6 +128,7 @@ import UserView from './pages/UserView.vue'
 import SettingsView from './pages/SettingsView.vue'
 import MessageCenterView from './pages/MessageCenterView.vue'
 import HelpView from './pages/HelpView.vue'
+import CollectionsView from './pages/CollectionsView.vue'
 import GlobalAudioPlayer from './components/GlobalAudioPlayer.vue'
 import ToastNotification from './components/ToastNotification.vue'
 import FilterSidebar from './components/FilterSidebar.vue'
@@ -148,6 +152,7 @@ export default {
     SettingsView,
     MessageCenterView,
     HelpView,
+    CollectionsView,
     GlobalAudioPlayer,
     ToastNotification,
     FilterSidebar
@@ -174,6 +179,12 @@ export default {
       appSessionStartTime: null, // 应用会话开始时间
       appUsageTimer: null, // 应用使用时长定时器
       navItems: [
+        {
+          id: 'collections',
+          name: '合集',
+          icon: '🗂️',
+          description: '管理你的合集'
+        },
         {
           id: 'games',
           name: '游戏',
@@ -519,7 +530,7 @@ export default {
         const settings = await saveManager.loadSettings()
         if (settings && settings.lastView) {
           // 验证页面ID是否有效
-          const validViews = ['games', 'images', 'videos', 'novels', 'websites', 'audio', 'users', 'messages', 'help', 'settings']
+          const validViews = ['collections', 'games', 'images', 'videos', 'novels', 'websites', 'audio', 'users', 'messages', 'help', 'settings']
           if (validViews.includes(settings.lastView)) {
             console.log('✅ 加载最后访问页面:', settings.lastView)
             return settings.lastView
