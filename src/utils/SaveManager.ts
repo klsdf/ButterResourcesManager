@@ -355,7 +355,10 @@ class SaveManager {
               name: '',
               joinDate: new Date().toISOString(),
               lastActive: new Date().toISOString(),
-              checkInDays: []
+              checkInDays: [],
+              totalUsageTime: 0, // 总使用时长（秒）
+              sessionStartTime: new Date().toISOString(), // 当前会话开始时间
+              lastSessionEndTime: null // 上次会话结束时间
             }
           }
           break
@@ -1412,7 +1415,10 @@ class SaveManager {
         name: '',
         joinDate: new Date().toISOString(),
         lastActive: new Date().toISOString(),
-        checkInDays: []
+        checkInDays: [],
+        totalUsageTime: 0, // 总使用时长（秒）
+        sessionStartTime: new Date().toISOString(), // 当前会话开始时间
+        lastSessionEndTime: null // 上次会话结束时间
       }
     } catch (error) {
       console.error('加载用户资料失败:', error)
@@ -1420,7 +1426,10 @@ class SaveManager {
         name: '',
         joinDate: new Date().toISOString(),
         lastActive: new Date().toISOString(),
-        checkInDays: []
+        checkInDays: [],
+        totalUsageTime: 0, // 总使用时长（秒）
+        sessionStartTime: new Date().toISOString(), // 当前会话开始时间
+        lastSessionEndTime: null // 上次会话结束时间
       }
     }
   }
@@ -1607,6 +1616,115 @@ class SaveManager {
     } catch (error) {
       console.error('获取已解锁成就列表失败:', error)
       return []
+    }
+  }
+
+  /**
+   * 开始使用时长跟踪
+   * @returns {Promise<boolean>} 开始跟踪是否成功
+   */
+  async startUsageTracking() {
+    try {
+      const userProfile = await this.loadUserProfile()
+      
+      // 如果当前没有活跃会话，开始新的会话
+      if (!userProfile.sessionStartTime) {
+        userProfile.sessionStartTime = new Date().toISOString()
+        await this.saveUserProfile(userProfile)
+        console.log('开始使用时长跟踪')
+      }
+      
+      return true
+    } catch (error) {
+      console.error('开始使用时长跟踪失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 结束使用时长跟踪并更新总时长
+   * @returns {Promise<boolean>} 结束跟踪是否成功
+   */
+  async endUsageTracking() {
+    try {
+      const userProfile = await this.loadUserProfile()
+      
+      if (userProfile.sessionStartTime) {
+        const sessionStart = new Date(userProfile.sessionStartTime)
+        const sessionEnd = new Date()
+        const sessionDuration = Math.floor((sessionEnd.getTime() - sessionStart.getTime()) / 1000) // 转换为秒
+        
+        // 更新总使用时长
+        userProfile.totalUsageTime += sessionDuration
+        userProfile.lastSessionEndTime = sessionEnd.toISOString()
+        userProfile.sessionStartTime = null // 清除当前会话开始时间
+        
+        await this.saveUserProfile(userProfile)
+        console.log(`会话结束，本次使用时长: ${sessionDuration}秒，总使用时长: ${userProfile.totalUsageTime}秒`)
+      }
+      
+      return true
+    } catch (error) {
+      console.error('结束使用时长跟踪失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 获取当前会话使用时长（秒）
+   * @returns {Promise<number>} 当前会话使用时长
+   */
+  async getCurrentSessionDuration() {
+    try {
+      const userProfile = await this.loadUserProfile()
+      
+      if (userProfile.sessionStartTime) {
+        const sessionStart = new Date(userProfile.sessionStartTime)
+        const now = new Date()
+        return Math.floor((now.getTime() - sessionStart.getTime()) / 1000)
+      }
+      
+      return 0
+    } catch (error) {
+      console.error('获取当前会话时长失败:', error)
+      return 0
+    }
+  }
+
+  /**
+   * 获取总使用时长（秒）
+   * @returns {Promise<number>} 总使用时长
+   */
+  async getTotalUsageTime() {
+    try {
+      const userProfile = await this.loadUserProfile()
+      return userProfile.totalUsageTime || 0
+    } catch (error) {
+      console.error('获取总使用时长失败:', error)
+      return 0
+    }
+  }
+
+  /**
+   * 格式化使用时长显示
+   * @param {number} seconds - 秒数
+   * @returns {string} 格式化后的时长字符串
+   */
+  formatUsageTime(seconds) {
+    if (seconds < 60) {
+      return `${seconds}秒`
+    } else if (seconds < 3600) {
+      const minutes = Math.floor(seconds / 60)
+      const remainingSeconds = seconds % 60
+      return remainingSeconds > 0 ? `${minutes}分${remainingSeconds}秒` : `${minutes}分钟`
+    } else if (seconds < 86400) {
+      const hours = Math.floor(seconds / 3600)
+      const minutes = Math.floor((seconds % 3600) / 60)
+      return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`
+    } else {
+      const days = Math.floor(seconds / 86400)
+      const hours = Math.floor((seconds % 86400) / 3600)
+      return hours > 0 ? `${days}天${hours}小时` : `${days}天`
     }
   }
 }

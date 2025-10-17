@@ -170,6 +170,9 @@ export default {
       // 游戏时长跟踪
       gameSessionStartTimes: new Map(), // 存储游戏会话开始时间 {gameId: startTime}
       playtimeUpdateInterval: null, // 定期更新游戏时长的定时器
+      // 应用使用时长跟踪
+      appSessionStartTime: null, // 应用会话开始时间
+      appUsageTimer: null, // 应用使用时长定时器
       navItems: [
         {
           id: 'games',
@@ -419,6 +422,26 @@ export default {
         console.log('已停止定期更新游戏时长')
       }
     },
+    // 开始应用使用时长跟踪
+    async startAppUsageTracking() {
+      try {
+        await saveManager.startUsageTracking()
+        this.appSessionStartTime = new Date()
+        console.log('应用使用时长跟踪已开始')
+      } catch (error) {
+        console.error('开始应用使用时长跟踪失败:', error)
+      }
+    },
+    // 停止应用使用时长跟踪
+    async stopAppUsageTracking() {
+      try {
+        await saveManager.endUsageTracking()
+        this.appSessionStartTime = null
+        console.log('应用使用时长跟踪已停止')
+      } catch (error) {
+        console.error('停止应用使用时长跟踪失败:', error)
+      }
+    },
     getCurrentViewTitle() {
       if (this.currentView === 'settings') {
         return '设置'
@@ -589,6 +612,9 @@ export default {
     // 启动游戏时长更新
     this.startPeriodicPlaytimeUpdate()
     
+    // 开始应用使用时长跟踪
+    await this.startAppUsageTracking()
+    
     // 所有初始化完成，隐藏加载提示
     this.isLoading = false
     console.log('✅ 应用初始化完成')
@@ -599,6 +625,9 @@ export default {
     
     // 停止定期更新游戏时长
     this.stopPeriodicPlaytimeUpdate()
+    
+    // 停止应用使用时长跟踪
+    this.stopAppUsageTracking()
   }
 }
 </script>

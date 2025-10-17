@@ -53,6 +53,34 @@
           </div>
         </div>
 
+        <!-- 使用时长统计 -->
+        <div class="profile-section">
+          <h5>使用时长统计</h5>
+          <div class="usage-time-grid">
+            <div class="usage-time-card">
+              <div class="usage-time-icon">⏱️</div>
+              <div class="usage-time-content">
+                <div class="usage-time-label">总使用时长</div>
+                <div class="usage-time-value">{{ formatTotalUsageTimeWithSession }}</div>
+              </div>
+            </div>
+            <div class="usage-time-card">
+              <div class="usage-time-icon">🕐</div>
+              <div class="usage-time-content">
+                <div class="usage-time-label">本次会话</div>
+                <div class="usage-time-value">{{ formatCurrentSessionTime }}</div>
+              </div>
+            </div>
+            <div class="usage-time-card">
+              <div class="usage-time-icon">📊</div>
+              <div class="usage-time-content">
+                <div class="usage-time-label">历史总计</div>
+                <div class="usage-time-value">{{ formatTotalUsageTime }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 登录日历 -->
         <div class="profile-section">
           <h5>登录日历</h5>
@@ -112,12 +140,17 @@ export default {
         name: '',
         joinDate: null,
         lastActive: null,
-        checkInDays: [] // 登录日期数组，格式：['2024-01-15', '2024-01-16']
+        checkInDays: [], // 登录日期数组，格式：['2024-01-15', '2024-01-16']
+        totalUsageTime: 0, // 总使用时长（秒）
+        sessionStartTime: null, // 当前会话开始时间
+        lastSessionEndTime: null // 上次会话结束时间
       },
       originalName: '',
       isSaving: false,
       currentDate: new Date(),
-      weekdays: ['日', '一', '二', '三', '四', '五', '六']
+      weekdays: ['日', '一', '二', '三', '四', '五', '六'],
+      currentSessionTime: 0, // 当前会话使用时长（秒）
+      usageTimer: null // 定时器引用
     }
   },
   computed: {
@@ -255,6 +288,19 @@ export default {
       }
       
       return streak
+    },
+    // 格式化总使用时长显示
+    formatTotalUsageTime() {
+      return this.formatUsageTime(this.userProfile.totalUsageTime)
+    },
+    // 格式化当前会话时长显示
+    formatCurrentSessionTime() {
+      return this.formatUsageTime(this.currentSessionTime)
+    },
+    // 格式化总使用时长（包含当前会话）
+    formatTotalUsageTimeWithSession() {
+      const totalWithSession = this.userProfile.totalUsageTime + this.currentSessionTime
+      return this.formatUsageTime(totalWithSession)
     }
   },
   methods: {
@@ -330,10 +376,78 @@ export default {
     nextMonth() {
       this.currentDate = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 1)
     },
+    // 格式化使用时长显示
+    formatUsageTime(seconds) {
+      if (seconds < 60) {
+        return `${seconds}秒`
+      } else if (seconds < 3600) {
+        const minutes = Math.floor(seconds / 60)
+        const remainingSeconds = seconds % 60
+        return remainingSeconds > 0 ? `${minutes}分${remainingSeconds}秒` : `${minutes}分钟`
+      } else if (seconds < 86400) {
+        const hours = Math.floor(seconds / 3600)
+        const minutes = Math.floor((seconds % 3600) / 60)
+        return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`
+      } else {
+        const days = Math.floor(seconds / 86400)
+        const hours = Math.floor((seconds % 86400) / 3600)
+        return hours > 0 ? `${days}天${hours}小时` : `${days}天`
+      }
+    },
+    // 开始使用时长跟踪
+    async startUsageTracking() {
+      try {
+        await saveManager.startUsageTracking()
+        this.startUsageTimer()
+        console.log('使用时长跟踪已开始')
+      } catch (error) {
+        console.error('开始使用时长跟踪失败:', error)
+      }
+    },
+    // 开始定时器更新当前会话时长
+    startUsageTimer() {
+      this.updateCurrentSessionTime()
+      this.usageTimer = setInterval(() => {
+        this.updateCurrentSessionTime()
+      }, 1000) // 每秒更新一次
+    },
+    // 更新当前会话时长
+    async updateCurrentSessionTime() {
+      try {
+        this.currentSessionTime = await saveManager.getCurrentSessionDuration()
+      } catch (error) {
+        console.error('更新当前会话时长失败:', error)
+      }
+    },
+    // 停止使用时长跟踪
+    async stopUsageTracking() {
+      try {
+        if (this.usageTimer) {
+          clearInterval(this.usageTimer)
+          this.usageTimer = null
+        }
+        await saveManager.endUsageTracking()
+        this.currentSessionTime = 0
+        // 重新加载用户资料以获取最新的总使用时长
+        await this.loadUserProfile()
+        console.log('使用时长跟踪已停止')
+      } catch (error) {
+        console.error('停止使用时长跟踪失败:', error)
+      }
+    },
   },
   async mounted() {
     console.log('用户资料页面已加载')
     await this.loadUserProfile()
+    // 开始使用时长跟踪
+    await this.startUsageTracking()
+  },
+  beforeUnmount() {
+    // 页面卸载时停止使用时长跟踪
+    if (this.usageTimer) {
+      clearInterval(this.usageTimer)
+      this.usageTimer = null
+    }
   }
 }
 </script>
@@ -474,6 +588,73 @@ export default {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 16px;
+}
+
+/* 使用时长统计样式 */
+.usage-time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.usage-time-card {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.usage-time-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.usage-time-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-dark));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.usage-time-card:hover::before {
+  opacity: 1;
+}
+
+.usage-time-icon {
+  font-size: 2rem;
+  margin-right: 16px;
+  opacity: 0.8;
+}
+
+.usage-time-content {
+  flex: 1;
+}
+
+.usage-time-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.usage-time-value {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
 }
 
 .time-info-card {
