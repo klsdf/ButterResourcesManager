@@ -175,15 +175,13 @@
               :rows="3"
             />
 
-            <div class="form-group">
-              <label>选择视频</label>
-              <VideoSelector
-                :videos="videos"
-                :selectedVideos="newFolder.videoIds"
-                title="选择要添加到文件夹的视频"
-                @update:selectedVideos="handleVideoSelection"
-              />
-            </div>
+            <FormField
+              label="文件夹路径"
+              type="file"
+              v-model="newFolder.folderPath"
+              placeholder="选择包含视频的文件夹"
+              @browse="selectNewFolderPath"
+            />
 
             <FormField
               label="缩略图"
@@ -214,7 +212,32 @@
       :actions="videoActions"
       @close="closeVideoDetail"
       @action="handleDetailAction"
-    />
+    >
+      <!-- 文件夹视频列表 -->
+      <template #extra v-if="selectedVideo && selectedVideo.type === 'folder' && selectedVideo.folderVideos">
+        <div class="folder-videos-section">
+          <h4>文件夹中的视频 ({{ selectedVideo.folderVideos.length }} 个)</h4>
+          <div class="folder-videos-list" v-if="selectedVideo.folderVideos.length > 0">
+            <div 
+              v-for="(video, index) in selectedVideo.folderVideos" 
+              :key="index"
+              class="folder-video-item"
+              @click="playFolderVideo(video)"
+            >
+              <div class="video-icon">🎬</div>
+              <div class="video-info">
+                <div class="video-name">{{ video.name }}</div>
+                <div class="video-path">{{ video.path }}</div>
+              </div>
+              <div class="play-button">▶️</div>
+            </div>
+          </div>
+          <div v-else class="no-videos">
+            <p>该文件夹中没有找到视频文件</p>
+          </div>
+        </div>
+      </template>
+    </DetailPanel>
 
     <!-- 编辑视频对话框 -->
     <div v-if="showEditDialog" class="modal-overlay" @click="closeEditDialog">
@@ -290,6 +313,82 @@
         <button type="button" class="btn-confirm" @click="saveEditedVideo">保存</button>
       </div>
     </div>
+    </div>
+
+    <!-- 编辑文件夹对话框 -->
+    <div v-if="showEditFolderDialog" class="modal-overlay" @click="closeEditFolderDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>编辑文件夹</h3>
+          <button class="modal-close" @click="closeEditFolderDialog">✕</button>
+        </div>
+        <div class="modal-body">
+          <form @submit.prevent="saveEditedFolder">
+            <FormField
+              label="文件夹名称"
+              type="text"
+              v-model="editFolderForm.name"
+              placeholder="如：复仇者联盟系列"
+            />
+            
+            <FormField
+              label="系列名"
+              type="text"
+              v-model="editFolderForm.series"
+              placeholder="如：复仇者联盟"
+            />
+
+            <FormField
+              label="演员"
+              type="text"
+              v-model="editFolderActorsInput"
+              placeholder="用逗号分隔多个演员"
+              @blur="parseEditFolderActors"
+            />
+
+            <FormField
+              label="标签"
+              type="tags"
+              v-model="editFolderForm.tags"
+              v-model:tagInput="editFolderTagsInput"
+              @add-tag="addEditFolderTag"
+              @remove-tag="removeEditFolderTag"
+            />
+
+            <FormField
+              label="描述"
+              type="textarea"
+              v-model="editFolderForm.description"
+              placeholder="文件夹描述..."
+              :rows="3"
+            />
+
+            <FormField
+              label="文件夹路径"
+              type="file"
+              v-model="editFolderForm.folderPath"
+              placeholder="选择包含视频的文件夹"
+              @browse="selectEditFolderPath"
+            />
+
+            <FormField
+              label="缩略图"
+              type="file"
+              v-model="editFolderForm.thumbnail"
+              placeholder="选择缩略图..."
+              @browse="selectEditFolderThumbnailFile"
+            />
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" @click="closeEditFolderDialog" class="btn-cancel">
+            取消
+          </button>
+          <button type="button" @click="saveEditedFolder" class="btn-confirm">
+            保存
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- 路径更新确认对话框 -->
@@ -375,9 +474,8 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        videoIds: [], // 存储选中的视频ID列表
-        thumbnail: '',
-        videoCount: 0
+        folderPath: '',
+        thumbnail: ''
       },
       actorsInput: '',
       tagsInput: '',
@@ -398,6 +496,20 @@ export default {
       },
       editActorsInput: '',
       editTagsInput: '',
+      // 编辑文件夹相关
+      showEditFolderDialog: false,
+      editFolderForm: {
+        id: '',
+        name: '',
+        description: '',
+        tags: [],
+        actors: [],
+        series: '',
+        folderPath: '',
+        thumbnail: ''
+      },
+      editFolderActorsInput: '',
+      editFolderTagsInput: '',
       // 缩略图 URL 缓存
       thumbnailUrlCache: new Map(),
       // 排序选项
@@ -435,7 +547,7 @@ export default {
       videoEmptyStateConfig: {
         emptyIcon: '🎬',
         emptyTitle: '你的视频库是空的',
-        emptyDescription: '点击"添加视频"或"添加文件夹"按钮来添加内容，或直接拖拽视频文件/文件夹到此处',
+        emptyDescription: '点击"添加视频"或"添加文件夹"按钮来添加内容，或直接拖拽视频文件/文件夹到此处（支持多选）',
         emptyButtonText: '添加第一个视频',
         emptyButtonAction: 'showAddVideoDialog',
         noResultsIcon: '🔍',
@@ -464,7 +576,12 @@ export default {
     // 合并视频和文件夹，并添加类型标识
     allItems() {
       const videoItems = this.videos.map(video => ({ ...video, type: 'video' }))
-      const folderItems = this.folders.map(folder => ({ ...folder, type: 'folder' }))
+      const folderItems = this.folders.map(folder => ({ 
+        ...folder, 
+        type: 'folder',
+        // 为文件夹添加动态视频数量，如果还没有计算过则显示为0
+        videoCount: folder.folderVideos ? folder.folderVideos.length : 0
+      }))
       return [...videoItems, ...folderItems]
     },
     
@@ -533,10 +650,11 @@ export default {
       if (!this.selectedVideo) return []
       
       if (this.selectedVideo.type === 'folder') {
+        const videoCount = this.selectedVideo.folderVideos ? this.selectedVideo.folderVideos.length : 0
         return [
           { label: '系列', value: this.selectedVideo.series || '未知' },
-          { label: '视频数量', value: `${this.selectedVideo.videoCount || 0} 个` },
-          { label: '包含视频', value: this.getFolderVideoNames(this.selectedVideo) },
+          { label: '视频数量', value: `${videoCount} 个` },
+          { label: '文件夹路径', value: this.getFolderPath(this.selectedVideo) },
           { label: '添加时间', value: this.formatAddedDate(this.selectedVideo.addedDate) }
         ]
       } else {
@@ -744,6 +862,20 @@ export default {
       if (this.folderManager) {
         this.folders = this.folderManager.getFolders()
         console.log('加载文件夹完成:', this.folders.length, '个文件夹')
+        
+        // 为每个文件夹预加载视频数量
+        for (const folder of this.folders) {
+          if (folder.folderPath) {
+            try {
+              const folderVideos = await this.getFolderVideos(folder)
+              folder.folderVideos = folderVideos
+              console.log(`文件夹 "${folder.name}" 包含 ${folderVideos.length} 个视频`)
+            } catch (error) {
+              console.error(`加载文件夹 "${folder.name}" 视频列表失败:`, error)
+              folder.folderVideos = []
+            }
+          }
+        }
       }
     },
 
@@ -984,83 +1116,85 @@ export default {
           type: f.type,
           size: f.size
         })))
-        console.log('当前视频库状态:')
-        this.videos.forEach((video, index) => {
-          console.log(`  ${index + 1}. ${video.name}`)
-          console.log(`     路径: ${video.filePath}`)
-          console.log(`     文件存在: ${video.fileExists}`)
-        })
         
         if (files.length === 0) {
-          this.showNotification('拖拽失败', '请拖拽视频文件到此处')
+          this.showNotification('拖拽失败', '请拖拽视频文件或文件夹到此处')
           return
         }
         
-        // 筛选出视频文件和文件夹
+        // 检测拖拽的内容类型
         const videoFiles = files.filter((file:File) => {
           const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ogv']
           const fileName = file.name.toLowerCase()
           return videoExtensions.some(ext => fileName.endsWith(ext))
         })
         
-        // 检查是否有文件夹被拖拽
-        const hasFolders = files.some(file => (file as any).webkitRelativePath && (file as any).webkitRelativePath.includes('/'))
+        // 检测文件夹（通过 webkitRelativePath 或文件路径判断）
+        const folders = this.detectFoldersFromFiles(files)
         
-        if (videoFiles.length === 0 && !hasFolders) {
+        console.log('检测到视频文件数量:', videoFiles.length)
+        console.log('检测到文件夹数量:', folders.length)
+        
+        if (videoFiles.length === 0 && folders.length === 0) {
           this.showNotification('拖拽失败', '没有检测到视频文件或文件夹，请拖拽视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）或文件夹')
           return
         }
         
-        console.log('检测到视频文件数量:', videoFiles.length)
+        let allResults = []
         
-        // 批量添加视频文件
-        const results = await this.processMultipleVideoFiles(videoFiles)
+        // 处理视频文件
+        if (videoFiles.length > 0) {
+          console.log('开始处理视频文件...')
+          const videoResults = await this.processMultipleVideoFiles(videoFiles)
+          allResults = allResults.concat(videoResults)
+        }
+        
+        // 处理文件夹
+        if (folders.length > 0) {
+          console.log('开始处理文件夹...')
+          const folderResults = await this.processMultipleFolders(folders)
+          allResults = allResults.concat(folderResults)
+        }
         
         // 统计结果
-        const addedCount = results.filter(r => r.success).length
-        const failedCount = results.filter(r => !r.success).length
+        const addedCount = allResults.filter(r => r.success).length
+        const failedCount = allResults.filter(r => !r.success).length
         
-        // 重新加载视频列表
+        // 重新加载数据
         await this.loadVideos()
+        await this.loadFolders()
         
         // 显示结果通知
         if (addedCount > 0) {
-          // 使用通知服务的批量结果处理，会自动显示详细的成功和失败信息
           console.log('显示批量操作结果通知')
-          this.showToastNotification('批量添加完成', '', results)
+          this.showToastNotification('批量添加完成', '', allResults)
         } else {
-          console.log('所有视频文件添加失败，显示失败通知')
-          // 收集所有失败原因，添加序号和换行
-          const failureReasons = results
+          console.log('所有项目添加失败，显示失败通知')
+          const failureReasons = allResults
             .filter(r => !r.success)
-            .map((r, index) => `${index + 1}. "${r.fileName}": ${r.error || '未知错误'}`)
+            .map((r, index) => `${index + 1}. "${r.fileName || r.folderName}": ${r.error || '未知错误'}`)
             .join('\n')
           
-          this.showToastNotification('添加失败', `所有视频文件添加失败:\n${failureReasons}`, results)
+          this.showToastNotification('添加失败', `所有项目添加失败:\n${failureReasons}`, allResults)
         }
         
       } catch (error) {
-        console.error('拖拽添加视频失败:', error)
+        console.error('拖拽添加失败:', error)
         
-        // 根据错误类型提供更详细的错误信息
         let errorMessage = ''
         if (error.name === 'SecurityError') {
-          errorMessage = '安全错误：浏览器阻止了文件访问\n请尝试使用"添加视频"按钮手动选择文件'
+          errorMessage = '安全错误：浏览器阻止了文件访问\n请尝试使用"添加"按钮手动选择文件'
         } else if (error.name === 'NotAllowedError') {
           errorMessage = '权限错误：无法访问拖拽的文件\n请检查文件权限或尝试重新拖拽'
         } else if (error.message.includes('path')) {
           errorMessage = `文件路径错误：${error.message}\n请确保文件路径有效且可访问`
-        } else if (error.message.includes('size')) {
-          errorMessage = `文件大小错误：${error.message}\n请检查文件是否损坏或过大`
-        } else if (error.message.includes('format') || error.message.includes('codec')) {
-          errorMessage = `视频格式错误：${error.message}\n请检查视频文件是否完整且格式正确`
         } else {
-          errorMessage = `未知错误：${error.message}\n请尝试重新拖拽文件或使用"添加视频"按钮`
+          errorMessage = `未知错误：${error.message}\n请尝试重新拖拽文件或使用"添加"按钮`
         }
         
         this.showToastNotification(
           '添加失败', 
-          `拖拽添加视频时发生错误\n\n${errorMessage}\n`
+          `拖拽添加时发生错误\n\n${errorMessage}\n`
         )
       }
     },
@@ -1069,6 +1203,63 @@ export default {
     extractVideoName(fileName) {
       const lastDotIndex = fileName.lastIndexOf('.')
       return lastDotIndex > 0 ? fileName.substring(0, lastDotIndex) : fileName
+    },
+
+    // 从拖拽的文件中检测文件夹
+    detectFoldersFromFiles(files) {
+      console.log('=== 开始检测文件夹 ===')
+      const folderMap = new Map()
+      
+      for (const file of files) {
+        const filePath = (file as any).path || file.name
+        const webkitPath = (file as any).webkitRelativePath
+        
+        console.log('处理文件:', {
+          name: file.name,
+          path: filePath,
+          webkitPath: webkitPath
+        })
+        
+        let folderPath = ''
+        let folderName = ''
+        
+        if (webkitPath && webkitPath.includes('/')) {
+          // 通过 webkitRelativePath 检测文件夹
+          const pathParts = webkitPath.split('/')
+          folderName = pathParts[0]
+          // 从文件路径中提取文件夹路径
+          const lastSlashIndex = filePath.lastIndexOf('/')
+          if (lastSlashIndex > 0) {
+            folderPath = filePath.substring(0, lastSlashIndex)
+          }
+        } else if (filePath.includes('/') || filePath.includes('\\')) {
+          // 通过文件路径检测文件夹
+          const pathParts = filePath.replace(/\\/g, '/').split('/')
+          folderName = pathParts[pathParts.length - 2] // 倒数第二个部分通常是文件夹名
+          folderPath = pathParts.slice(0, -1).join('/')
+        }
+        
+        if (folderPath && folderName) {
+          console.log('检测到文件夹:', {
+            name: folderName,
+            path: folderPath
+          })
+          
+          if (!folderMap.has(folderPath)) {
+            folderMap.set(folderPath, {
+              name: folderName,
+              path: folderPath,
+              files: []
+            })
+          }
+          
+          folderMap.get(folderPath).files.push(file)
+        }
+      }
+      
+      const folders = Array.from(folderMap.values())
+      console.log('检测到的文件夹列表:', folders.map(f => ({ name: f.name, path: f.path, fileCount: f.files.length })))
+      return folders
     },
 
     // 批量处理多个视频文件
@@ -1208,6 +1399,104 @@ export default {
       return results
     },
 
+    // 批量处理多个文件夹
+    async processMultipleFolders(folders) {
+      console.log('=== 开始批量处理文件夹 ===')
+      console.log('待处理文件夹数量:', folders.length)
+      
+      const results = []
+      
+      for (let i = 0; i < folders.length; i++) {
+        const folder = folders[i]
+        console.log(`\n--- 处理文件夹 ${i + 1}/${folders.length} ---`)
+        console.log('文件夹信息:', {
+          name: folder.name,
+          path: folder.path,
+          fileCount: folder.files.length
+        })
+        
+        try {
+          // 检查文件夹是否已存在
+          const existingFolder = this.folders.find(f => f.folderPath === folder.path)
+          if (existingFolder) {
+            console.log(`文件夹 "${folder.name}" 已存在，跳过`)
+            results.push({
+              success: false,
+              folderName: folder.name,
+              folderPath: folder.path,
+              error: '文件夹已存在'
+            })
+            continue
+          }
+          
+          // 创建文件夹对象
+          const newFolder = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: folder.name,
+            series: '',
+            actors: [],
+            tags: [],
+            description: '',
+            folderPath: folder.path,
+            thumbnail: '',
+            addedDate: new Date().toISOString()
+          }
+          
+          console.log('创建文件夹对象:', newFolder)
+          
+          // 添加到文件夹管理器
+          if (this.folderManager) {
+            const addResult = this.folderManager.addFolder(newFolder)
+            console.log('文件夹管理器添加结果:', addResult)
+            
+            if (addResult.success) {
+              console.log(`文件夹 "${folder.name}" 添加成功`)
+              results.push({
+                success: true,
+                folderName: folder.name,
+                folderPath: folder.path,
+                message: '文件夹添加成功'
+              })
+            } else {
+              console.error(`文件夹 "${folder.name}" 添加失败:`, addResult.error)
+              results.push({
+                success: false,
+                folderName: folder.name,
+                folderPath: folder.path,
+                error: addResult.error || '添加失败'
+              })
+            }
+          } else {
+            console.error('文件夹管理器未初始化')
+            results.push({
+              success: false,
+              folderName: folder.name,
+              folderPath: folder.path,
+              error: '文件夹管理器未初始化'
+            })
+          }
+          
+        } catch (error) {
+          console.error(`处理文件夹 "${folder.name}" 时发生错误:`, error)
+          results.push({
+            success: false,
+            folderName: folder.name,
+            folderPath: folder.path,
+            error: error.message || '处理失败'
+          })
+        }
+      }
+      
+      console.log('=== 批量处理文件夹完成 ===')
+      console.log('处理结果统计:', {
+        成功: results.filter(r => r.success).length,
+        失败: results.filter(r => !r.success).length,
+        总数: results.length
+      })
+      
+      return results
+    },
+
     showAddVideoDialog() {
       this.resetNewVideo()
       this.showAddDialog = true
@@ -1254,9 +1543,8 @@ export default {
         tags: [],
         actors: [],
         series: '',
-        videoIds: [],
-        thumbnail: '',
-        videoCount: 0
+        folderPath: '',
+        thumbnail: ''
       }
       this.folderActorsInput = ''
       this.folderTagsInput = ''
@@ -1296,28 +1584,84 @@ export default {
       this.newFolder.tags.splice(index, 1)
     },
 
-    // 处理视频选择
-    handleVideoSelection(selectedVideoIds) {
-      this.newFolder.videoIds = selectedVideoIds || []
-      this.newFolder.videoCount = this.newFolder.videoIds.length
-      console.log('选择的视频:', selectedVideoIds)
+    async selectNewFolderPath() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectFolder) {
+          const result = await window.electronAPI.selectFolder()
+          if (result && result.success && result.path) {
+            this.newFolder.folderPath = result.path
+            if (!this.newFolder.name || !this.newFolder.name.trim()) {
+              const parts = result.path.replace(/\\/g, '/').split('/')
+              this.newFolder.name = parts[parts.length - 1]
+            }
+          }
+        }
+      } catch (e) {
+        console.error('选择文件夹失败:', e)
+      }
     },
 
-    // 获取文件夹包含的视频名称
-    getFolderVideoNames(folder) {
-      if (!folder.videoIds || folder.videoIds.length === 0) {
-        return '无视频'
+    // 获取文件夹路径显示
+    getFolderPath(folder) {
+      return folder.folderPath || '未设置路径'
+    },
+
+    // 获取文件夹中的视频文件列表
+    async getFolderVideos(folder) {
+      if (!folder || !folder.folderPath) {
+        console.log('文件夹或路径不存在:', folder)
+        return []
       }
       
-      const videoNames = folder.videoIds.map(videoId => {
-        const video = this.videos.find(v => v.id === videoId)
-        return video ? video.name : '未知视频'
-      })
-      
-      if (videoNames.length <= 3) {
-        return videoNames.join(', ')
-      } else {
-        return videoNames.slice(0, 3).join(', ') + ` 等${videoNames.length}个视频`
+      try {
+        console.log('开始扫描文件夹:', folder.folderPath)
+        if (window.electronAPI && window.electronAPI.listFiles) {
+          const result = await window.electronAPI.listFiles(folder.folderPath)
+          console.log('文件夹扫描结果:', result)
+          
+          if (result && result.success && Array.isArray(result.files)) {
+            const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.3gp', '.ogv']
+            const videoFiles = result.files
+              .map((f: any) => {
+                const path = typeof f === 'string' ? f : f.path || ''
+                console.log('处理文件:', path)
+                return path
+              })
+              .filter(Boolean)
+              .map((p: string) => {
+                // 如果路径不是绝对路径，则拼接文件夹路径
+                let fullPath = p.replace(/\\/g, '/')
+                if (!fullPath.includes('/') || (!fullPath.startsWith('/') && !fullPath.match(/^[A-Za-z]:/))) {
+                  // 只是文件名，需要拼接完整路径
+                  const folderPath = folder.folderPath.replace(/\\/g, '/')
+                  fullPath = folderPath.endsWith('/') ? folderPath + fullPath : folderPath + '/' + fullPath
+                }
+                console.log('完整路径:', fullPath)
+                return fullPath
+              })
+              .filter((p: string) => {
+                const hasVideoExt = videoExtensions.some(ext => p.toLowerCase().endsWith(ext))
+                console.log('视频文件检查:', p, '是否视频:', hasVideoExt)
+                return hasVideoExt
+              })
+              .map((filePath: string) => {
+                const videoInfo = {
+                  name: this.extractVideoName(filePath.split('/').pop() || ''),
+                  path: filePath,
+                  size: 0 // 可以后续添加文件大小获取
+                }
+                console.log('创建视频信息:', videoInfo)
+                return videoInfo
+              })
+            
+            console.log('最终视频文件列表:', videoFiles)
+            return videoFiles
+          }
+        }
+        return []
+      } catch (error) {
+        console.error('获取文件夹视频列表失败:', error)
+        return []
       }
     },
 
@@ -1425,9 +1769,8 @@ export default {
         alert('请填写文件夹名称')
         return
       }
-
-      if (!this.newFolder.videoIds || this.newFolder.videoIds.length === 0) {
-        alert('请至少选择一个视频添加到文件夹')
+      if (!this.newFolder.folderPath || !this.newFolder.folderPath.trim()) {
+        alert('请先选择文件夹路径')
         return
       }
 
@@ -1441,9 +1784,8 @@ export default {
           tags: this.newFolder.tags,
           actors: this.newFolder.actors,
           series: this.newFolder.series,
-          videoIds: [...this.newFolder.videoIds], // 复制视频ID数组
+          folderPath: this.newFolder.folderPath,
           thumbnail: this.newFolder.thumbnail,
-          videoCount: this.newFolder.videoIds.length,
           addedDate: new Date().toISOString()
         }
 
@@ -1455,7 +1797,7 @@ export default {
           this.closeAddFolderDialog()
           
           // 成功时使用 toast 通知
-          this.showToastNotification('添加成功', `文件夹 "${this.newFolder.name}" 已成功添加，包含 ${folder.videoCount} 个视频`)
+          this.showToastNotification('添加成功', `文件夹 "${this.newFolder.name}" 已成功添加`)
         } else {
           this.showToastNotification('添加失败', '文件夹添加失败，请重试')
         }
@@ -1475,20 +1817,92 @@ export default {
       this.selectedVideo = null
     },
 
-    showFolderDetail(folder) {
+    async showFolderDetail(folder) {
       this.selectedVideo = folder
       this.showDetailDialog = true
+      
+      // 如果还没有加载过视频列表，则加载
+      if (folder && folder.folderPath && !folder.folderVideos) {
+        try {
+          const folderVideos = await this.getFolderVideos(folder)
+          this.selectedVideo.folderVideos = folderVideos
+          // 同时更新原始文件夹对象，避免重复扫描
+          const originalFolder = this.folders.find(f => f.id === folder.id)
+          if (originalFolder) {
+            originalFolder.folderVideos = folderVideos
+          }
+          console.log('文件夹视频列表加载完成:', folderVideos.length, '个视频')
+        } catch (error) {
+          console.error('加载文件夹视频列表失败:', error)
+          this.selectedVideo.folderVideos = []
+        }
+      }
     },
 
-    openFolder(folder) {
-      // 虚拟文件夹，显示包含的视频列表
-      const videoNames = folder.videoIds.map(videoId => {
-        const video = this.videos.find(v => v.id === videoId)
-        return video ? video.name : '未知视频'
-      })
-      
-      const message = `文件夹 "${folder.name}" 包含以下视频：\n\n${videoNames.join('\n')}`
-      alert(message)
+    async openFolder(folder) {
+      if (folder && folder.folderPath && window.electronAPI && window.electronAPI.openFolder) {
+        try {
+          const result = await window.electronAPI.openFolder(folder.folderPath)
+          if (!result.success) {
+            console.warn('打开文件夹失败:', result.error)
+          }
+          return
+        } catch (e) {
+          console.error('打开文件夹异常:', e)
+        }
+      }
+      // 回退：显示文件夹路径
+      alert(`文件夹路径: ${folder.folderPath || '未设置'}`)
+    },
+
+    // 播放文件夹中的视频
+    async playFolderVideo(video: any) {
+      try {
+        console.log('开始播放文件夹视频:', {
+          name: video.name,
+          path: video.path
+        })
+
+        // 检查视频文件是否存在
+        if (window.electronAPI && window.electronAPI.checkFileExists) {
+          console.log('检查文件存在性:', video.path)
+          const result = await window.electronAPI.checkFileExists(video.path)
+          console.log('文件存在性检查结果:', result)
+          
+          if (!result.exists) {
+            console.error('文件不存在:', video.path)
+            this.showToastNotification('播放失败', `视频文件不存在: ${video.name}\n路径: ${video.path}`)
+            return
+          }
+        } else {
+          console.warn('Electron API 不可用，跳过文件存在性检查')
+        }
+
+        // 获取当前设置
+        const settings = await this.loadSettings()
+        console.log('播放设置:', settings.videoPlayMode)
+        
+        if (settings.videoPlayMode === 'internal') {
+          // 使用内部播放器
+          console.log('使用内部播放器播放')
+          await this.playVideoInternal({
+            name: video.name,
+            filePath: video.path
+          })
+        } else {
+          // 使用外部播放器
+          console.log('使用外部播放器播放')
+          await this.playVideoExternal({
+            name: video.name,
+            filePath: video.path
+          })
+        }
+        
+        this.showToastNotification('播放成功', `正在播放: ${video.name}`)
+      } catch (error) {
+        console.error('播放文件夹视频失败:', error)
+        this.showToastNotification('播放失败', `播放视频失败: ${error.message}`)
+      }
     },
     handleDetailAction(actionKey, item) {
       if (item.type === 'folder') {
@@ -1728,9 +2142,91 @@ export default {
     },
 
     editFolder(folder) {
-      // TODO: 实现文件夹编辑功能
-      console.log('编辑文件夹:', folder)
-      this.showToastNotification('功能开发中', '文件夹编辑功能正在开发中')
+      if (!folder) return
+      this.showDetailDialog = false
+      this.editFolderForm = {
+        id: folder.id,
+        name: folder.name || '',
+        description: folder.description || '',
+        tags: Array.isArray(folder.tags) ? [...folder.tags] : [],
+        actors: Array.isArray(folder.actors) ? [...folder.actors] : [],
+        series: folder.series || '',
+        folderPath: folder.folderPath || '',
+        thumbnail: folder.thumbnail || ''
+      }
+      this.editFolderActorsInput = (this.editFolderForm.actors || []).join(', ')
+      this.editFolderTagsInput = ''
+      this.showEditFolderDialog = true
+    },
+
+    closeEditFolderDialog() {
+      this.showEditFolderDialog = false
+    },
+
+    parseEditFolderActors() {
+      if (this.editFolderActorsInput && this.editFolderActorsInput.trim()) {
+        this.editFolderForm.actors = this.editFolderActorsInput.split(',').map(s => s.trim()).filter(Boolean)
+      } else {
+        this.editFolderForm.actors = []
+      }
+    },
+
+    addEditFolderTag() {
+      const tag = this.editFolderTagsInput.trim()
+      if (tag && !this.editFolderForm.tags.includes(tag)) {
+        this.editFolderForm.tags.push(tag)
+        this.editFolderTagsInput = ''
+      }
+    },
+
+    removeEditFolderTag(index) {
+      this.editFolderForm.tags.splice(index, 1)
+    },
+
+    async selectEditFolderPath() {
+      try {
+        if (window.electronAPI && window.electronAPI.selectFolder) {
+          const result = await window.electronAPI.selectFolder()
+          if (result && result.success && result.path) {
+            this.editFolderForm.folderPath = result.path
+          }
+        }
+      } catch (e) {
+        console.error('选择编辑文件夹路径失败:', e)
+      }
+    },
+
+    async selectEditFolderThumbnailFile() {
+      try {
+        const filePath = await window.electronAPI.selectImageFile()
+        if (filePath) {
+          this.editFolderForm.thumbnail = filePath
+        }
+      } catch (error) {
+        console.error('选择编辑文件夹缩略图失败:', error)
+      }
+    },
+
+    async saveEditedFolder() {
+      try {
+        this.parseEditFolderActors()
+        const payload = {
+          name: (this.editFolderForm.name || '').trim(),
+          description: (this.editFolderForm.description || '').trim(),
+          tags: this.editFolderForm.tags,
+          actors: this.editFolderForm.actors,
+          series: (this.editFolderForm.series || '').trim(),
+          folderPath: (this.editFolderForm.folderPath || '').trim(),
+          thumbnail: (this.editFolderForm.thumbnail || '').trim()
+        }
+        await this.folderManager.updateFolder(this.editFolderForm.id, payload)
+        await this.loadFolders()
+        this.showEditFolderDialog = false
+        this.showToastNotification('保存成功', `文件夹 "${payload.name}" 已更新`)
+      } catch (e) {
+        console.error('保存编辑文件夹失败:', e)
+        this.showToastNotification('保存失败', `保存文件夹失败: ${e.message}`)
+      }
     },
 
     async deleteFolder(folder) {
@@ -3917,6 +4413,98 @@ export default {
   line-height: 1.4;
 }
 
+/* 文件夹视频列表样式 */
+.folder-videos-section {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.folder-videos-section h4 {
+  margin: 0 0 15px 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.folder-videos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.folder-video-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.folder-video-item:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.video-icon {
+  font-size: 20px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.video-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.video-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-path {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.play-button {
+  font-size: 16px;
+  margin-left: 12px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+.folder-video-item:hover .play-button {
+  opacity: 1;
+}
+
+.no-videos {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-secondary);
+}
+
+.no-videos p {
+  margin: 0;
+  font-style: italic;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   
@@ -3937,6 +4525,22 @@ export default {
     width: 95%;
     margin: 20px;
   }
+
+  .folder-videos-list {
+    max-height: 200px;
+  }
+
+  .folder-video-item {
+    padding: 10px;
+  }
+
+  .video-name {
+    font-size: 14px;
+  }
+
+  .video-path {
+    font-size: 11px;
+  }
 }
 
 
@@ -3953,7 +4557,7 @@ export default {
 }
 
 .video-content.drag-over::before {
-  content: '拖拽视频文件或文件夹到这里添加';
+  content: '拖拽视频文件或文件夹到这里添加（支持多选）';
   position: absolute;
   top: 50%;
   left: 50%;

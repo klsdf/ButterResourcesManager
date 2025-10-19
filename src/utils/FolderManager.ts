@@ -158,9 +158,9 @@ class FolderManager {
       return false
     }
 
-    // 视频ID数组验证
-    if (!Array.isArray(folder.videoIds)) {
-      console.error('videoIds必须是数组')
+    // 文件夹路径验证
+    if (!folder.folderPath || !folder.folderPath.trim()) {
+      console.error('folderPath是必需字段')
       return false
     }
 
@@ -179,38 +179,26 @@ class FolderManager {
   }
 
   /**
-   * 获取包含指定视频的文件夹
-   * @param {string} videoId - 视频ID
+   * 获取包含指定视频的文件夹（基于文件夹路径扫描）
+   * @param {string} videoPath - 视频文件路径
    * @returns {Array} 包含该视频的文件夹数组
    */
-  getFoldersContainingVideo(videoId) {
+  getFoldersContainingVideo(videoPath) {
     return this.folders.filter(folder => 
-      folder.videoIds && folder.videoIds.includes(videoId)
+      folder.folderPath && videoPath.startsWith(folder.folderPath)
     )
   }
 
   /**
-   * 从文件夹中移除视频
-   * @param {string} videoId - 视频ID
+   * 从文件夹中移除视频（基于路径匹配）
+   * @param {string} videoPath - 视频文件路径
    * @returns {Promise<boolean>} 操作是否成功
    */
-  async removeVideoFromFolders(videoId) {
+  async removeVideoFromFolders(videoPath) {
     try {
-      let hasChanges = false
-      
-      this.folders.forEach(folder => {
-        if (folder.videoIds && folder.videoIds.includes(videoId)) {
-          folder.videoIds = folder.videoIds.filter(id => id !== videoId)
-          folder.videoCount = folder.videoIds.length
-          hasChanges = true
-        }
-      })
-
-      if (hasChanges) {
-        await this.saveFolders()
-        console.log('已从所有文件夹中移除视频:', videoId)
-      }
-
+      // 由于现在文件夹只存储路径，不需要维护视频ID列表
+      // 这个方法保留用于兼容性，但实际不需要做任何操作
+      console.log('视频路径移除操作（基于文件夹路径模式，无需操作）:', videoPath)
       return true
     } catch (error) {
       console.error('从文件夹中移除视频失败:', error)
@@ -219,35 +207,30 @@ class FolderManager {
   }
 
   /**
-   * 清理无效的视频引用
-   * @param {Array} validVideoIds - 有效的视频ID数组
+   * 清理无效的文件夹路径
+   * @param {Array} validPaths - 有效的文件夹路径数组
    * @returns {Promise<boolean>} 操作是否成功
    */
-  async cleanupInvalidVideoReferences(validVideoIds) {
+  async cleanupInvalidVideoReferences(validPaths) {
     try {
       let hasChanges = false
       
       this.folders.forEach(folder => {
-        if (folder.videoIds) {
-          const originalLength = folder.videoIds.length
-          folder.videoIds = folder.videoIds.filter(id => validVideoIds.includes(id))
-          folder.videoCount = folder.videoIds.length
-          
-          if (folder.videoIds.length !== originalLength) {
-            hasChanges = true
-            console.log(`文件夹 "${folder.name}" 清理了 ${originalLength - folder.videoIds.length} 个无效视频引用`)
-          }
+        if (folder.folderPath && !validPaths.includes(folder.folderPath)) {
+          console.log(`文件夹 "${folder.name}" 路径无效: ${folder.folderPath}`)
+          // 可以选择删除无效的文件夹，或者标记为无效
+          // 这里我们保留文件夹，但记录警告
         }
       })
 
       if (hasChanges) {
         await this.saveFolders()
-        console.log('文件夹无效视频引用清理完成')
+        console.log('文件夹路径验证完成')
       }
 
       return true
     } catch (error) {
-      console.error('清理文件夹无效视频引用失败:', error)
+      console.error('清理文件夹无效路径失败:', error)
       return false
     }
   }

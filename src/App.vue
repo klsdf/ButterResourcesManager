@@ -179,12 +179,12 @@ export default {
       appSessionStartTime: null, // 应用会话开始时间
       appUsageTimer: null, // 应用使用时长定时器
       navItems: [
-        {
-          id: 'collections',
-          name: '合集',
-          icon: '🗂️',
-          description: '管理你的合集'
-        },
+        // {
+        //   id: 'collections',
+        //   name: '合集',
+        //   icon: '🗂️',
+        //   description: '管理你的合集'
+        // },
         {
           id: 'games',
           name: '游戏',
