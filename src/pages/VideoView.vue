@@ -1521,6 +1521,18 @@ export default {
       
       try {
         console.log('开始扫描文件夹:', folder.folderPath)
+        
+        // 如果文件夹对象中已经有 folderVideos 数据，直接返回（包含缩略图信息）
+        if (folder.folderVideos && Array.isArray(folder.folderVideos) && folder.folderVideos.length > 0) {
+          console.log('使用已保存的文件夹视频列表（包含缩略图）:', folder.folderVideos.length, '个视频')
+          // 确保清理任何可能残留的生成状态
+          folder.folderVideos.forEach(video => {
+            video.isGeneratingThumbnail = false
+          })
+          return folder.folderVideos
+        }
+        
+        // 否则重新扫描文件夹
         if (window.electronAPI && window.electronAPI.listFiles) {
           const result = await window.electronAPI.listFiles(folder.folderPath)
           console.log('文件夹扫描结果:', result)
@@ -1554,7 +1566,9 @@ export default {
                 const videoInfo = {
                   name: this.extractVideoName(filePath.split('/').pop() || ''),
                   path: filePath,
-                  size: 0 // 可以后续添加文件大小获取
+                  size: 0, // 可以后续添加文件大小获取
+                  thumbnail: null, // 初始没有缩略图
+                  isGeneratingThumbnail: false // 确保不会被禁用
                 }
                 console.log('创建视频信息:', videoInfo)
                 return videoInfo
@@ -1755,10 +1769,20 @@ export default {
         const cleanFolderName = folderName.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
         const videoFileName = this.extractVideoName(video.path.split('/').pop() || video.path.split('\\').pop() || '')
         const cleanVideoName = videoFileName.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
-        const timestamp = Date.now()
-        const thumbnailFilename = `${cleanFolderName}/${cleanVideoName}_${timestamp}.jpg`
+        
+        // 获取当前最大序号
+        const maxNumber = await this.getMaxFolderVideoThumbnailNumber(cleanFolderName, cleanVideoName)
+        const nextNumber = maxNumber + 1
+        
+        const thumbnailFilename = `${cleanFolderName}/${cleanVideoName}_cover_${nextNumber}.jpg`
 
         console.log('缩略图文件名:', thumbnailFilename)
+        console.log('当前最大序号:', maxNumber, '新序号:', nextNumber)
+
+        // 删除旧的缩略图文件
+        if (video.thumbnail && video.thumbnail.trim()) {
+          await this.deleteOldThumbnail(video.thumbnail)
+        }
 
         // 生成缩略图
         const thumbnailPath = await this.generateThumbnailForFolderVideo(video.path, thumbnailFilename)
@@ -1779,12 +1803,17 @@ export default {
 
           // 同时更新到 folders 数组中
           const originalFolder = this.folders.find(f => f.id === this.selectedVideo.id)
-          if (originalFolder && originalFolder.folderVideos && originalFolder.folderVideos[index]) {
-            originalFolder.folderVideos[index].thumbnail = thumbnailPath
+          if (originalFolder) {
+            if (!originalFolder.folderVideos) {
+              originalFolder.folderVideos = []
+            }
+            if (originalFolder.folderVideos[index]) {
+              originalFolder.folderVideos[index].thumbnail = thumbnailPath
+            }
+            
+            // 保存文件夹数据（包含 folderVideos）
+            await this.folderManager.updateFolder(originalFolder.id, originalFolder)
           }
-
-          // 保存文件夹数据
-          await this.folderManager.saveFolder(this.selectedVideo)
 
           // 强制更新视图
           this.$forceUpdate()
@@ -3200,6 +3229,50 @@ export default {
         }
       } catch (error) {
         console.error('删除旧缩略图失败:', error)
+      }
+    },
+
+    // 获取文件夹视频的最大缩略图序号
+    async getMaxFolderVideoThumbnailNumber(folderName, videoName) {
+      try {
+        if (!window.electronAPI || !window.electronAPI.listFiles) {
+          console.warn('Electron API 不可用，使用默认序号')
+          return 0
+        }
+
+        // 获取文件夹的缩略图目录
+        const thumbnailDir = `${saveManager.thumbnailDirectories?.videos || 'SaveData/Video/Covers'}/${folderName}`
+        
+        // 列出目录中的所有文件
+        const result = await window.electronAPI.listFiles(thumbnailDir)
+        if (!result.success) {
+          console.warn('无法列出文件夹缩略图目录:', result.error)
+          return 0
+        }
+
+        const files = result.files || []
+        let maxNumber = 0
+        
+        // 查找匹配的文件名模式：视频名_cover_数字.jpg
+        const pattern = new RegExp(`^${videoName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_cover_(\\d+)\\.jpg$`)
+        
+        for (const file of files) {
+          // 只匹配文件名，不包含路径
+          const fileName = file.split(/[\\/]/).pop() || file
+          const match = fileName.match(pattern)
+          if (match) {
+            const number = parseInt(match[1], 10)
+            if (number > maxNumber) {
+              maxNumber = number
+            }
+          }
+        }
+        
+        console.log(`📊 文件夹 "${folderName}" 中视频 "${videoName}" 的最大缩略图序号: ${maxNumber}`)
+        return maxNumber
+      } catch (error) {
+        console.error('获取文件夹视频缩略图最大序号失败:', error)
+        return 0
       }
     },
 
