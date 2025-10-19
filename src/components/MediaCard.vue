@@ -36,13 +36,13 @@
         <p class="media-subtitle">{{ item.developer }}</p>
         <p class="media-tertiary" v-if="item.publisher && item.publisher !== '未知发行商'">{{ item.publisher }}</p>
         <p class="media-description" v-if="item.description">{{ item.description }}</p>
-        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+        <div class="media-tags" v-if="displayTags.length > 0">
           <span 
-            v-for="tag in item.tags.slice(0, 3)" 
+            v-for="tag in displayTags.slice(0, 3)" 
             :key="tag" 
             class="media-tag"
           >{{ tag }}</span>
-          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+          <span v-if="displayTags.length > 3" class="media-tag-more">+{{ displayTags.length - 3 }}</span>
         </div>
         <div class="media-stats">
           <span class="stat-item">{{ formatPlayTime(item.playTime) }}</span>
@@ -60,13 +60,13 @@
       <template v-if="type === 'image'">
         <p class="media-subtitle" v-if="item.author">{{ item.author }}</p>
         <p class="media-description" v-if="item.description">{{ item.description }}</p>
-        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+        <div class="media-tags" v-if="displayTags.length > 0">
           <span 
-            v-for="tag in item.tags.slice(0, 3)" 
+            v-for="tag in displayTags.slice(0, 3)" 
             :key="tag" 
             class="media-tag"
           >{{ tag }}</span>
-          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+          <span v-if="displayTags.length > 3" class="media-tag-more">+{{ displayTags.length - 3 }}</span>
         </div>
         <div class="media-stats">
           <span class="stat-item">{{ formatLastViewed(item.lastViewed) }}</span>
@@ -78,13 +78,13 @@
         <p class="media-subtitle" v-if="item.author">{{ item.author }}</p>
         <p class="media-tertiary" v-if="item.genre">{{ item.genre }}</p>
         <p class="media-description" v-if="item.description">{{ item.description }}</p>
-        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+        <div class="media-tags" v-if="displayTags.length > 0">
           <span 
-            v-for="tag in item.tags.slice(0, 3)" 
+            v-for="tag in displayTags.slice(0, 3)" 
             :key="tag" 
             class="media-tag"
           >{{ tag }}</span>
-          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+          <span v-if="displayTags.length > 3" class="media-tag-more">+{{ displayTags.length - 3 }}</span>
         </div>
         <div class="media-stats">
           <div class="progress-bar">
@@ -105,13 +105,13 @@
       <template v-if="type === 'video'">
         <p class="media-subtitle" v-if="item.series">{{ item.series }}</p>
         <p class="media-description" v-if="item.description">{{ item.description }}</p>
-        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+        <div class="media-tags" v-if="displayTags.length > 0">
           <span 
-            v-for="tag in item.tags.slice(0, 3)" 
+            v-for="tag in displayTags.slice(0, 3)" 
             :key="tag" 
             class="media-tag"
           >{{ tag }}</span>
-          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+          <span v-if="displayTags.length > 3" class="media-tag-more">+{{ displayTags.length - 3 }}</span>
         </div>
         <div class="media-actors" v-if="item.actors && item.actors.length > 0">
           <span class="actors-label">演员:</span>
@@ -130,13 +130,13 @@
       <template v-if="type === 'audio'">
         <p class="media-subtitle" v-if="item.artist">{{ item.artist }}</p>
         <p class="media-description" v-if="item.notes">{{ item.notes }}</p>
-        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+        <div class="media-tags" v-if="displayTags.length > 0">
           <span 
-            v-for="tag in item.tags.slice(0, 3)" 
+            v-for="tag in displayTags.slice(0, 3)" 
             :key="tag" 
             class="media-tag"
           >{{ tag }}</span>
-          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+          <span v-if="displayTags.length > 3" class="media-tag-more">+{{ displayTags.length - 3 }}</span>
         </div>
         <div class="media-actors" v-if="item.actors && item.actors.length > 0">
           <span class="actors-label">演员:</span>
@@ -155,13 +155,13 @@
       <template v-if="type === 'folder'">
         <p class="media-subtitle" v-if="item.series">{{ item.series }}</p>
         <p class="media-description" v-if="item.description">{{ item.description }}</p>
-        <div class="media-tags" v-if="item.tags && item.tags.length > 0">
+        <div class="media-tags" v-if="displayTags.length > 0">
           <span 
-            v-for="tag in item.tags.slice(0, 3)" 
+            v-for="tag in displayTags.slice(0, 3)" 
             :key="tag" 
             class="media-tag"
           >{{ tag }}</span>
-          <span v-if="item.tags.length > 3" class="media-tag-more">+{{ item.tags.length - 3 }}</span>
+          <span v-if="displayTags.length > 3" class="media-tag-more">+{{ displayTags.length - 3 }}</span>
         </div>
         <div class="media-actors" v-if="item.actors && item.actors.length > 0">
           <span class="actors-label">演员:</span>
@@ -180,9 +180,9 @@
 </template>
 
 <script>
-import { formatPlayTime, formatLastPlayed } from '../utils/formatters.js'
+import { formatPlayTime, formatLastPlayed } from '../utils/formatters'
 
-import disguiseManager from '../utils/DisguiseManager.js'
+import disguiseManager from '../utils/DisguiseManager'
 import { isDisguiseModeEnabled } from '../utils/disguiseMode'
 
 export default {
@@ -215,7 +215,9 @@ export default {
     return {
       imageCache: {},
       disguiseImageCache: {}, // 伪装图片缓存
-      disguiseTextCache: {} // 伪装文字缓存
+      disguiseTextCache: {}, // 伪装文字缓存
+      disguiseTagCache: {}, // 伪装标签缓存
+      disguiseModeState: false // 伪装模式状态，用于触发响应式更新
     }
   },
   computed: {
@@ -230,7 +232,10 @@ export default {
     
     // 获取显示的名称（支持伪装模式）
     displayName() {
-      if (isDisguiseModeEnabled()) {
+      // 依赖 disguiseModeState 以确保响应式更新
+      const disguiseModeEnabled = this.disguiseModeState
+      
+      if (disguiseModeEnabled) {
         // 检查伪装文字缓存
         if (this.disguiseTextCache[this.item.id]) {
           return this.disguiseTextCache[this.item.id]
@@ -241,6 +246,32 @@ export default {
         return this.item.name // 先返回原始名称，等异步加载完成
       }
       return this.item.name
+    },
+    
+    // 获取显示的标签（支持伪装模式）
+    displayTags() {
+      if (!this.item.tags || this.item.tags.length === 0) {
+        return []
+      }
+      
+      // 依赖 disguiseModeState 以确保响应式更新
+      const disguiseModeEnabled = this.disguiseModeState
+      console.log(`[displayTags] 伪装模式状态: ${disguiseModeEnabled}, 项目ID: ${this.item.id}, 原始标签:`, this.item.tags)
+      
+      if (disguiseModeEnabled) {
+        // 为每个标签使用全局伪装方法（确保在所有地方显示一致）
+        const disguisedTags = this.item.tags.map(tag => {
+          const disguiseTag = disguiseManager.getDisguiseTag(tag)
+          console.log(`[displayTags] 标签 "${tag}" 的伪装文字: "${disguiseTag}"`)
+          return disguiseTag
+        })
+        
+        console.log(`[displayTags] 最终伪装标签:`, disguisedTags)
+        return disguisedTags
+      }
+      
+      console.log(`[displayTags] 伪装模式未启用，返回原始标签:`, this.item.tags)
+      return this.item.tags
     },
     badgeText() {
       if (this.type === 'game') {
@@ -413,7 +444,8 @@ export default {
       }
       
       // 检查是否启用伪装模式（对所有类型有效）
-      if (isDisguiseModeEnabled()) {
+      // 依赖 disguiseModeState 以确保响应式更新
+      if (this.disguiseModeState) {
         console.log('MediaCard: 伪装模式已启用，处理图片:', imagePath)
         // 检查伪装图片缓存
         if (this.disguiseImageCache[imagePath]) {
@@ -549,6 +581,58 @@ export default {
       }
     },
     
+    /**
+     * 更新伪装模式状态
+     */
+    updateDisguiseModeState() {
+      const newState = isDisguiseModeEnabled()
+      if (this.disguiseModeState !== newState) {
+        console.log('MediaCard: 伪装模式状态变化:', this.disguiseModeState, '->', newState)
+        this.disguiseModeState = newState
+        
+        // 清除所有伪装缓存
+        this.clearDisguiseCaches()
+      }
+    },
+    
+    /**
+     * 清除所有伪装相关的缓存
+     */
+    clearDisguiseCaches() {
+      console.log('MediaCard: 清除所有伪装缓存')
+      this.disguiseImageCache = {}
+      this.disguiseTextCache = {}
+      this.disguiseTagCache = {}
+      // 强制组件重新渲染
+      this.$forceUpdate()
+    },
+    
+    /**
+     * 监听 localStorage 变化
+     */
+    handleStorageChange(event) {
+      if (event.key === 'butter-manager-settings') {
+        console.log('MediaCard: 检测到设置变化，更新伪装模式状态')
+        this.updateDisguiseModeState()
+      }
+    }
+    
+  },
+  mounted() {
+    // 初始化伪装模式状态
+    this.disguiseModeState = isDisguiseModeEnabled()
+    console.log('MediaCard mounted: 初始伪装模式状态:', this.disguiseModeState)
+    
+    // 监听 storage 事件以响应设置变化
+    window.addEventListener('storage', this.handleStorageChange)
+    
+    // 由于 storage 事件不会在同一标签页触发，我们需要使用自定义事件
+    window.addEventListener('disguise-mode-changed', this.updateDisguiseModeState)
+  },
+  beforeUnmount() {
+    // 清理事件监听器
+    window.removeEventListener('storage', this.handleStorageChange)
+    window.removeEventListener('disguise-mode-changed', this.updateDisguiseModeState)
   }
 }
 </script>

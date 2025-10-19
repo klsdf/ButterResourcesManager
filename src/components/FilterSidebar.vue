@@ -38,7 +38,7 @@
         >
           <span v-if="filter.selected && filter.selected.includes(item.name)" class="include-indicator">✓</span>
           <span v-if="filter.excluded && filter.excluded.includes(item.name)" class="exclude-indicator">∅</span>
-          <span class="filter-name">{{ item.name }}</span>
+          <span class="filter-name">{{ getDisplayName(item.name) }}</span>
           <span class="filter-count">({{ item.count }})</span>
         </div>
         <div v-if="filter.items.length === 0" class="no-filters">
@@ -56,6 +56,9 @@
 </template>
 
 <script>
+import disguiseManager from '../utils/DisguiseManager'
+import { isDisguiseModeEnabled } from '../utils/disguiseMode'
+
 export default {
   name: 'FilterSidebar',
   props: {
@@ -79,6 +82,11 @@ export default {
     }
   },
   emits: ['filter-select', 'filter-exclude', 'filter-clear'],
+  data() {
+    return {
+      disguiseModeState: false // 伪装模式状态
+    }
+  },
   methods: {
     selectFilter(filterKey, itemName) {
       console.log('FilterSidebar selectFilter:', filterKey, itemName)
@@ -90,7 +98,55 @@ export default {
     },
     clearFilter(filterKey) {
       this.$emit('filter-clear', filterKey)
+    },
+    /**
+     * 获取显示名称（支持伪装模式）
+     */
+    getDisplayName(originalName) {
+      if (this.disguiseModeState) {
+        const disguiseName = disguiseManager.getDisguiseTag(originalName)
+        console.log(`[FilterSidebar] 标签伪装: "${originalName}" -> "${disguiseName}"`)
+        return disguiseName
+      }
+      return originalName
+    },
+    /**
+     * 更新伪装模式状态
+     */
+    updateDisguiseModeState() {
+      const newState = isDisguiseModeEnabled()
+      if (this.disguiseModeState !== newState) {
+        console.log('[FilterSidebar] 伪装模式状态变化:', this.disguiseModeState, '->', newState)
+        this.disguiseModeState = newState
+        // 强制组件重新渲染
+        this.$forceUpdate()
+      }
+    },
+    /**
+     * 监听 localStorage 变化
+     */
+    handleStorageChange(event) {
+      if (event.key === 'butter-manager-settings') {
+        console.log('[FilterSidebar] 检测到设置变化，更新伪装模式状态')
+        this.updateDisguiseModeState()
+      }
     }
+  },
+  mounted() {
+    // 初始化伪装模式状态
+    this.disguiseModeState = isDisguiseModeEnabled()
+    console.log('[FilterSidebar] mounted: 初始伪装模式状态:', this.disguiseModeState)
+    
+    // 监听 storage 事件以响应设置变化
+    window.addEventListener('storage', this.handleStorageChange)
+    
+    // 监听自定义事件
+    window.addEventListener('disguise-mode-changed', this.updateDisguiseModeState)
+  },
+  beforeUnmount() {
+    // 清理事件监听器
+    window.removeEventListener('storage', this.handleStorageChange)
+    window.removeEventListener('disguise-mode-changed', this.updateDisguiseModeState)
   }
 }
 </script>

@@ -1183,9 +1183,20 @@ export default {
         console.error('清除伪装图片缓存失败:', error)
       }
       
+      // 触发自定义事件，通知所有 MediaCard 组件更新状态
+      try {
+        const event = new CustomEvent('disguise-mode-changed', {
+          detail: { enabled: this.settings.disguiseMode }
+        })
+        window.dispatchEvent(event)
+        console.log('已触发 disguise-mode-changed 事件')
+      } catch (error) {
+        console.error('触发伪装模式变化事件失败:', error)
+      }
+      
       this.showToastNotification(
         '伪装模式设置已更新', 
-        this.settings.disguiseMode ? '已开启伪装模式，图片封面将随机替换' : '已关闭伪装模式，显示原始封面'
+        this.settings.disguiseMode ? '已开启伪装模式，图片封面和标签将随机替换' : '已关闭伪装模式，显示原始封面和标签'
       )
     },
     async onScreenshotKeyChange() {

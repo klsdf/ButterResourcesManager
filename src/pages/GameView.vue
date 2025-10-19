@@ -146,7 +146,7 @@ import MediaCard from '../components/MediaCard.vue'
 import FormField from '../components/FormField.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
-import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters.js'
+import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFirstPlayed } from '../utils/formatters'
 
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'

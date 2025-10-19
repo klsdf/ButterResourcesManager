@@ -4,11 +4,13 @@
  */
 
 class DisguiseManager {
+  private disguiseImages: string[] = []
+  private disguiseCache = new Map<string, string>() // 缓存已选择的伪装图片
+  private isInitialized = false
+  private disguiseTexts: string[] = []
+  private globalTagCache = new Map<string, string>() // 全局标签伪装缓存，确保同一标签在不同地方显示相同的伪装文字
+
   constructor() {
-    this.disguiseImages = []
-    this.disguiseCache = new Map() // 缓存已选择的伪装图片
-    this.isInitialized = false
-    
     // 伪装文字数组
     this.disguiseTexts = [
       '大学物理',
@@ -193,12 +195,33 @@ class DisguiseManager {
   }
 
   /**
+   * 获取标签的全局伪装文字（确保同一标签在不同地方显示相同的伪装）
+   * @param {string} tagName - 原始标签名称
+   * @returns {string} 伪装后的标签名称
+   */
+  getDisguiseTag(tagName: string): string {
+    // 检查全局缓存
+    if (this.globalTagCache.has(tagName)) {
+      const cached = this.globalTagCache.get(tagName)!
+      console.log(`[DisguiseManager] 使用全局缓存的标签伪装: "${tagName}" -> "${cached}"`)
+      return cached
+    }
+    
+    // 生成新的伪装标签
+    const disguiseText = this.getRandomDisguiseText()
+    this.globalTagCache.set(tagName, disguiseText)
+    console.log(`[DisguiseManager] 为标签 "${tagName}" 生成全局伪装: "${disguiseText}"`)
+    return disguiseText
+  }
+
+  /**
    * 清除伪装图片缓存
    * 在伪装模式开关时调用
    */
   clearCache() {
     this.disguiseCache.clear()
-    console.log('伪装图片缓存已清除')
+    this.globalTagCache.clear()
+    console.log('伪装图片缓存和全局标签缓存已清除')
   }
 
   /**
@@ -226,6 +249,7 @@ class DisguiseManager {
   async reload() {
     this.isInitialized = false
     this.disguiseCache.clear()
+    this.globalTagCache.clear()
     await this.initialize()
     console.log('伪装图片列表已重新加载')
   }
