@@ -45,87 +45,11 @@
     </div>
 
     <!-- 添加视频对话框 -->
-    <div v-if="showAddDialog" class="modal-overlay" @click="closeAddVideoDialog">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>添加视频</h3>
-          <button class="modal-close" @click="closeAddVideoDialog">✕</button>
-        </div>
-        <div class="modal-body">
-          <form @submit.prevent="addVideo">
-            <FormField
-              label="视频名称"
-              type="text"
-              v-model="newVideo.name"
-              placeholder="未填写将自动使用文件名"
-            />
-            
-            <FormField
-              label="系列名"
-              type="text"
-              v-model="newVideo.series"
-              placeholder="如：复仇者联盟"
-            />
-
-            <FormField
-              label="演员"
-              type="text"
-              v-model="actorsInput"
-              placeholder="用逗号分隔多个演员"
-              @blur="parseActors"
-            />
-
-            <FormField
-              label="标签"
-              type="tags"
-              v-model="newVideo.tags"
-              v-model:tagInput="tagsInput"
-              @add-tag="addTag"
-              @remove-tag="removeTag"
-            />
-
-            <FormField
-              label="描述"
-              type="textarea"
-              v-model="newVideo.description"
-              placeholder="视频描述..."
-              :rows="3"
-            />
-
-            <FormField
-              label="视频文件"
-              type="file"
-              v-model="newVideo.filePath"
-              placeholder="选择视频文件..."
-              @browse="selectVideoFile"
-            />
-
-            <FormField
-              label="缩略图"
-              type="file"
-              v-model="newVideo.thumbnail"
-              placeholder="选择缩略图..."
-              @browse="selectThumbnailFile"
-            />
-
-            <FormField
-              label="时长 (分钟)"
-              type="number"
-              v-model="newVideo.duration"
-              placeholder="120"
-            />
-          </form>
-        </div>
-        <div class="modal-footer">
-          <button type="button" @click="closeAddVideoDialog" class="btn-cancel">
-            取消
-          </button>
-          <button type="button" @click="addVideo" class="btn-confirm">
-            添加视频
-          </button>
-        </div>
-      </div>
-    </div>
+    <AddVideoDialog 
+      :visible="showAddDialog" 
+      @close="closeAddVideoDialog"
+      @add-video="handleAddVideo"
+    />
 
     <!-- 添加文件夹对话框 -->
     <div v-if="showFolderDialog" class="modal-overlay" @click="closeAddFolderDialog">
@@ -217,19 +141,42 @@
       <template #extra v-if="selectedVideo && selectedVideo.type === 'folder' && selectedVideo.folderVideos">
         <div class="folder-videos-section">
           <h4>文件夹中的视频 ({{ selectedVideo.folderVideos.length }} 个)</h4>
-          <div class="folder-videos-list" v-if="selectedVideo.folderVideos.length > 0">
+          <div class="folder-videos-grid" v-if="selectedVideo.folderVideos.length > 0">
             <div 
               v-for="(video, index) in selectedVideo.folderVideos" 
               :key="index"
-              class="folder-video-item"
-              @click="playFolderVideo(video)"
+              class="folder-video-card"
             >
-              <div class="video-icon">🎬</div>
-              <div class="video-info">
-                <div class="video-name">{{ video.name }}</div>
-                <div class="video-path">{{ video.path }}</div>
+              <div class="folder-video-thumbnail-wrapper">
+                <div class="folder-video-thumbnail" v-if="video.thumbnail">
+                  <img :src="getThumbnailUrl(video.thumbnail)" :alt="video.name" @error="handleFolderVideoThumbnailError">
+                </div>
+                <div class="folder-video-thumbnail placeholder" v-else>
+                  <span>🎬</span>
+                </div>
+                <div class="video-overlay">
+                  <button 
+                    class="overlay-action-button play-btn" 
+                    @click.stop="playFolderVideo(video)"
+                    title="播放视频"
+                  >
+                    ▶️
+                  </button>
+                </div>
               </div>
-              <div class="play-button">▶️</div>
+              <div class="folder-video-info">
+                <div class="video-name" :title="video.name">{{ video.name }}</div>
+                <div class="video-actions">
+                  <button 
+                    class="action-button generate-thumbnail-btn" 
+                    @click.stop="generateFolderVideoThumbnail(video, index)"
+                    :disabled="video.isGeneratingThumbnail"
+                    :title="video.thumbnail ? '重新生成缩略图' : '生成缩略图'"
+                  >
+                    {{ video.isGeneratingThumbnail ? '⏳' : '📷' }}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <div v-else class="no-videos">
@@ -418,6 +365,7 @@ import MediaCard from '../components/MediaCard.vue'
 import DetailPanel from '../components/DetailPanel.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 import VideoSelector from '../components/VideoSelector.vue'
+import AddVideoDialog from '../components/video/AddVideoDialog.vue'
 
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'
@@ -432,6 +380,7 @@ export default {
     DetailPanel,
     PathUpdateDialog,
     VideoSelector,
+    AddVideoDialog,
   },
   emits: ['filter-data-updated'],
   data() {
@@ -458,16 +407,6 @@ export default {
       },
       showDetailDialog: false,
       selectedVideo: null,
-      newVideo: {
-        name: '',
-        description: '',
-        tags: [],
-        actors: [],
-        series: '',
-        duration: 0,
-        filePath: '',
-        thumbnail: ''
-      },
       newFolder: {
         name: '',
         description: '',
@@ -477,8 +416,6 @@ export default {
         folderPath: '',
         thumbnail: ''
       },
-      actorsInput: '',
-      tagsInput: '',
       folderActorsInput: '',
       folderTagsInput: '',
       // 编辑相关
@@ -876,6 +813,9 @@ export default {
             }
           }
         }
+        
+        // 重新提取筛选器数据（包含文件夹的标签、演员、系列）
+        this.extractAllFilters()
       }
     },
 
@@ -1498,13 +1438,11 @@ export default {
     },
 
     showAddVideoDialog() {
-      this.resetNewVideo()
       this.showAddDialog = true
     },
 
     closeAddVideoDialog() {
       this.showAddDialog = false
-      this.resetNewVideo()
     },
 
     showAddFolderDialog() {
@@ -1521,21 +1459,6 @@ export default {
       this.resetNewFolder()
     },
 
-    resetNewVideo() {
-      this.newVideo = {
-        name: '',
-        description: '',
-        tags: [],
-        actors: [],
-        series: '',
-        duration: 0,
-        filePath: '',
-        thumbnail: ''
-      }
-      this.actorsInput = ''
-      this.tagsInput = ''
-    },
-
     resetNewFolder() {
       this.newFolder = {
         name: '',
@@ -1550,27 +1473,10 @@ export default {
       this.folderTagsInput = ''
     },
 
-    parseActors() {
-      if (this.actorsInput.trim()) {
-        this.newVideo.actors = this.actorsInput.split(',').map(actor => actor.trim()).filter(actor => actor)
-      }
-    },
-
     parseFolderActors() {
       if (this.folderActorsInput.trim()) {
         this.newFolder.actors = this.folderActorsInput.split(',').map(actor => actor.trim()).filter(actor => actor)
       }
-    },
-
-    addTag() {
-      const tag = this.tagsInput.trim()
-      if (tag && !this.newVideo.tags.includes(tag)) {
-        this.newVideo.tags.push(tag)
-        this.tagsInput = ''
-      }
-    },
-    removeTag(index) {
-      this.newVideo.tags.splice(index, 1)
     },
 
     addFolderTag() {
@@ -1665,57 +1571,6 @@ export default {
       }
     },
 
-    async selectVideoFile() {
-      try {
-        const filePath = await window.electronAPI.selectVideoFile()
-        if (filePath) {
-          this.newVideo.filePath = filePath
-          if (!this.newVideo.name || !this.newVideo.name.trim()) {
-            this.newVideo.name = this.extractNameFromPath(filePath)
-          }
-          
-          // 自动获取视频时长
-          try {
-            console.log('🔄 开始获取视频时长...')
-            const duration = await this.getVideoDuration(filePath)
-            if (duration > 0) {
-              this.newVideo.duration = duration
-              console.log('✅ 视频时长获取成功:', duration, '分钟')
-            }
-          } catch (e) {
-            console.warn('获取视频时长失败:', e)
-          }
-          
-          // 自动生成缩略图（若未手动设置）
-          if (!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) {
-            try {
-              console.log('🔄 开始自动生成缩略图...')
-              const thumb = await this.generateThumbnail(filePath, this.newVideo.name)
-              console.log('🔄 缩略图生成结果:', thumb)
-              if (thumb) {
-                this.newVideo.thumbnail = thumb
-                console.log('✅ 缩略图已设置到表单:', this.newVideo.thumbnail)
-              }
-            } catch (e) {
-              console.warn('自动生成缩略图失败:', e)
-            }
-          }
-        }
-      } catch (error) {
-        console.error('选择视频文件失败:', error)
-      }
-    },
-
-    async selectThumbnailFile() {
-      try {
-        const filePath = await window.electronAPI.selectImageFile()
-        if (filePath) {
-          this.newVideo.thumbnail = filePath
-        }
-      } catch (error) {
-        console.error('选择缩略图失败:', error)
-      }
-    },
 
 
     async selectFolderThumbnailFile() {
@@ -1729,35 +1584,13 @@ export default {
       }
     },
 
-    async addVideo() {
-      if (!this.newVideo.name || !this.newVideo.name.trim()) {
-        if (this.newVideo.filePath) {
-          this.newVideo.name = this.extractNameFromPath(this.newVideo.filePath)
-        }
-      }
-      if (!this.newVideo.name || !this.newVideo.name.trim()) {
-        alert('请至少选择一个视频文件或填写名称')
-        return
-      }
-
-      this.parseActors()
-
+    async handleAddVideo(videoData) {
       try {
-        // 若未设置缩略图且存在视频文件，尝试生成一张
-        if ((!this.newVideo.thumbnail || !this.newVideo.thumbnail.trim()) && this.newVideo.filePath) {
-          try {
-            const thumb = await this.generateThumbnail(this.newVideo.filePath, this.newVideo.name)
-            if (thumb) this.newVideo.thumbnail = thumb
-          } catch (e) {
-            console.warn('生成缩略图失败，跳过:', e)
-          }
-        }
-        await this.videoManager.addVideo(this.newVideo)
+        await this.videoManager.addVideo(videoData)
         await this.loadVideos()
-        this.closeAddVideoDialog()
         
         // 成功时使用 toast 通知
-        this.showToastNotification('添加成功', `视频 "${this.newVideo.name}" 已成功添加`)
+        this.showToastNotification('添加成功', `视频 "${videoData.name}" 已成功添加`)
       } catch (error) {
         console.error('添加视频失败:', error)
         this.showToastNotification('添加失败', `添加视频失败: ${error.message}`)
@@ -1904,6 +1737,237 @@ export default {
         this.showToastNotification('播放失败', `播放视频失败: ${error.message}`)
       }
     },
+
+    // 为文件夹中的视频生成缩略图
+    async generateFolderVideoThumbnail(video, index) {
+      try {
+        console.log('开始为文件夹视频生成缩略图:', {
+          name: video.name,
+          path: video.path,
+          currentThumbnail: video.thumbnail
+        })
+
+        // 设置生成状态（Vue 3 方式）
+        video.isGeneratingThumbnail = true
+
+        // 生成缩略图文件名：使用文件夹名作为子目录
+        const folderName = this.selectedVideo.name
+        const cleanFolderName = folderName.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
+        const videoFileName = this.extractVideoName(video.path.split('/').pop() || video.path.split('\\').pop() || '')
+        const cleanVideoName = videoFileName.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
+        const timestamp = Date.now()
+        const thumbnailFilename = `${cleanFolderName}/${cleanVideoName}_${timestamp}.jpg`
+
+        console.log('缩略图文件名:', thumbnailFilename)
+
+        // 生成缩略图
+        const thumbnailPath = await this.generateThumbnailForFolderVideo(video.path, thumbnailFilename)
+
+        if (thumbnailPath) {
+          console.log('✅ 缩略图生成成功:', thumbnailPath)
+          
+          // 更新视频对象的缩略图路径（Vue 3 方式）
+          video.thumbnail = thumbnailPath
+          
+          // 更新到原始文件夹对象中
+          if (this.selectedVideo && this.selectedVideo.folderVideos) {
+            const videoInList = this.selectedVideo.folderVideos[index]
+            if (videoInList) {
+              videoInList.thumbnail = thumbnailPath
+            }
+          }
+
+          // 同时更新到 folders 数组中
+          const originalFolder = this.folders.find(f => f.id === this.selectedVideo.id)
+          if (originalFolder && originalFolder.folderVideos && originalFolder.folderVideos[index]) {
+            originalFolder.folderVideos[index].thumbnail = thumbnailPath
+          }
+
+          // 保存文件夹数据
+          await this.folderManager.saveFolder(this.selectedVideo)
+
+          // 强制更新视图
+          this.$forceUpdate()
+
+          this.showToastNotification('生成成功', `缩略图已生成: ${video.name}`)
+        } else {
+          console.warn('⚠️ 缩略图生成失败')
+          this.showToastNotification('生成失败', '无法生成缩略图，请检查视频文件是否有效')
+        }
+      } catch (error) {
+        console.error('生成文件夹视频缩略图失败:', error)
+        this.showToastNotification('生成失败', `生成缩略图失败: ${error.message}`)
+      } finally {
+        // 清除生成状态（Vue 3 方式）
+        video.isGeneratingThumbnail = false
+        // 强制更新视图
+        this.$forceUpdate()
+      }
+    },
+
+    // 为文件夹视频生成缩略图（专用方法）
+    async generateThumbnailForFolderVideo(filePath, thumbnailFilename) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          if (!filePath) {
+            console.warn('⚠️ generateThumbnailForFolderVideo: 文件路径为空')
+            return resolve(null)
+          }
+          
+          console.log('🔍 generateThumbnailForFolderVideo 开始处理:', filePath)
+          
+          // 检查文件扩展名
+          const extension = filePath.toLowerCase().split('.').pop()
+          const supportedFormats = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'mkv', 'flv', 'wmv']
+          if (!supportedFormats.includes(extension)) {
+            console.warn('⚠️ 不支持的视频格式:', extension)
+            return resolve(null)
+          }
+          
+          let src = filePath
+          // 优先通过 getFileUrl 生成可加载的 file:// 或安全映射 URL
+          if (window.electronAPI && window.electronAPI.getFileUrl) {
+            try {
+              console.log('📡 调用 getFileUrl API...')
+              const result = await window.electronAPI.getFileUrl(filePath)
+              console.log('📡 getFileUrl 返回:', result)
+              if (result && result.success && result.url && result.url.startsWith('file://')) {
+                src = result.url
+                console.log('✅ 使用 getFileUrl 生成的 URL:', src)
+              } else {
+                console.warn('⚠️ getFileUrl 返回格式不正确:', result)
+                src = this.buildFileUrl(filePath)
+              }
+            } catch (e) {
+              console.warn('⚠️ getFileUrl 调用失败:', e)
+              src = this.buildFileUrl(filePath)
+            }
+          } else {
+            console.warn('⚠️ getFileUrl API 不可用，使用降级方案')
+            src = this.buildFileUrl(filePath)
+          }
+
+          console.log('🎬 创建 video 元素，src:', src)
+          const video = document.createElement('video')
+          video.style.position = 'fixed'
+          video.style.left = '-9999px'
+          video.style.top = '-9999px'
+          video.muted = true
+          video.preload = 'metadata'
+          video.crossOrigin = 'anonymous'
+          video.src = src
+
+          // 设置超时
+          const timeout = setTimeout(() => {
+            console.warn('⏰ 视频加载超时')
+            cleanup()
+            resolve(null)
+          }, 10000)
+
+          const onError = (e) => {
+            console.error('❌ 视频加载错误:', e)
+            cleanup()
+            resolve(null)
+          }
+
+          const cleanup = () => {
+            clearTimeout(timeout)
+            console.log('🧹 清理 video 元素和事件监听器')
+            video.removeEventListener('error', onError)
+            video.removeEventListener('loadedmetadata', onLoadedMeta)
+            video.removeEventListener('seeked', onSeeked)
+            try { 
+              video.pause() 
+              if (video.parentNode) {
+                video.parentNode.removeChild(video)
+              }
+            } catch (e) {
+              console.warn('清理 video 元素时出错:', e)
+            }
+          }
+
+          const onSeeked = () => {
+            try {
+              console.log('🎯 视频定位完成，开始截取帧...')
+              
+              const canvas = document.createElement('canvas')
+              const width = Math.min(800, video.videoWidth || 800)
+              const height = Math.floor((video.videoHeight || 450) * (width / (video.videoWidth || 800)))
+              canvas.width = width
+              canvas.height = height
+              
+              const ctx = canvas.getContext('2d')
+              ctx.drawImage(video, 0, 0, width, height)
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+              console.log('✅ 缩略图生成成功，dataURL 长度:', dataUrl.length)
+              
+              // 保存为本地文件
+              const saveThumbnailFile = async () => {
+                try {
+                  const savedPath = await saveManager.saveThumbnail('videos', thumbnailFilename, dataUrl)
+                  
+                  if (savedPath) {
+                    console.log('✅ 缩略图保存为本地文件:', savedPath)
+                    cleanup()
+                    resolve(savedPath)
+                  } else {
+                    console.warn('⚠️ 缩略图保存失败')
+                    cleanup()
+                    resolve(null)
+                  }
+                } catch (saveError) {
+                  console.error('❌ 保存缩略图文件失败:', saveError)
+                  cleanup()
+                  resolve(null)
+                }
+              }
+              
+              saveThumbnailFile()
+              
+            } catch (err) {
+              console.error('❌ 截取帧时出错:', err)
+              cleanup()
+              resolve(null)
+            }
+          }
+
+          const onLoadedMeta = () => {
+            try {
+              console.log('📊 视频元数据加载完成')
+              
+              const duration = Math.max(0, Number(video.duration) || 0)
+              const start = duration * 0.05
+              const end = duration * 0.8
+              const target = isFinite(duration) && duration > 0 ? (start + Math.random() * (end - start)) : 1.0
+              
+              console.log('🎯 目标时间:', target)
+              video.currentTime = target
+            } catch (err) {
+              console.error('❌ 设置视频时间时出错:', err)
+              cleanup()
+              resolve(null)
+            }
+          }
+
+          video.addEventListener('error', onError)
+          video.addEventListener('loadedmetadata', onLoadedMeta, { once: true })
+          video.addEventListener('seeked', onSeeked, { once: true })
+
+          document.body.appendChild(video)
+          console.log('📎 Video 元素已添加到文档')
+        } catch (e) {
+          console.error('❌ generateThumbnailForFolderVideo 外层错误:', e)
+          resolve(null)
+        }
+      })
+    },
+
+    // 处理文件夹视频缩略图加载错误
+    handleFolderVideoThumbnailError(event) {
+      console.log('文件夹视频缩略图加载失败')
+      event.target.style.display = 'none'
+    },
+
     handleDetailAction(actionKey, item) {
       if (item.type === 'folder') {
         switch (actionKey) {
@@ -3412,24 +3476,27 @@ export default {
       const actorCount = {}
       const seriesCount = {}
       
-      this.videos.forEach(video => {
+      // 合并视频和文件夹的数据
+      const allItems = [...this.videos, ...this.folders]
+      
+      allItems.forEach(item => {
         // 提取标签
-        if (video.tags && Array.isArray(video.tags)) {
-          video.tags.forEach(tag => {
+        if (item.tags && Array.isArray(item.tags)) {
+          item.tags.forEach(tag => {
             tagCount[tag] = (tagCount[tag] || 0) + 1
           })
         }
         
         // 提取演员
-        if (video.actors && Array.isArray(video.actors)) {
-          video.actors.forEach(actor => {
+        if (item.actors && Array.isArray(item.actors)) {
+          item.actors.forEach(actor => {
             actorCount[actor] = (actorCount[actor] || 0) + 1
           })
         }
         
         // 提取系列
-        if (video.series) {
-          seriesCount[video.series] = (seriesCount[video.series] || 0) + 1
+        if (item.series) {
+          seriesCount[item.series] = (seriesCount[item.series] || 0) + 1
         }
       })
       
@@ -4423,75 +4490,175 @@ export default {
 }
 
 .folder-videos-section h4 {
-  margin: 0 0 15px 0;
+  margin: 0 0 20px 0;
   color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
 }
 
-.folder-videos-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
+.folder-videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  max-height: 500px;
   overflow-y: auto;
+  padding: 4px;
 }
 
-.folder-video-item {
+.folder-video-card {
+  background: var(--bg-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.folder-video-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px var(--shadow-medium);
+  border-color: var(--accent-color);
+}
+
+.folder-video-thumbnail-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 aspect ratio */
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.folder-video-thumbnail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
-  padding: 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  justify-content: center;
+}
+
+.folder-video-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.folder-video-card:hover .folder-video-thumbnail img {
+  transform: scale(1.05);
+}
+
+.folder-video-thumbnail.placeholder {
+  font-size: 48px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+}
+
+.video-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.folder-video-card:hover .video-overlay {
+  opacity: 1;
+}
+
+.overlay-action-button {
+  width: 50px;
+  height: 50px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--accent-color);
+  border-radius: 50%;
   cursor: pointer;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.folder-video-item:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--accent-color);
-  transform: translateY(-1px);
+.overlay-action-button:hover {
+  background: white;
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
-.video-icon {
-  font-size: 20px;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-.video-info {
-  flex: 1;
-  min-width: 0;
+.folder-video-info {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .video-name {
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 4px;
-  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-height: 40px;
 }
 
-.video-path {
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.video-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
-.play-button {
-  font-size: 16px;
-  margin-left: 12px;
-  flex-shrink: 0;
-  opacity: 0.7;
-  transition: opacity 0.3s ease;
+.action-button {
+  padding: 6px 12px;
+  border: none;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+  border: 1px solid var(--border-color);
 }
 
-.folder-video-item:hover .play-button {
-  opacity: 1;
+.action-button:hover:not(:disabled) {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+}
+
+.action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.generate-thumbnail-btn {
+  background: var(--bg-tertiary);
+}
+
+.generate-thumbnail-btn:hover:not(:disabled) {
+  background: #17a2b8;
+  border-color: #17a2b8;
+  color: white;
 }
 
 .no-videos {
@@ -4526,20 +4693,24 @@ export default {
     margin: 20px;
   }
 
-  .folder-videos-list {
-    max-height: 200px;
+  .folder-videos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    max-height: 400px;
+    gap: 12px;
   }
 
-  .folder-video-item {
-    padding: 10px;
+  .folder-video-info {
+    padding: 8px;
   }
 
   .video-name {
-    font-size: 14px;
+    font-size: 12px;
+    min-height: 32px;
   }
 
-  .video-path {
-    font-size: 11px;
+  .action-button {
+    padding: 4px 8px;
+    font-size: 12px;
   }
 }
 

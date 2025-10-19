@@ -1475,7 +1475,7 @@ export default {
       
       try {
         // 获取当前正在运行的游戏
-        const runningGame = this.games.find(game => this.runningGames.has(game.id))
+        const runningGame = this.games.find(game => this.isGameRunning(game))
         const gameName = runningGame ? runningGame.name : 'Screenshot'
         
         // 获取用户设置的截图选项
