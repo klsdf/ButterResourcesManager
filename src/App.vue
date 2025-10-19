@@ -163,6 +163,7 @@ export default {
       theme: 'light',
       version: '0.0.0',
       isLoading: true, // 应用加载状态
+      isInitialized: false, // 存档系统是否已初始化
       // 筛选器相关数据
       showFilterSidebar: false,
       isFilterSidebarLoading: false,
@@ -558,11 +559,14 @@ export default {
       const initSuccess = await saveManager.initialize()
       if (initSuccess) {
         console.log('✅ 存档系统初始化成功')
+        this.isInitialized = true // 标记初始化完成
       } else {
         console.warn('⚠️ 存档系统初始化失败，但应用将继续运行')
+        this.isInitialized = true // 即使失败也标记为完成，避免阻塞
       }
     } catch (error) {
       console.error('存档系统初始化出错:', error)
+      this.isInitialized = true // 即使出错也标记为完成，避免阻塞
     }
 
     // 加载最后访问的页面

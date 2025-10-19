@@ -183,6 +183,7 @@
 import { formatPlayTime, formatLastPlayed } from '../utils/formatters.js'
 
 import disguiseManager from '../utils/DisguiseManager.js'
+import { isDisguiseModeEnabled } from '../utils/disguiseMode'
 
 export default {
   name: 'MediaCard',
@@ -229,7 +230,7 @@ export default {
     
     // 获取显示的名称（支持伪装模式）
     displayName() {
-      if (this.isDisguiseModeEnabled()) {
+      if (isDisguiseModeEnabled()) {
         // 检查伪装文字缓存
         if (this.disguiseTextCache[this.item.id]) {
           return this.disguiseTextCache[this.item.id]
@@ -412,7 +413,7 @@ export default {
       }
       
       // 检查是否启用伪装模式（对所有类型有效）
-      if (this.isDisguiseModeEnabled()) {
+      if (isDisguiseModeEnabled()) {
         console.log('MediaCard: 伪装模式已启用，处理图片:', imagePath)
         // 检查伪装图片缓存
         if (this.disguiseImageCache[imagePath]) {
@@ -548,29 +549,6 @@ export default {
       }
     },
     
-    /**
-     * 检查伪装模式是否启用
-     * @returns {boolean} 是否启用伪装模式
-     */
-    isDisguiseModeEnabled() {
-      try {
-        // 从localStorage中获取伪装模式设置
-        // 这里使用localStorage作为简单的实现，因为SaveManager的loadSettings是异步的
-        // 在实际使用中，可以考虑使用Vuex或其他状态管理来同步设置
-        const settings = localStorage.getItem('butter-manager-settings')
-        if (settings) {
-          const parsedSettings = JSON.parse(settings)
-          const isEnabled = parsedSettings.disguiseMode === true
-          console.log('MediaCard: 检查伪装模式设置:', isEnabled, '设置数据:', parsedSettings.disguiseMode)
-          return isEnabled
-        }
-        console.log('MediaCard: 没有找到设置数据，伪装模式默认关闭')
-        return false
-      } catch (error) {
-        console.error('MediaCard: 检查伪装模式设置失败:', error)
-        return false
-      }
-    }
   }
 }
 </script>

@@ -1806,6 +1806,16 @@ export default {
   },
   async mounted() {
     try {
+      // 等待父组件（App.vue）的存档系统初始化完成
+      const maxWaitTime = 5000
+      const startTime = Date.now()
+      while (!this.$parent.isInitialized && (Date.now() - startTime) < maxWaitTime) {
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      if (this.$parent.isInitialized) {
+        console.log('✅ 存档系统已初始化，开始加载设置数据')
+      }
+      
       // 使用 SaveManager 加载设置
       this.settings = await saveManager.loadSettings()
       console.log('加载的设置:', this.settings)

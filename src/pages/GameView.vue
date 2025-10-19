@@ -182,9 +182,6 @@ export default {
         executablePath: '',
         imagePath: ''
       },
-      // 伪装模式相关
-      disguiseImageCache: {},
-      disguiseTextCache: {},
       isScreenshotInProgress: false, // 防止重复截图
       lastScreenshotTime: 0, // 记录上次截图时间
       tagInput: '', // 标签输入框的值
@@ -481,7 +478,7 @@ export default {
       }
 
       this.games.push(game)
-      this.saveGames()
+      await this.saveGames()
       this.closeAddGameDialog()
     },
     async launchGame(game) {
@@ -503,7 +500,7 @@ export default {
         console.log('更新后 - lastPlayed:', game.lastPlayed)
         console.log('更新后 - playCount:', game.playCount)
 
-        this.saveGames()
+        await this.saveGames()
         console.log('游戏数据已保存')
 
         if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.launchGame) {
@@ -2051,106 +2048,6 @@ export default {
     handleSortByChanged(newValue) {
       this.sortBy = newValue
       console.log('✅ GameView 排序方式已更新:', newValue)
-    },
-
-    // 伪装模式相关方法
-    /**
-     * 检查伪装模式是否启用
-     * @returns {boolean} 是否启用伪装模式
-     */
-    isDisguiseModeEnabled() {
-      try {
-        const settings = localStorage.getItem('butter-manager-settings')
-        if (settings) {
-          const parsedSettings = JSON.parse(settings)
-          const isEnabled = parsedSettings.disguiseMode === true
-          console.log('GameView: 检查伪装模式设置:', isEnabled, '设置数据:', parsedSettings.disguiseMode)
-          return isEnabled
-        }
-        console.log('GameView: 没有找到设置数据，伪装模式默认关闭')
-        return false
-      } catch (error) {
-        console.error('GameView: 检查伪装模式设置失败:', error)
-        return false
-      }
-    },
-
-    /**
-     * 异步加载伪装图片
-     * @param {string} imagePath - 原始图片路径
-     */
-    async loadDisguiseImage(imagePath) {
-      console.log('GameView: 开始加载伪装图片，原始路径:', imagePath)
-      try {
-        const disguiseManager = await import('../utils/DisguiseManager.js')
-        const disguiseImage = await disguiseManager.default.getRandomDisguiseImage(imagePath)
-        console.log('GameView: 获取到伪装图片路径:', disguiseImage)
-        // 使用Vue的响应式更新
-        this.$set ? this.$set(this.disguiseImageCache, imagePath, disguiseImage) : (this.disguiseImageCache[imagePath] = disguiseImage)
-        // 强制更新组件
-        this.$forceUpdate()
-        console.log('GameView: 伪装图片已更新到缓存')
-      } catch (error) {
-        console.error('GameView: 加载伪装图片失败:', error)
-      }
-    },
-
-    /**
-     * 异步加载伪装文字
-     * @param {string} itemId - 项目ID
-     */
-    async loadDisguiseText(itemId) {
-      console.log('GameView: 开始加载伪装文字，项目ID:', itemId)
-      try {
-        const disguiseManager = await import('../utils/DisguiseManager.js')
-        const disguiseText = disguiseManager.default.getRandomDisguiseText()
-        console.log('GameView: 获取到伪装文字:', disguiseText)
-        // 使用Vue的响应式更新
-        this.$set ? this.$set(this.disguiseTextCache, itemId, disguiseText) : (this.disguiseTextCache[itemId] = disguiseText)
-        // 强制更新组件
-        this.$forceUpdate()
-        console.log('GameView: 伪装文字已更新到缓存')
-      } catch (error) {
-        console.error('GameView: 加载伪装文字失败:', error)
-      }
-    },
-
-    /**
-     * 获取显示的名称（支持伪装模式）
-     * @param {Object} game - 游戏对象
-     * @returns {string} 显示的名称
-     */
-    getDisplayName(game) {
-      if (this.isDisguiseModeEnabled()) {
-        // 检查伪装文字缓存
-        if (this.disguiseTextCache[game.id]) {
-          return this.disguiseTextCache[game.id]
-        }
-
-        // 异步获取伪装文字
-        this.loadDisguiseText(game.id)
-        return game.name // 先返回原始名称，等异步加载完成
-      }
-      return game.name
-    },
-
-    /**
-     * 获取显示的图片（支持伪装模式）
-     * @param {string} imagePath - 原始图片路径
-     * @returns {string} 显示的图片路径
-     */
-    getDisplayImage(imagePath) {
-      if (this.isDisguiseModeEnabled()) {
-        // 检查伪装图片缓存
-        if (this.disguiseImageCache[imagePath]) {
-          return this.disguiseImageCache[imagePath]
-        }
-
-        // 异步获取伪装图片
-        this.loadDisguiseImage(imagePath)
-        return this.resolveImage(imagePath) // 先返回原始图片，等异步加载完成
-      }
-      return this.resolveImage(imagePath)
     }
   },
   watch: {
@@ -2172,6 +2069,20 @@ export default {
   },
   async mounted() {
     this.checkElectronEnvironment()
+    
+    // 等待父组件（App.vue）的存档系统初始化完成
+    const maxWaitTime = 5000 // 最多等待5秒
+    const startTime = Date.now()
+    while (!this.$parent.isInitialized && (Date.now() - startTime) < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 50)) // 每50ms检查一次
+    }
+    
+    if (!this.$parent.isInitialized) {
+      console.warn('⚠️ 等待存档系统初始化超时，继续加载游戏数据')
+    } else {
+      console.log('✅ 存档系统已初始化，开始加载游戏数据')
+    }
+    
     await this.loadGames()
 
     // 游戏运行状态现在由 App.vue 全局管理，无需在此处处理

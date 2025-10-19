@@ -279,9 +279,6 @@ export default {
       sortBy: 'name',
       showAddDialog: false,
       isDragOver: false,
-      // 伪装模式相关
-      disguiseImageCache: {},
-      disguiseTextCache: {},
       // 路径更新确认对话框
       showPathUpdateDialog: false,
       pathUpdateInfo: {
@@ -1691,106 +1688,6 @@ export default {
         // 使用默认值
         this.novelPageSize = 20
       }
-    },
-    
-    // 伪装模式相关方法
-    /**
-     * 检查伪装模式是否启用
-     * @returns {boolean} 是否启用伪装模式
-     */
-    isDisguiseModeEnabled() {
-      try {
-        const settings = localStorage.getItem('butter-manager-settings')
-        if (settings) {
-          const parsedSettings = JSON.parse(settings)
-          const isEnabled = parsedSettings.disguiseMode === true
-          console.log('NovelView: 检查伪装模式设置:', isEnabled, '设置数据:', parsedSettings.disguiseMode)
-          return isEnabled
-        }
-        console.log('NovelView: 没有找到设置数据，伪装模式默认关闭')
-        return false
-      } catch (error) {
-        console.error('NovelView: 检查伪装模式设置失败:', error)
-        return false
-      }
-    },
-    
-    /**
-     * 异步加载伪装图片
-     * @param {string} imagePath - 原始图片路径
-     */
-    async loadDisguiseImage(imagePath) {
-      console.log('NovelView: 开始加载伪装图片，原始路径:', imagePath)
-      try {
-        const disguiseManager = await import('../utils/DisguiseManager.js')
-        const disguiseImage = await disguiseManager.default.getRandomDisguiseImage(imagePath)
-        console.log('NovelView: 获取到伪装图片路径:', disguiseImage)
-        // 使用Vue的响应式更新
-        this.$set ? this.$set(this.disguiseImageCache, imagePath, disguiseImage) : (this.disguiseImageCache[imagePath] = disguiseImage)
-        // 强制更新组件
-        this.$forceUpdate()
-        console.log('NovelView: 伪装图片已更新到缓存')
-      } catch (error) {
-        console.error('NovelView: 加载伪装图片失败:', error)
-      }
-    },
-    
-    /**
-     * 异步加载伪装文字
-     * @param {string} itemId - 项目ID
-     */
-    async loadDisguiseText(itemId) {
-      console.log('NovelView: 开始加载伪装文字，项目ID:', itemId)
-      try {
-        const disguiseManager = await import('../utils/DisguiseManager.js')
-        const disguiseText = disguiseManager.default.getRandomDisguiseText()
-        console.log('NovelView: 获取到伪装文字:', disguiseText)
-        // 使用Vue的响应式更新
-        this.$set ? this.$set(this.disguiseTextCache, itemId, disguiseText) : (this.disguiseTextCache[itemId] = disguiseText)
-        // 强制更新组件
-        this.$forceUpdate()
-        console.log('NovelView: 伪装文字已更新到缓存')
-      } catch (error) {
-        console.error('NovelView: 加载伪装文字失败:', error)
-      }
-    },
-    
-    /**
-     * 获取显示的名称（支持伪装模式）
-     * @param {Object} novel - 小说对象
-     * @returns {string} 显示的名称
-     */
-    getDisplayName(novel) {
-      if (this.isDisguiseModeEnabled()) {
-        // 检查伪装文字缓存
-        if (this.disguiseTextCache[novel.id]) {
-          return this.disguiseTextCache[novel.id]
-        }
-        
-        // 异步获取伪装文字
-        this.loadDisguiseText(novel.id)
-        return novel.name // 先返回原始名称，等异步加载完成
-      }
-      return novel.name
-    },
-    
-    /**
-     * 获取显示的图片（支持伪装模式）
-     * @param {string} imagePath - 原始图片路径
-     * @returns {string} 显示的图片路径
-     */
-    getDisplayImage(imagePath) {
-      if (this.isDisguiseModeEnabled()) {
-        // 检查伪装图片缓存
-        if (this.disguiseImageCache[imagePath]) {
-          return this.disguiseImageCache[imagePath]
-        }
-        
-        // 异步获取伪装图片
-        this.loadDisguiseImage(imagePath)
-        return this.resolveImage(imagePath) // 先返回原始图片，等异步加载完成
-      }
-      return this.resolveImage(imagePath)
     }
   },
   watch: {
@@ -1811,6 +1708,16 @@ export default {
     }
   },
   async mounted() {
+    // 等待父组件（App.vue）的存档系统初始化完成
+    const maxWaitTime = 5000
+    const startTime = Date.now()
+    while (!this.$parent.isInitialized && (Date.now() - startTime) < maxWaitTime) {
+      await new Promise(resolve => setTimeout(resolve, 50))
+    }
+    if (this.$parent.isInitialized) {
+      console.log('✅ 存档系统已初始化，开始加载小说数据')
+    }
+    
     await this.loadNovels()
     
     // 加载小说分页设置
