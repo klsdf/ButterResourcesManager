@@ -724,7 +724,7 @@ export default {
         // 重新加载网站列表以确保数据同步
         await this.loadWebsites()
         this.closeAddDialog()
-        this.showNotification('网站添加成功', `已添加网站: ${website.name}`)
+        notify.native('网站添加成功', `已添加网站: ${website.name}`)
       } catch (error) {
         console.error('添加网站失败:', error)
         alert('添加网站失败: ' + error.message)
@@ -758,7 +758,7 @@ export default {
           const result = await window.electronAPI.openExternal(originalWebsite.url)
           if (result.success) {
             console.log('网站访问成功:', originalWebsite.name)
-            this.showNotification('网站已打开', `正在访问: ${originalWebsite.name}`)
+            notify.native('网站已打开', `正在访问: ${originalWebsite.name}`)
           } else {
             alert(`访问失败: ${result.error}`)
           }
@@ -781,14 +781,14 @@ export default {
         await this.loadWebsites()
         
         // 显示删除成功通知
-        this.showToastNotification('删除成功', `已成功删除网站 "${website.name}"`)
+        notify.toast('success', '删除成功', `已成功删除网站 "${website.name}"`)
         console.log('网站删除成功:', website.name)
         
         this.closeWebsiteDetail()
       } catch (error) {
         console.error('删除网站失败:', error)
         // 显示删除失败通知
-        this.showToastNotification('删除失败', `无法删除网站 "${website.name}": ${error.message}`)
+        notify.toast('error', '删除失败', `无法删除网站 "${website.name}": ${error.message}`)
       }
     },
     
@@ -1022,10 +1022,10 @@ export default {
         }
         
         this.closeEditDialog()
-        this.showToastNotification('编辑成功', `已更新网站: ${updateData.name}`)
+        notify.toast('success', '编辑成功', `已更新网站: ${updateData.name}`)
       } catch (error) {
         console.error('编辑网站失败:', error)
-        this.showToastNotification('编辑失败', `无法更新网站: ${error.message}`)
+        notify.toast('error', '编辑失败', `无法更新网站: ${error.message}`)
       }
     },
     
@@ -1089,44 +1089,6 @@ export default {
       console.log('Favicon 加载成功:', event.target.src)
     },
     
-    showNotification(title, message) {
-      // 简单的通知实现
-      if (window.electronAPI && window.electronAPI.showNotification) {
-        window.electronAPI.showNotification(title, message)
-      } else {
-        // 降级处理：使用浏览器通知
-        if (Notification.permission === 'granted') {
-          new Notification(title, { body: message })
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-              new Notification(title, { body: message })
-            }
-          })
-        }
-      }
-    },
-
-    // 显示 Toast 通知
-    async showToastNotification(title, message, results = null) {
-      try {
-
-        
-        if (results && results.length > 0) {
-          // 批量操作结果通知
-          notify.batchResult(title, results)
-        } else {
-          // 普通通知
-          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
-          notify[type](title, message)
-        }
-      } catch (error) {
-        console.error('显示 Toast 通知失败:', error)
-        // 降级到原来的通知方式
-        this.showNotification(title, message)
-      }
-    },
-
     // 格式化网站数据以适配 MediaCard
     formatWebsiteForMediaCard(website) {
       return {
@@ -1184,14 +1146,14 @@ export default {
             this.selectedWebsite.favicon = newFavicon
           }
           
-          this.showToastNotification('Favicon 更新成功', `已为 "${website.name}" 更新图标`)
+          notify.toast('success', 'Favicon 更新成功', `已为 "${website.name}" 更新图标`)
           console.log('Favicon 更新成功:', newFavicon)
         } else {
-          this.showToastNotification('Favicon 更新失败', `无法为 "${website.name}" 获取新图标`)
+          notify.toast('error', 'Favicon 更新失败', `无法为 "${website.name}" 获取新图标`)
         }
       } catch (error) {
         console.error('刷新 favicon 失败:', error)
-        this.showToastNotification('Favicon 更新失败', `刷新 "${website.name}" 图标时出错: ${error.message}`)
+        notify.toast('error', 'Favicon 更新失败', `刷新 "${website.name}" 图标时出错: ${error.message}`)
       }
     }
   },

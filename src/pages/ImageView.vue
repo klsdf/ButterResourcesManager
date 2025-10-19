@@ -634,7 +634,8 @@ export default {
       ).join('\n')
       
       // 显示 toast 通知，包含详细信息
-      this.showToastNotification(
+      notify.toast(
+        'warning',
         '文件夹丢失提醒', 
         `发现 ${missingFiles.length} 个图片文件夹丢失：\n${fileList}\n\n请检查文件夹路径或重新添加这些图片。`
       )
@@ -697,7 +698,7 @@ export default {
         
         if (files.length === 0) {
           console.log('没有拖拽文件，显示错误通知')
-          this.showNotification('拖拽失败', '请拖拽文件夹到此处')
+          notify.native('拖拽失败', '请拖拽文件夹到此处')
           return
         }
         
@@ -708,7 +709,7 @@ export default {
         
         if (detectedFolders.length === 0) {
           console.log('未检测到有效文件夹，显示错误通知')
-          this.showNotification('拖拽失败', '未检测到有效的文件夹，请拖拽包含图片的文件夹')
+          notify.native('拖拽失败', '未检测到有效的文件夹，请拖拽包含图片的文件夹')
           return
         }
         
@@ -730,7 +731,7 @@ export default {
         if (successCount > 0) {
           // 使用通知服务的批量结果处理，会自动显示详细的成功和失败信息
           console.log('显示批量操作结果通知')
-          this.showToastNotification('批量添加完成', '', results)
+          notify.toast('success', '批量添加完成', '', results)
         } else {
           console.log('所有文件夹添加失败，显示失败通知')
           // 收集所有失败原因，添加序号和换行
@@ -739,7 +740,7 @@ export default {
             .map((r, index) => `${index + 1}. "${r.folderName}": ${r.error || '未知错误'}`)
             .join('\n')
           
-          this.showToastNotification('添加失败', `所有文件夹添加失败:\n${failureReasons}`, results)
+          notify.toast('error', '添加失败', `所有文件夹添加失败:\n${failureReasons}`, results)
         }
         
         console.log('=== 拖拽事件完成 ===')
@@ -747,7 +748,7 @@ export default {
       } catch (error) {
         console.error('拖拽添加漫画失败:', error)
         console.error('错误堆栈:', error.stack)
-        this.showToastNotification('添加失败', `添加漫画失败: ${error.message}`)
+        notify.toast('error', '添加失败', `添加漫画失败: ${error.message}`)
       }
     },
     
@@ -1145,42 +1146,6 @@ export default {
       return commonDir || null
     },
     
-    showNotification(title, message) {
-      // 简单的通知实现
-      if (window.electronAPI && window.electronAPI.showNotification) {
-        window.electronAPI.showNotification(title, message)
-      } else {
-        // 降级处理：使用浏览器通知
-        if (Notification.permission === 'granted') {
-          new Notification(title, { body: message })
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-              new Notification(title, { body: message })
-            }
-          })
-        }
-      }
-    },
-
-    // 显示 Toast 通知
-    async showToastNotification(title, message, results = null) {
-      try {
-        
-        if (results && results.length > 0) {
-          // 批量操作结果通知
-          notify.batchResult(title, results)
-        } else {
-          // 普通通知
-          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
-          notify[type](title, message)
-        }
-      } catch (error) {
-        console.error('显示 Toast 通知失败:', error)
-        // 降级到原来的通知方式
-        this.showNotification(title, message)
-      }
-    },
     async saveAlbums() {
       await saveManager.saveImages(this.albums)
     },
@@ -1294,12 +1259,12 @@ export default {
         
         console.log('专辑添加成功')
         // 显示成功通知，包含漫画名称和页数
-        this.showToastNotification('添加成功', `已成功添加漫画 "${this.newAlbum.name}" (${pages.length}页)`)
+        notify.toast('success', '添加成功', `已成功添加漫画 "${this.newAlbum.name}" (${pages.length}页)`)
         this.closeAddAlbumDialog()
       } catch (e) {
         console.error('添加漫画失败:', e)
         // 显示失败通知，包含漫画名称和错误信息
-        this.showToastNotification('添加失败', `无法添加漫画 "${this.newAlbum.name}": ${e.message}`)
+        notify.toast('error', '添加失败', `无法添加漫画 "${this.newAlbum.name}": ${e.message}`)
       }
     },
     extractFolderName(p) {
@@ -1445,16 +1410,16 @@ export default {
           this.extractAllTags()
           
           // 显示删除成功通知
-          this.showToastNotification('删除成功', `已成功删除漫画 "${album.name}"`)
+          notify.toast('success', '删除成功', `已成功删除漫画 "${album.name}"`)
           console.log('漫画删除成功:', album.name)
         } else {
           // 显示删除失败通知
-          this.showToastNotification('删除失败', `漫画 "${album.name}" 不存在`)
+          notify.toast('error', '删除失败', `漫画 "${album.name}" 不存在`)
           console.error('漫画不存在:', album.name)
         }
       } catch (error) {
         // 显示删除失败通知
-        this.showToastNotification('删除失败', `无法删除漫画 "${album.name}": ${error.message}`)
+        notify.toast('error', '删除失败', `无法删除漫画 "${album.name}": ${error.message}`)
         console.error('删除漫画失败:', error)
       }
       
@@ -1526,18 +1491,18 @@ export default {
           // 使用第一张图片作为封面
           this.editAlbumForm.cover = files[0]
         } else {
-          this.showToastNotification('设置失败', '文件夹中没有找到图片文件')
+          notify.toast('error', '设置失败', '文件夹中没有找到图片文件')
         }
       } catch (e) {
         console.error('设置第一张图片为封面失败:', e)
-        this.showToastNotification('设置失败', `设置封面失败: ${e.message}`)
+        notify.toast('error', '设置失败', `设置封面失败: ${e.message}`)
       }
     },
     
     async selectImageFromFolder() {
       try {
         if (!this.editAlbumForm.folderPath) {
-          this.showToastNotification('设置失败', '请先选择漫画文件夹')
+          notify.toast('error', '设置失败', '请先选择漫画文件夹')
           return
         }
         
@@ -1556,11 +1521,11 @@ export default {
             this.editAlbumForm.cover = filePath
           }
         } else {
-          this.showToastNotification('设置失败', '当前环境不支持从文件夹选择图片功能')
+          notify.toast('error', '设置失败', '当前环境不支持从文件夹选择图片功能')
         }
       } catch (error) {
         console.error('从文件夹选择封面失败:', error)
-        this.showToastNotification('设置失败', `从文件夹选择封面失败: ${error.message}`)
+        notify.toast('error', '设置失败', `从文件夹选择封面失败: ${error.message}`)
       }
     },
     
@@ -1571,7 +1536,7 @@ export default {
     async useFirstImageAsCoverNew() {
       try {
         if (!this.newAlbum.folderPath) {
-          this.showToastNotification('设置失败', '请先选择漫画文件夹')
+          notify.toast('error', '设置失败', '请先选择漫画文件夹')
           return
         }
         
@@ -1588,18 +1553,18 @@ export default {
           // 使用第一张图片作为封面
           this.newAlbum.cover = files[0]
         } else {
-          this.showToastNotification('设置失败', '文件夹中没有找到图片文件')
+          notify.toast('error', '设置失败', '文件夹中没有找到图片文件')
         }
       } catch (e) {
         console.error('设置第一张图片为封面失败:', e)
-        this.showToastNotification('设置失败', `设置封面失败: ${e.message}`)
+        notify.toast('error', '设置失败', `设置封面失败: ${e.message}`)
       }
     },
     
     async selectImageFromFolderNew() {
       try {
         if (!this.newAlbum.folderPath) {
-          this.showToastNotification('设置失败', '请先选择漫画文件夹')
+          notify.toast('error', '设置失败', '请先选择漫画文件夹')
           return
         }
         
@@ -1610,14 +1575,14 @@ export default {
           const filePath = await window.electronAPI.selectScreenshotImage(this.newAlbum.folderPath)
           if (filePath) {
             this.newAlbum.cover = filePath
-            this.showNotification('设置成功', '已从文件夹选择封面')
+            notify.native('设置成功', '已从文件夹选择封面')
           }
         } else if (window.electronAPI && window.electronAPI.selectImageFile) {
           // 降级到普通图片选择器
           const filePath = await window.electronAPI.selectImageFile(this.newAlbum.folderPath)
           if (filePath) {
             this.newAlbum.cover = filePath
-            this.showNotification('设置成功', '已从文件夹选择封面')
+            notify.native('设置成功', '已从文件夹选择封面')
           }
         } else {
           alert('当前环境不支持从文件夹选择图片功能')
@@ -2585,7 +2550,8 @@ export default {
         this.closePathUpdateDialog()
         
         // 显示成功通知
-        this.showToastNotification(
+        notify.toast(
+          'success',
           '路径更新成功', 
           `漫画 "${existingAlbum.name}" 的路径已更新`
         )
@@ -2594,7 +2560,7 @@ export default {
         
       } catch (error) {
         console.error('更新漫画路径失败:', error)
-        this.showToastNotification('更新失败', `更新漫画路径失败: ${error.message}`)
+        notify.toast('error', '更新失败', `更新漫画路径失败: ${error.message}`)
       }
     },
     async handleSortChanged({ pageType, sortBy }) {

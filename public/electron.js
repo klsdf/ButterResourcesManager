@@ -331,8 +331,11 @@ ipcMain.handle('select-executable-file', async () => {
 
 ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
   try {
+    console.log('=== select-image-file IPC 处理开始 ===')
+    console.log('接收到的 defaultPath:', defaultPath)
+    
     const dialogOptions = {
-      title: '选择游戏图片',
+      title: '选择图片',
       filters: [
         { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
         { name: '所有文件', extensions: ['*'] }
@@ -342,8 +345,11 @@ ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
     
     // 如果提供了默认路径，设置为默认目录
     if (defaultPath) {
-      // 确保路径格式正确
-      const normalizedPath = defaultPath.replace(/\\/g, '/')
+      console.log('处理 defaultPath:', defaultPath)
+      
+      // 确保路径格式正确（统一使用反斜杠，因为是 Windows）
+      const normalizedPath = defaultPath.replace(/\//g, '\\')
+      console.log('规范化后的路径:', normalizedPath)
       
       // 检查路径是否存在
       try {
@@ -354,39 +360,60 @@ ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
         if (!path.isAbsolute(normalizedPath)) {
           // 如果是相对路径，基于应用目录
           absolutePath = path.join(process.cwd(), normalizedPath)
+          console.log('转换为绝对路径:', absolutePath)
+        } else {
+          console.log('已经是绝对路径:', absolutePath)
         }
         
         console.log('检查路径是否存在:', absolutePath)
+        console.log('路径是否存在:', fs.existsSync(absolutePath))
         
         // 检查目录是否存在
-        if (fs.existsSync(absolutePath) && fs.statSync(absolutePath).isDirectory()) {
-          // 使用绝对路径作为 defaultPath
-          dialogOptions.defaultPath = absolutePath
-          console.log('设置默认路径为:', absolutePath)
+        if (fs.existsSync(absolutePath)) {
+          const stats = fs.statSync(absolutePath)
+          console.log('路径类型:', stats.isDirectory() ? '目录' : '文件')
+          
+          if (stats.isDirectory()) {
+            // 使用绝对路径作为 defaultPath
+            dialogOptions.defaultPath = absolutePath
+            console.log('✅ 设置默认路径为:', absolutePath)
+          } else {
+            console.log('⚠️ 路径不是目录')
+          }
         } else {
-          console.log('路径不存在，使用默认行为')
+          console.log('⚠️ 路径不存在，使用默认行为')
           // 如果路径不存在，尝试使用父目录
           const parentDir = path.dirname(absolutePath)
+          console.log('尝试使用父目录:', parentDir)
           if (fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory()) {
             dialogOptions.defaultPath = parentDir
-            console.log('使用父目录作为默认路径:', parentDir)
+            console.log('✅ 使用父目录作为默认路径:', parentDir)
           }
         }
       } catch (pathError) {
-        console.error('处理默认路径时出错:', pathError)
+        console.error('❌ 处理默认路径时出错:', pathError)
         // 如果处理路径时出错，使用原始路径
         dialogOptions.defaultPath = normalizedPath
       }
+    } else {
+      console.log('⚠️ 未提供 defaultPath，使用系统默认')
     }
+    
+    console.log('最终 dialogOptions:', dialogOptions)
+    console.log('=== 打开文件选择对话框 ===')
     
     const result = await dialog.showOpenDialog(mainWindow, dialogOptions)
     
+    console.log('对话框返回结果:', result)
+    
     if (!result.canceled && result.filePaths.length > 0) {
+      console.log('✅ 用户选择的文件:', result.filePaths[0])
       return result.filePaths[0]
     }
+    console.log('⚠️ 用户取消了选择')
     return null
   } catch (error) {
-    console.error('选择图片文件失败:', error)
+    console.error('❌ 选择图片文件失败:', error)
     throw error
   }
 })

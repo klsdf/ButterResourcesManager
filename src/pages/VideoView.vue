@@ -107,13 +107,25 @@
               @browse="selectNewFolderPath"
             />
 
-            <FormField
-              label="缩略图"
-              type="file"
-              v-model="newFolder.thumbnail"
-              placeholder="选择缩略图..."
-              @browse="selectFolderThumbnailFile"
-            />
+            <div class="form-group">
+              <label>缩略图</label>
+              <div class="file-input-group">
+                <input type="text" v-model="newFolder.thumbnail" readonly>
+                <button type="button" class="btn-select-file" @click="selectFromNewFolderCovers" :disabled="!newFolder.folderPath">从封面文件夹选择</button>
+                <button type="button" class="btn-select-file" @click="selectFolderThumbnailFile">自定义选择</button>
+              </div>
+              <div class="thumb-preview-wrapper">
+                <img 
+                  v-if="newFolder.thumbnail"
+                  class="thumb-preview"
+                  :src="getThumbnailUrl(newFolder.thumbnail)"
+                  :alt="newFolder.name || 'thumbnail'"
+                  @error="handleThumbnailPreviewError"
+                  @load="handleThumbnailPreviewLoad"
+                >
+                <div v-else class="thumb-placeholder">无缩略图</div>
+              </div>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
@@ -318,13 +330,25 @@
               @browse="selectEditFolderPath"
             />
 
-            <FormField
-              label="缩略图"
-              type="file"
-              v-model="editFolderForm.thumbnail"
-              placeholder="选择缩略图..."
-              @browse="selectEditFolderThumbnailFile"
-            />
+            <div class="form-group">
+              <label>缩略图</label>
+              <div class="file-input-group">
+                <input type="text" v-model="editFolderForm.thumbnail" readonly>
+                <button type="button" class="btn-select-file" @click="selectFromFolderCovers">从封面文件夹选择</button>
+                <button type="button" class="btn-select-file" @click="selectEditFolderThumbnailFile">自定义选择</button>
+              </div>
+              <div class="thumb-preview-wrapper">
+                <img 
+                  v-if="editFolderForm.thumbnail"
+                  class="thumb-preview"
+                  :src="getThumbnailUrl(editFolderForm.thumbnail)"
+                  :alt="editFolderForm.name || 'thumbnail'"
+                  @error="handleThumbnailPreviewError"
+                  @load="handleThumbnailPreviewLoad"
+                >
+                <div v-else class="thumb-placeholder">无缩略图</div>
+              </div>
+            </div>
           </form>
         </div>
         <div class="modal-footer">
@@ -2297,6 +2321,132 @@ export default {
         }
       } catch (error) {
         console.error('选择编辑文件夹缩略图失败:', error)
+      }
+    },
+
+    // 从文件夹的 Covers 子目录选择图片作为封面（编辑文件夹时）
+    async selectFromFolderCovers() {
+      try {
+        if (!this.editFolderForm.folderPath) {
+          alert('请先选择文件夹路径')
+          return
+        }
+
+        const folderName = this.editFolderForm.name || '未命名文件夹'
+        const cleanFolderName = folderName.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
+        
+        // 构建文件夹的 Covers 子目录的绝对路径
+        const baseCoversPath = saveManager.thumbnailDirectories?.videos || 'SaveData/Video/Covers'
+        const coversPath = `${baseCoversPath}/${cleanFolderName}`
+        
+        console.log('=== 从文件夹 Covers 目录选择封面 ===')
+        console.log('文件夹名称:', folderName)
+        console.log('清理后的文件夹名:', cleanFolderName)
+        console.log('基础 Covers 路径:', baseCoversPath)
+        console.log('目标 Covers 路径:', coversPath)
+
+        // 先确保目录存在，然后等待确认
+        let directoryReady = false
+        if (window.electronAPI && window.electronAPI.ensureDirectory) {
+          try {
+            const ensureResult = await window.electronAPI.ensureDirectory(coversPath)
+            if (ensureResult.success) {
+              console.log('✅ Covers 目录已确保存在:', coversPath)
+              directoryReady = true
+            } else {
+              console.warn('⚠️ 创建 Covers 目录失败:', ensureResult.error)
+            }
+          } catch (error) {
+            console.warn('⚠️ 确保 Covers 目录存在时出错:', error)
+          }
+        }
+
+        // 添加短暂延迟，确保目录创建完成
+        if (directoryReady) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        if (window.electronAPI && window.electronAPI.selectImageFile) {
+          console.log('📂 调用 selectImageFile，初始路径:', coversPath)
+          const filePath = await window.electronAPI.selectImageFile(coversPath)
+          console.log('📂 selectImageFile 返回:', filePath)
+          
+          if (filePath) {
+            this.editFolderForm.thumbnail = filePath
+            console.log('✅ 已设置文件夹封面:', filePath)
+            this.showToastNotification('设置成功', '已选择文件夹封面')
+          } else {
+            console.log('⚠️ 用户取消了选择')
+          }
+        } else {
+          alert('当前环境不支持选择图片功能')
+        }
+      } catch (error) {
+        console.error('❌ 从文件夹选择封面失败:', error)
+        this.showToastNotification('选择失败', `选择封面失败: ${error.message}`)
+      }
+    },
+
+    // 从文件夹的 Covers 子目录选择图片作为封面（添加文件夹时）
+    async selectFromNewFolderCovers() {
+      try {
+        if (!this.newFolder.folderPath) {
+          alert('请先选择文件夹路径')
+          return
+        }
+
+        const folderName = this.newFolder.name || '未命名文件夹'
+        const cleanFolderName = folderName.replace(/[^\w\u4e00-\u9fa5\-_]/g, '_')
+        
+        // 构建文件夹的 Covers 子目录的绝对路径
+        const baseCoversPath = saveManager.thumbnailDirectories?.videos || 'SaveData/Video/Covers'
+        const coversPath = `${baseCoversPath}/${cleanFolderName}`
+        
+        console.log('=== 从文件夹 Covers 目录选择封面（新建）===')
+        console.log('文件夹名称:', folderName)
+        console.log('清理后的文件夹名:', cleanFolderName)
+        console.log('基础 Covers 路径:', baseCoversPath)
+        console.log('目标 Covers 路径:', coversPath)
+
+        // 先确保目录存在，然后等待确认
+        let directoryReady = false
+        if (window.electronAPI && window.electronAPI.ensureDirectory) {
+          try {
+            const ensureResult = await window.electronAPI.ensureDirectory(coversPath)
+            if (ensureResult.success) {
+              console.log('✅ Covers 目录已确保存在:', coversPath)
+              directoryReady = true
+            } else {
+              console.warn('⚠️ 创建 Covers 目录失败:', ensureResult.error)
+            }
+          } catch (error) {
+            console.warn('⚠️ 确保 Covers 目录存在时出错:', error)
+          }
+        }
+
+        // 添加短暂延迟，确保目录创建完成
+        if (directoryReady) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        if (window.electronAPI && window.electronAPI.selectImageFile) {
+          console.log('📂 调用 selectImageFile，初始路径:', coversPath)
+          const filePath = await window.electronAPI.selectImageFile(coversPath)
+          console.log('📂 selectImageFile 返回:', filePath)
+          
+          if (filePath) {
+            this.newFolder.thumbnail = filePath
+            console.log('✅ 已设置文件夹封面:', filePath)
+            this.showToastNotification('设置成功', '已选择文件夹封面')
+          } else {
+            console.log('⚠️ 用户取消了选择')
+          }
+        } else {
+          alert('当前环境不支持选择图片功能')
+        }
+      } catch (error) {
+        console.error('❌ 从文件夹选择封面失败:', error)
+        this.showToastNotification('选择失败', `选择封面失败: ${error.message}`)
       }
     },
 

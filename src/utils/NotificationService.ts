@@ -53,7 +53,7 @@ class NotificationService {
   }
 
   // 显示自定义通知
-  show(type, title, message, options = {}) {
+  show(type: string, title: string, message: string, options: any = {}) {
     if (!this.checkInitialized()) return null
     return this.toastComponent.showToast({ type, title, message, ...options })
   }
@@ -234,6 +234,62 @@ class NotificationService {
       position: 'bottom-right',
       animation: 'slide-in-right'
     })
+  }
+
+  // 系统原生通知（Electron 或浏览器通知）
+  native(title, message, options = {}) {
+    try {
+      // 优先使用 Electron API
+      if (typeof window !== 'undefined' && (window as any).electronAPI?.showNotification) {
+        (window as any).electronAPI.showNotification(title, message)
+        return true
+      }
+      
+      // 降级到浏览器通知
+      if (typeof Notification !== 'undefined') {
+        if (Notification.permission === 'granted') {
+          new Notification(title, { body: message, ...options })
+          return true
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification(title, { body: message, ...options })
+            }
+          })
+          return true
+        }
+      }
+      
+      return false
+    } catch (error) {
+      console.error('显示系统通知失败:', error)
+      return false
+    }
+  }
+
+  // Toast 通知（必须指定类型，自动降级到系统通知）
+  toast(type: string, title: string, message: string, results = null, options = {}) {
+    try {
+      if (results && results.length > 0) {
+        // 批量操作结果通知
+        return this.batchResult(title, results, options)
+      } else {
+        // 显示指定类型的通知
+        const result = this.show(type, title, message, options)
+        
+        if (!result) {
+          // Toast 失败时降级到系统通知
+          this.native(title, message)
+        }
+        
+        return result
+      }
+    } catch (error) {
+      console.error('显示 Toast 通知失败:', error)
+      // 降级到系统通知
+      this.native(title, message)
+      return null
+    }
   }
 
   // 测试通知（用于演示信息中心功能）

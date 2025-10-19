@@ -672,7 +672,7 @@ export default {
         const novel = await novelManager.addNovel(novelData)
         this.novels.push(novel)
         this.closeAddNovelDialog()
-        this.showNotification('添加成功', `小说 "${novel.name}" 已添加`)
+        notify.native('添加成功', `小说 "${novel.name}" 已添加`)
       } catch (error) {
         console.error('添加小说失败:', error)
         alert(`添加小说失败: ${error.message}`)
@@ -795,7 +795,7 @@ export default {
         
         await novelManager.updateNovel(this.editNovelForm.id, updateData)
         this.novels[index] = { ...this.novels[index], ...updateData }
-        this.showNotification('保存成功', '小说信息已更新')
+        notify.native('保存成功', '小说信息已更新')
         this.closeEditNovelDialog()
       } catch (error) {
         console.error('保存编辑失败:', error)
@@ -819,11 +819,11 @@ export default {
         }
         
         // 显示删除成功通知
-        this.showToastNotification('删除成功', `已成功删除小说 "${novel.name}"`)
+        notify.toast('success', '删除成功', `已成功删除小说 "${novel.name}"`)
         console.log('小说删除成功:', novel.name)
       } catch (error) {
         // 显示删除失败通知
-        this.showToastNotification('删除失败', `无法删除小说 "${novel.name}": ${error.message}`)
+        notify.toast('error', '删除失败', `无法删除小说 "${novel.name}": ${error.message}`)
         console.error('删除小说失败:', error)
       }
       
@@ -876,7 +876,7 @@ export default {
         
         if (result.success) {
           console.log('✅ 小说文件已用默认程序打开')
-          this.showNotification('打开成功', `"${novel.name}" 已用默认程序打开`)
+          notify.native('打开成功', `"${novel.name}" 已用默认程序打开`)
           
           // 更新阅读统计
           await this.updateReadingStats(novel)
@@ -895,7 +895,7 @@ export default {
       try {
         // 选择小说进行阅读
         await this.selectNovelForReading(novel)
-        this.showNotification('开始阅读', `"${novel.name}" 已在应用内打开`)
+        notify.native('开始阅读', `"${novel.name}" 已在应用内打开`)
       } catch (error) {
         console.error('打开应用内阅读器失败:', error)
         alert(`打开应用内阅读器失败: ${error.message}`)
@@ -1017,41 +1017,7 @@ export default {
     handleImageError(event) {
       event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
     },
-    showNotification(title, message) {
-      if (window.electronAPI && window.electronAPI.showNotification) {
-        window.electronAPI.showNotification(title, message)
-      } else {
-        if (Notification.permission === 'granted') {
-          new Notification(title, { body: message })
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-              new Notification(title, { body: message })
-            }
-          })
-        }
-      }
-    },
-
-    // 显示 Toast 通知
-    async showToastNotification(title, message, results = null) {
-      try {
-
-        
-        if (results && results.length > 0) {
-          // 批量操作结果通知
-          notify.batchResult(title, results)
-        } else {
-          // 普通通知
-          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
-          notify[type](title, message)
-        }
-      } catch (error) {
-        console.error('显示 Toast 通知失败:', error)
-        // 降级到原来的通知方式
-        this.showNotification(title, message)
-      }
-    },
+    
     async loadNovels() {
       this.novels = await novelManager.loadNovels()
       // 为没有字数信息的小说重新计算字数
@@ -1490,7 +1456,7 @@ export default {
         })
         
         if (files.length === 0) {
-          this.showToastNotification('拖拽失败', '请拖拽小说文件到此处')
+          notify.toast('error', '拖拽失败', '请拖拽小说文件到此处')
           return
         }
         
@@ -1502,7 +1468,7 @@ export default {
         })
         
         if (novelFiles.length === 0) {
-          this.showToastNotification('文件类型不支持', '请拖拽 .txt、.epub 或 .mobi 文件')
+          notify.toast('error', '文件类型不支持', '请拖拽 .txt、.epub 或 .mobi 文件')
           return
         }
         
@@ -1588,18 +1554,18 @@ export default {
         
         // 显示结果通知
         if (addedCount > 0 && failedCount === 0) {
-          this.showToastNotification('添加成功', `成功添加 ${addedCount} 本小说`)
+          notify.toast('success', '添加成功', `成功添加 ${addedCount} 本小说`)
         } else if (addedCount > 0 && failedCount > 0) {
-          this.showToastNotification('部分成功', `成功添加 ${addedCount} 本小说，${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+          notify.toast('warning', '部分成功', `成功添加 ${addedCount} 本小说，${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
         } else if (addedCount === 0 && failedCount > 0) {
-          this.showToastNotification('添加失败', `${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+          notify.toast('error', '添加失败', `${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
         }
         
         console.log(`拖拽处理完成: 成功 ${addedCount} 个，失败 ${failedCount} 个`)
         
       } catch (error) {
         console.error('处理拖拽文件失败:', error)
-        this.showToastNotification('处理失败', `处理拖拽文件失败: ${error.message}`)
+        notify.toast('error', '处理失败', `处理拖拽文件失败: ${error.message}`)
       }
     },
 
@@ -1619,7 +1585,7 @@ export default {
         
         if (!existingNovel || !newPath) {
           console.error('路径更新信息不完整')
-          this.showToastNotification('更新失败', '路径更新信息不完整')
+          notify.toast('error', '更新失败', '路径更新信息不完整')
           return
         }
         
@@ -1647,7 +1613,8 @@ export default {
         this.closePathUpdateDialog()
         
         // 显示成功通知
-        this.showToastNotification(
+        notify.toast(
+          'success',
           '路径更新成功', 
           `小说 "${existingNovel.name}" 的路径已更新`
         )
@@ -1656,7 +1623,7 @@ export default {
         
       } catch (error) {
         console.error('更新小说路径失败:', error)
-        this.showToastNotification('更新失败', `更新小说路径失败: ${error.message}`)
+        notify.toast('error', '更新失败', `更新小说路径失败: ${error.message}`)
       }
     },
     async handleSortChanged({ pageType, sortBy }) {

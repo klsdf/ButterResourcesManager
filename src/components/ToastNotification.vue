@@ -78,15 +78,40 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+// 导出 Toast 通知的类型定义
+export type ToastType = 'success' | 'error' | 'warning' | 'info'
+
+export interface ToastOptions {
+  type?: ToastType
+  title?: string
+  message?: string
+  duration?: number
+  persistent?: boolean
+}
+
+export interface Toast {
+  id: number
+  type: ToastType
+  title: string
+  message: string
+  duration: number
+  timestamp: number
+  persistent: boolean
+}
+
+export interface Message extends Omit<Toast, 'id'> {
+  id: string
+}
+
 export default {
   name: 'ToastNotification',
   data() {
     return {
-      toasts: [],
-      messages: [],
+      toasts: [] as Toast[],
+      messages: [] as Message[],
       showMessageCenter: false,
-      activeTab: 'all',
+      activeTab: 'all' as string,
       messageTabs: [
         { type: 'all', label: '全部' },
         { type: 'success', label: '成功' },
@@ -99,7 +124,7 @@ export default {
   },
   methods: {
     // 显示 Toast 通知
-    showToast(options) {
+    showToast(options: ToastOptions = {}): number {
       const toast = {
         id: this.nextId++,
         type: options.type || 'info',
@@ -129,7 +154,7 @@ export default {
     },
 
     // 移除 Toast
-    removeToast(id) {
+    removeToast(id: number): void {
       const index = this.toasts.findIndex(t => t.id === id)
       if (index > -1) {
         this.toasts.splice(index, 1)
@@ -137,34 +162,34 @@ export default {
     },
 
     // 处理 Toast 点击
-    handleToastClick(toast) {
+    handleToastClick(toast: Toast): void {
       this.showMessageCenter = true
       // 添加键盘事件监听
       document.addEventListener('keydown', this.handleKeydown)
     },
 
     // 关闭消息中心
-    closeMessageCenter() {
+    closeMessageCenter(): void {
       this.showMessageCenter = false
       // 移除键盘事件监听
       document.removeEventListener('keydown', this.handleKeydown)
     },
 
     // 防止意外关闭
-    preventClose(event) {
+    preventClose(event: Event): void {
       // 阻止默认行为，防止意外关闭
       event.preventDefault()
     },
 
     // 处理键盘事件
-    handleKeydown(event) {
+    handleKeydown(event: KeyboardEvent): void {
       if (event.key === 'Escape') {
         this.closeMessageCenter()
       }
     },
 
     // 根据类型获取消息
-    getMessagesByType(type) {
+    getMessagesByType(type: string): Message[] {
       if (type === 'all') {
         return this.messages
       }
@@ -172,13 +197,13 @@ export default {
     },
 
     // 获取标签名称
-    getTabLabel(type) {
+    getTabLabel(type: string): string {
       const tab = this.messageTabs.find(t => t.type === type)
       return tab ? tab.label : ''
     },
 
     // 移除消息
-    removeMessage(id) {
+    removeMessage(id: string): void {
       const index = this.messages.findIndex(m => m.id === id)
       if (index > -1) {
         this.messages.splice(index, 1)
@@ -186,12 +211,12 @@ export default {
     },
 
     // 清空所有消息
-    clearAllMessages() {
+    clearAllMessages(): void {
       this.messages = []
     },
 
     // 格式化时间
-    formatTime(timestamp) {
+    formatTime(timestamp: number): string {
       const now = Date.now()
       const diff = now - timestamp
       
@@ -208,19 +233,19 @@ export default {
     },
 
     // 便捷方法
-    success(title, message, options = {}) {
+    success(title: string, message: string, options: Partial<ToastOptions> = {}): number {
       return this.showToast({ type: 'success', title, message, ...options })
     },
 
-    error(title, message, options = {}) {
+    error(title: string, message: string, options: Partial<ToastOptions> = {}): number {
       return this.showToast({ type: 'error', title, message, ...options })
     },
 
-    warning(title, message, options = {}) {
+    warning(title: string, message: string, options: Partial<ToastOptions> = {}): number {
       return this.showToast({ type: 'warning', title, message, ...options })
     },
 
-    info(title, message, options = {}) {
+    info(title: string, message: string, options: Partial<ToastOptions> = {}): number {
       return this.showToast({ type: 'info', title, message, ...options })
     }
   },

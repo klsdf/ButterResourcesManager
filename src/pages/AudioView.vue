@@ -671,18 +671,18 @@ export default {
             this.newAudio.duration = await this.getAudioDuration(filePath)
           }
         } else {
-          this.showToastNotification('当前环境不支持文件选择功能')
+          notify.toast('error', '选择失败', '当前环境不支持文件选择功能')
         }
       } catch (error) {
         console.error('选择音频文件失败:', error)
-        this.showToastNotification('选择音频文件失败: ' + error.message)
+        notify.toast('error', '选择失败', '选择音频文件失败: ' + error.message)
       }
     },
     
     async addAudio() {
       try {
         if (!this.newAudio.filePath) {
-          this.showToastNotification('请选择音频文件')
+          notify.toast('error', '添加失败', '请选择音频文件')
           return
         }
         
@@ -696,10 +696,10 @@ export default {
         // 重新加载音频列表，确保数据同步
         await this.loadAudios()
         this.closeAddDialog()
-        this.showNotification('音频添加成功', `已添加音频: ${audio.name}`)
+        notify.native('音频添加成功', `已添加音频: ${audio.name}`)
       } catch (error) {
         console.error('添加音频失败:', error)
-        this.showToastNotification('添加音频失败: ' + error.message)
+        notify.toast('error', '添加失败', '添加音频失败: ' + error.message)
       }
     },
     
@@ -718,24 +718,24 @@ export default {
         console.log('🎵 通过全局播放器播放音频:', audio.name)
         window.dispatchEvent(new CustomEvent('global-play-audio', { detail: audio }))
         
-        this.showNotification('开始播放', `正在播放: ${audio.name}`)
+        notify.native('开始播放', `正在播放: ${audio.name}`)
         
       } catch (error) {
         console.error('播放音频失败:', error)
-        this.showToastNotification('播放音频失败: ' + error.message)
+        notify.toast('error', '播放失败', '播放音频失败: ' + error.message)
       }
     },
     
     addToPlaylist(audio) {
       console.log('➕ 添加音频到播放列表:', audio.name)
       window.dispatchEvent(new CustomEvent('global-add-to-playlist', { detail: audio }))
-      this.showNotification('已添加', `已将 "${audio.name}" 添加到播放列表`)
+      notify.native('已添加', `已将 "${audio.name}" 添加到播放列表`)
     },
     
     async openAudioFolder(audio) {
       try {
         if (!audio.filePath) {
-          this.showToastNotification('音频文件路径不存在')
+          notify.toast('error', '打开失败', '音频文件路径不存在')
           return
         }
         
@@ -743,18 +743,18 @@ export default {
           const result = await window.electronAPI.openFileFolder(audio.filePath)
           if (result.success) {
             console.log('已打开音频文件夹:', result.folderPath)
-            this.showToastNotification(`已打开音频文件夹: ${result.folderPath}`)
+            notify.toast('success', '文件夹已打开', `已打开音频文件夹: ${result.folderPath}`)
           } else {
             console.error('打开文件夹失败:', result.error)
-            this.showToastNotification(`打开文件夹失败: ${result.error}`)
+            notify.toast('error', '打开失败', `打开文件夹失败: ${result.error}`)
           }
         } else {
           // 降级处理：在浏览器中显示路径
-          this.showToastNotification(`音频文件位置:\n${audio.filePath}`)
+          notify.toast('info', '文件位置', `音频文件位置:\n${audio.filePath}`)
         }
       } catch (error) {
         console.error('打开音频文件夹失败:', error)
-        this.showToastNotification(`打开文件夹失败: ${error.message}`)
+        notify.toast('error', '打开失败', `打开文件夹失败: ${error.message}`)
       }
     },
     
@@ -766,14 +766,14 @@ export default {
         this.audios = this.audios.filter(a => a.id !== audio.id)
         
         // 显示删除成功通知
-        this.showToastNotification('删除成功', `已成功删除音频 "${audio.name}"`)
+        notify.toast('success', '删除成功', `已成功删除音频 "${audio.name}"`)
         console.log('音频删除成功:', audio.name)
         
         this.closeAudioDetail()
       } catch (error) {
         console.error('删除音频失败:', error)
         // 显示删除失败通知
-        this.showToastNotification('删除失败', `无法删除音频 "${audio.name}": ${error.message}`)
+        notify.toast('error', '删除失败', `无法删除音频 "${audio.name}": ${error.message}`)
       }
     },
     
@@ -945,11 +945,11 @@ export default {
             this.editAudioForm.duration = await this.getAudioDuration(filePath)
           }
         } else {
-          this.showToastNotification('当前环境不支持文件选择功能')
+          notify.toast('error', '选择失败', '当前环境不支持文件选择功能')
         }
       } catch (error) {
         console.error('选择音频文件失败:', error)
-        this.showToastNotification('选择音频文件失败: ' + error.message)
+        notify.toast('error', '选择失败', '选择音频文件失败: ' + error.message)
       }
     },
     
@@ -1009,7 +1009,7 @@ export default {
         // 关闭编辑对话框
         this.closeEditDialog()
         
-        this.showNotification('音频更新成功', `已更新音频: ${audioData.name}`)
+        notify.native('音频更新成功', `已更新音频: ${audioData.name}`)
       } catch (error) {
         console.error('更新音频失败:', error)
         alert('更新音频失败: ' + error.message)
@@ -1063,7 +1063,7 @@ export default {
           }
           
           console.log('✅ 音频时长更新成功:', duration, '秒')
-          this.showNotification('时长更新成功', `音频时长已更新为: ${this.formatDuration(duration)}`)
+          notify.native('时长更新成功', `音频时长已更新为: ${this.formatDuration(duration)}`)
         } else {
           alert('无法获取音频时长，请检查文件是否有效')
         }
@@ -1209,42 +1209,6 @@ export default {
       return dotIndex > 0 ? filename.substring(0, dotIndex) : filename
     },
     
-    showNotification(title, message) {
-      // 简单的通知实现
-      if (window.electronAPI && window.electronAPI.showNotification) {
-        window.electronAPI.showNotification(title, message)
-      } else {
-        // 降级处理：使用浏览器通知
-        if (Notification.permission === 'granted') {
-          new Notification(title, { body: message })
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-              new Notification(title, { body: message })
-            }
-          })
-        }
-      }
-    },
-
-    // 显示 Toast 通知
-    async showToastNotification(title, message, results = null) {
-      try {
-        if (results && results.length > 0) {
-          // 批量操作结果通知
-          notify.batchResult(title, results)
-        } else {
-          // 普通通知
-          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
-          notify[type](title, message)
-        }
-      } catch (error) {
-        console.error('显示 Toast 通知失败:', error)
-        // 降级到原来的通知方式
-        this.showNotification(title, message)
-      }
-    },
-
     // 拖拽处理方法
     handleDragOver(event) {
       event.preventDefault()
@@ -1283,7 +1247,7 @@ export default {
         })
         
         if (files.length === 0) {
-          this.showToastNotification('拖拽失败', '请拖拽音频文件到此处')
+          notify.toast('error', '拖拽失败', '请拖拽音频文件到此处')
           return
         }
         
@@ -1295,7 +1259,7 @@ export default {
         })
         
         if (audioFiles.length === 0) {
-          this.showToastNotification('文件类型不支持', '请拖拽音频文件（.mp3、.wav、.flac等）')
+          notify.toast('error', '文件类型不支持', '请拖拽音频文件（.mp3、.wav、.flac等）')
           return
         }
         
@@ -1380,18 +1344,18 @@ export default {
         
         // 显示结果通知
         if (addedCount > 0 && failedCount === 0) {
-          this.showToastNotification('添加成功', `成功添加 ${addedCount} 个音频`)
+          notify.toast('success', '添加成功', `成功添加 ${addedCount} 个音频`)
         } else if (addedCount > 0 && failedCount > 0) {
-          this.showToastNotification('部分成功', `成功添加 ${addedCount} 个音频，${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+          notify.toast('warning', '部分成功', `成功添加 ${addedCount} 个音频，${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
         } else if (addedCount === 0 && failedCount > 0) {
-          this.showToastNotification('添加失败', `${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
+          notify.toast('error', '添加失败', `${failedCount} 个文件添加失败：${failedReasons.join('；')}`)
         }
         
         console.log(`拖拽处理完成: 成功 ${addedCount} 个，失败 ${failedCount} 个`)
         
       } catch (error) {
         console.error('处理拖拽文件失败:', error)
-        this.showToastNotification('处理失败', `处理拖拽文件失败: ${error.message}`)
+        notify.toast('error', '处理失败', `处理拖拽文件失败: ${error.message}`)
       }
     },
 
@@ -1411,7 +1375,7 @@ export default {
         
         if (!existingAudio || !newPath) {
           console.error('路径更新信息不完整')
-          this.showToastNotification('更新失败', '路径更新信息不完整')
+          notify.toast('error', '更新失败', '路径更新信息不完整')
           return
         }
         
@@ -1451,7 +1415,8 @@ export default {
         this.closePathUpdateDialog()
         
         // 显示成功通知
-        this.showToastNotification(
+        notify.toast(
+          'success',
           '路径更新成功', 
           `音频 "${existingAudio.name}" 的路径已更新`
         )
@@ -1460,7 +1425,7 @@ export default {
         
       } catch (error) {
         console.error('更新音频路径失败:', error)
-        this.showToastNotification('更新失败', `更新音频路径失败: ${error.message}`)
+        notify.toast('error', '更新失败', `更新音频路径失败: ${error.message}`)
       }
     },
     async handleSortChanged({ pageType, sortBy }) {

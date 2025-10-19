@@ -398,7 +398,7 @@ export default {
         if (this.runningGames.size > 0) {
           this.updateRunningGamesPlaytime()
         }
-      }, 60000) // 60秒
+      }, 1000) // 1秒
     },
     // 更新正在运行游戏的时长
     updateRunningGamesPlaytime() {
