@@ -820,7 +820,8 @@ export default {
       ).join('\n')
       
       // 显示 toast 通知，包含详细信息
-      this.showToastNotification(
+      notify.toast(
+        'warning',
         '文件丢失提醒', 
         `发现 ${missingFiles.length} 个视频文件丢失：\n${fileList}\n\n请检查文件路径或重新添加这些视频。`
       )
@@ -882,7 +883,8 @@ export default {
         
         if (!shouldUpdate) {
           console.log('⏭️ 用户取消了批量更新')
-          this.showToastNotification(
+          notify.toast(
+            'info',
             '已取消更新', 
             `发现 ${videosToUpdate.length} 个视频需要更新时长，您可以稍后手动更新`
           )
@@ -931,12 +933,14 @@ export default {
       
       // 显示更新结果
       if (updatedCount > 0) {
-        this.showToastNotification(
+        notify.toast(
+          'success',
           '时长更新完成', 
           `成功更新 ${updatedCount} 个视频的时长${failedCount > 0 ? `，${failedCount} 个视频更新失败` : ''}`
         )
       } else if (failedCount > 0) {
-        this.showToastNotification(
+        notify.toast(
+          'error',
           '时长更新失败', 
           `所有 ${failedCount} 个视频的时长更新失败，请检查视频文件是否有效`
         )
@@ -989,7 +993,7 @@ export default {
         })))
         
         if (files.length === 0) {
-          this.showNotification('拖拽失败', '请拖拽视频文件或文件夹到此处')
+          notify.native('拖拽失败', '请拖拽视频文件或文件夹到此处')
           return
         }
         
@@ -1007,7 +1011,7 @@ export default {
         console.log('检测到文件夹数量:', folders.length)
         
         if (videoFiles.length === 0 && folders.length === 0) {
-          this.showNotification('拖拽失败', '没有检测到视频文件或文件夹，请拖拽视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）或文件夹')
+          notify.native('拖拽失败', '没有检测到视频文件或文件夹，请拖拽视频文件（mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp, ogv）或文件夹')
           return
         }
         
@@ -1038,7 +1042,7 @@ export default {
         // 显示结果通知
         if (addedCount > 0) {
           console.log('显示批量操作结果通知')
-          this.showToastNotification('批量添加完成', '', allResults)
+          notify.toast('success', '批量添加完成', '', allResults)
         } else {
           console.log('所有项目添加失败，显示失败通知')
           const failureReasons = allResults
@@ -1046,7 +1050,7 @@ export default {
             .map((r, index) => `${index + 1}. "${r.fileName || r.folderName}": ${r.error || '未知错误'}`)
             .join('\n')
           
-          this.showToastNotification('添加失败', `所有项目添加失败:\n${failureReasons}`, allResults)
+          notify.toast('error', '添加失败', `所有项目添加失败:\n${failureReasons}`, allResults)
         }
         
       } catch (error) {
@@ -1063,7 +1067,8 @@ export default {
           errorMessage = `未知错误：${error.message}\n请尝试重新拖拽文件或使用"添加"按钮`
         }
         
-        this.showToastNotification(
+        notify.toast(
+          'error',
           '添加失败', 
           `拖拽添加时发生错误\n\n${errorMessage}\n`
         )
@@ -1535,10 +1540,10 @@ export default {
         await this.loadVideos()
         
         // 成功时使用 toast 通知
-        this.showToastNotification('添加成功', `视频 "${videoData.name}" 已成功添加`)
+        notify.toast('success', '添加成功', `视频 "${videoData.name}" 已成功添加`)
       } catch (error) {
         console.error('添加视频失败:', error)
-        this.showToastNotification('添加失败', `添加视频失败: ${error.message}`)
+        notify.toast('error', '添加失败', `添加视频失败: ${error.message}`)
       }
     },
 
@@ -1575,13 +1580,13 @@ export default {
           this.closeAddFolderDialog()
           
           // 成功时使用 toast 通知
-          this.showToastNotification('添加成功', `文件夹 "${this.newFolder.name}" 已成功添加`)
+          notify.toast('success', '添加成功', `文件夹 "${this.newFolder.name}" 已成功添加`)
         } else {
-          this.showToastNotification('添加失败', '文件夹添加失败，请重试')
+          notify.toast('error', '添加失败', '文件夹添加失败，请重试')
         }
       } catch (error) {
         console.error('添加文件夹失败:', error)
-        this.showToastNotification('添加失败', `添加文件夹失败: ${error.message}`)
+        notify.toast('error', '添加失败', `添加文件夹失败: ${error.message}`)
       }
     },
 
@@ -1649,7 +1654,7 @@ export default {
           
           if (!result.exists) {
             console.error('文件不存在:', video.path)
-            this.showToastNotification('播放失败', `视频文件不存在: ${video.name}\n路径: ${video.path}`)
+            notify.toast('error', '播放失败', `视频文件不存在: ${video.name}\n路径: ${video.path}`)
             return
           }
         } else {
@@ -1676,10 +1681,10 @@ export default {
           })
         }
         
-        this.showToastNotification('播放成功', `正在播放: ${video.name}`)
+        notify.toast('success', '播放成功', `正在播放: ${video.name}`)
       } catch (error) {
         console.error('播放文件夹视频失败:', error)
-        this.showToastNotification('播放失败', `播放视频失败: ${error.message}`)
+        notify.toast('error', '播放失败', `播放视频失败: ${error.message}`)
       }
     },
 
@@ -1749,14 +1754,14 @@ export default {
           // 强制更新视图
           this.$forceUpdate()
 
-          this.showToastNotification('生成成功', `缩略图已生成: ${video.name}`)
+          notify.toast('success', '生成成功', `缩略图已生成: ${video.name}`)
         } else {
           console.warn('⚠️ 缩略图生成失败')
-          this.showToastNotification('生成失败', '无法生成缩略图，请检查视频文件是否有效')
+          notify.toast('error', '生成失败', '无法生成缩略图，请检查视频文件是否有效')
         }
       } catch (error) {
         console.error('生成文件夹视频缩略图失败:', error)
-        this.showToastNotification('生成失败', `生成缩略图失败: ${error.message}`)
+        notify.toast('error', '生成失败', `生成缩略图失败: ${error.message}`)
       } finally {
         // 清除生成状态（Vue 3 方式）
         video.isGeneratingThumbnail = false
@@ -1964,13 +1969,13 @@ export default {
 
     async playVideo(video) {
       if (!video.filePath) {
-        this.showToastNotification('播放失败', '视频文件路径不存在')
+        notify.toast('error', '播放失败', '视频文件路径不存在')
         return
       }
 
       // 检查视频文件是否存在
       if (video.fileExists === false) {
-        this.showToastNotification('播放失败', `视频文件不存在: ${video.name}`)
+        notify.toast('error', '播放失败', `视频文件不存在: ${video.name}`)
         return
       }
 
@@ -1994,7 +1999,7 @@ export default {
         await this.loadVideos()
       } catch (error) {
         console.error('播放视频失败:', error)
-        this.showToastNotification('播放失败', `播放视频失败: ${error.message}`)
+        notify.toast('error', '播放失败', `播放视频失败: ${error.message}`)
       }
     },
 
@@ -2106,7 +2111,7 @@ export default {
            }
            
            // 使用 toast 通知显示错误
-           this.showToastNotification('缩略图生成失败', errorMessage)
+           notify.toast('error', '缩略图生成失败', errorMessage)
          }
        } catch (e) {
          console.error('❌ 随机封面失败:', e)
@@ -2114,7 +2119,7 @@ export default {
          console.error('错误类型:', e.constructor.name)
          
          // 使用 toast 通知显示错误
-         this.showToastNotification('缩略图生成失败', `生成过程中发生错误: ${e.message}`)
+         notify.toast('error', '缩略图生成失败', `生成过程中发生错误: ${e.message}`)
        }
      },
     async saveEditedVideo() {
@@ -2154,14 +2159,14 @@ export default {
         await this.loadVideos()
         
         // 显示删除成功通知
-        this.showToastNotification('删除成功', `已成功删除视频 "${video.name}"`)
+        notify.toast('success', '删除成功', `已成功删除视频 "${video.name}"`)
         console.log('视频删除成功:', video.name)
         
         this.closeVideoDetail()
       } catch (error) {
         console.error('删除视频失败:', error)
         // 显示删除失败通知
-        this.showToastNotification('删除失败', `无法删除视频 "${video.name}": ${error.message}`)
+        notify.toast('error', '删除失败', `无法删除视频 "${video.name}": ${error.message}`)
       }
     },
 
@@ -2281,7 +2286,7 @@ export default {
           if (filePath) {
             this.editFolderForm.thumbnail = filePath
             console.log('✅ 已设置文件夹封面:', filePath)
-            this.showToastNotification('设置成功', '已选择文件夹封面')
+            notify.toast('success', '设置成功', '已选择文件夹封面')
           } else {
             console.log('⚠️ 用户取消了选择')
           }
@@ -2290,7 +2295,7 @@ export default {
         }
       } catch (error) {
         console.error('❌ 从文件夹选择封面失败:', error)
-        this.showToastNotification('选择失败', `选择封面失败: ${error.message}`)
+        notify.toast('error', '选择失败', `选择封面失败: ${error.message}`)
       }
     },
 
@@ -2344,7 +2349,7 @@ export default {
           if (filePath) {
             this.newFolder.thumbnail = filePath
             console.log('✅ 已设置文件夹封面:', filePath)
-            this.showToastNotification('设置成功', '已选择文件夹封面')
+            notify.toast('success', '设置成功', '已选择文件夹封面')
           } else {
             console.log('⚠️ 用户取消了选择')
           }
@@ -2353,7 +2358,7 @@ export default {
         }
       } catch (error) {
         console.error('❌ 从文件夹选择封面失败:', error)
-        this.showToastNotification('选择失败', `选择封面失败: ${error.message}`)
+        notify.toast('error', '选择失败', `选择封面失败: ${error.message}`)
       }
     },
 
@@ -2372,10 +2377,10 @@ export default {
         await this.folderManager.updateFolder(this.editFolderForm.id, payload)
         await this.loadFolders()
         this.showEditFolderDialog = false
-        this.showToastNotification('保存成功', `文件夹 "${payload.name}" 已更新`)
+        notify.toast('success', '保存成功', `文件夹 "${payload.name}" 已更新`)
       } catch (e) {
         console.error('保存编辑文件夹失败:', e)
-        this.showToastNotification('保存失败', `保存文件夹失败: ${e.message}`)
+        notify.toast('error', '保存失败', `保存文件夹失败: ${e.message}`)
       }
     },
 
@@ -2390,17 +2395,17 @@ export default {
           await this.loadFolders()
           
           // 显示删除成功通知
-          this.showToastNotification('删除成功', `已成功删除文件夹 "${folder.name}"`)
+          notify.toast('success', '删除成功', `已成功删除文件夹 "${folder.name}"`)
           console.log('文件夹删除成功:', folder.name)
           
           this.closeVideoDetail()
         } else {
-          this.showToastNotification('删除失败', '文件夹删除失败，请重试')
+          notify.toast('error', '删除失败', '文件夹删除失败，请重试')
         }
       } catch (error) {
         console.error('删除文件夹失败:', error)
         // 显示删除失败通知
-        this.showToastNotification('删除失败', `无法删除文件夹 "${folder.name}": ${error.message}`)
+        notify.toast('error', '删除失败', `无法删除文件夹 "${folder.name}": ${error.message}`)
       }
     },
 
@@ -2764,7 +2769,7 @@ export default {
     async updateVideoDuration(video) {
       try {
         if (!video.filePath) {
-          this.showToastNotification('更新失败', '视频文件路径不存在')
+          notify.toast('error', '更新失败', '视频文件路径不存在')
           return
         }
 
@@ -2785,11 +2790,11 @@ export default {
           // 成功时不显示通知，只在控制台记录
         } else {
           console.warn('⚠️ 无法获取视频时长')
-          this.showToastNotification('更新失败', '无法获取视频时长，请检查视频文件是否有效')
+          notify.toast('error', '更新失败', '无法获取视频时长，请检查视频文件是否有效')
         }
       } catch (error) {
         console.error('更新视频时长失败:', error)
-        this.showToastNotification('更新失败', `更新视频时长失败: ${error.message}`)
+        notify.toast('error', '更新失败', `更新视频时长失败: ${error.message}`)
       }
     },
 
@@ -2805,7 +2810,7 @@ export default {
       })
       
       if (videosToUpdate.length === 0) {
-        this.showToastNotification('无需更新', '所有视频都有时长信息')
+        notify.toast('info', '无需更新', '所有视频都有时长信息')
         return
       }
       
@@ -2824,7 +2829,8 @@ export default {
       let failedCount = 0
       
       // 显示更新进度通知
-      this.showToastNotification(
+      notify.toast(
+        'info',
         '正在批量更新视频时长', 
         `正在更新 ${videosToUpdate.length} 个视频的时长，请稍候...`
       )
@@ -2865,12 +2871,14 @@ export default {
       
       // 显示更新结果
       if (updatedCount > 0) {
-        this.showToastNotification(
+        notify.toast(
+          'success',
           '批量更新完成', 
           `成功更新 ${updatedCount} 个视频的时长${failedCount > 0 ? `，${failedCount} 个视频更新失败` : ''}`
         )
       } else if (failedCount > 0) {
-        this.showToastNotification(
+        notify.toast(
+          'error',
           '批量更新失败', 
           `所有 ${failedCount} 个视频的时长更新失败，请检查视频文件是否有效`
         )
@@ -3378,7 +3386,7 @@ export default {
         const accessCheck = await this.checkVideoFileAccess(video.filePath)
         if (!accessCheck.accessible) {
           console.error('❌ 视频文件不可访问:', accessCheck.error)
-          this.showToastNotification('播放失败', `视频文件不可访问: ${accessCheck.error}`)
+          notify.toast('error', '播放失败', `视频文件不可访问: ${accessCheck.error}`)
           return
         }
         
@@ -3405,9 +3413,9 @@ export default {
             // 检查是否是路径编码问题
             if (result.error && (result.error.includes('ERR_FILE_NOT_FOUND') || result.error.includes('路径'))) {
               console.log('🔄 检测到路径问题')
-              this.showToastNotification('播放失败', `视频文件路径问题: ${result.error}`)
+              notify.toast('error', '播放失败', `视频文件路径问题: ${result.error}`)
             } else {
-              this.showToastNotification('播放失败', `打开视频窗口失败: ${result.error}`)
+              notify.toast('error', '播放失败', `打开视频窗口失败: ${result.error}`)
             }
           }
         } else {
@@ -3415,7 +3423,7 @@ export default {
           console.warn('❌ Electron API 不可用，降级到外部播放器')
           console.warn('electronAPI 可用性:', !!window.electronAPI)
           console.warn('openVideoWindow 可用性:', !!window.electronAPI?.openVideoWindow)
-          this.showToastNotification('播放失败', '内部播放器不可用')
+          notify.toast('error', '播放失败', '内部播放器不可用')
         }
       } catch (error) {
         console.error('❌ 内部播放视频失败:', error)
@@ -3428,7 +3436,7 @@ export default {
           errorMessage = '无法访问视频文件，请检查文件权限'
         }
         
-        this.showToastNotification('播放失败', `内部播放视频失败: ${errorMessage}`)
+        notify.toast('error', '播放失败', `内部播放视频失败: ${errorMessage}`)
       }
     },
 
@@ -3441,50 +3449,11 @@ export default {
           console.log('✅ 已使用外部播放器播放视频:', video.name)
         } else {
           // 降级处理：在浏览器中显示路径
-          this.showToastNotification('播放失败', '在浏览器环境中无法直接打开视频文件')
+          notify.toast('error', '播放失败', '在浏览器环境中无法直接打开视频文件')
         }
       } catch (error) {
         console.error('外部播放视频失败:', error)
-        this.showToastNotification('播放失败', `外部播放视频失败: ${error.message}`)
-      }
-    },
-
-
-    // 显示通知
-    showNotification(title, message) {
-      if (window.electronAPI && window.electronAPI.showNotification) {
-        window.electronAPI.showNotification(title, message)
-      } else {
-        // 降级处理：使用浏览器通知
-        if (Notification.permission === 'granted') {
-          new Notification(title, { body: message })
-        } else if (Notification.permission !== 'denied') {
-          Notification.requestPermission().then(permission => {
-            if (permission === 'granted') {
-              new Notification(title, { body: message })
-            }
-          })
-        }
-      }
-    },
-
-    // 显示 Toast 通知
-    async showToastNotification(title, message, results = null) {
-      try {
-
-        
-        if (results && results.length > 0) {
-          // 批量操作结果通知
-          notify.batchResult(title, results)
-        } else {
-          // 普通通知
-          const type = title.includes('失败') || title.includes('错误') ? 'error' : 'success'
-          notify[type](title, message)
-        }
-      } catch (error) {
-        console.error('显示 Toast 通知失败:', error)
-        // 降级到原来的通知方式
-        this.showNotification(title, message)
+        notify.toast('error', '播放失败', `外部播放视频失败: ${error.message}`)
       }
     },
 
@@ -3539,7 +3508,7 @@ export default {
         
         if (!existingVideo || !newPath) {
           console.error('路径更新信息不完整')
-          this.showToastNotification('更新失败', '路径更新信息不完整')
+          notify.toast('error', '更新失败', '路径更新信息不完整')
           return
         }
         
@@ -3591,11 +3560,11 @@ export default {
         // 成功时不显示通知，只在控制台记录
         console.log('✅ 视频路径更新成功:', existingVideo.name)
         
-        this.showToastNotification('路径更新成功', `视频 "${existingVideo.name}" 的路径已更新`)
+        notify.toast('success', '路径更新成功', `视频 "${existingVideo.name}" 的路径已更新`)
         
       } catch (error) {
         console.error('更新视频路径失败:', error)
-        this.showToastNotification('更新失败', `更新视频路径失败: ${error.message}`)
+        notify.toast('error', '更新失败', `更新视频路径失败: ${error.message}`)
       }
     },
 
