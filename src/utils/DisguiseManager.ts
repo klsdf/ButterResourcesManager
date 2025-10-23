@@ -9,6 +9,7 @@ class DisguiseManager {
   private isInitialized = false
   private disguiseTexts: string[] = []
   private globalTagCache = new Map<string, string>() // 全局标签伪装缓存，确保同一标签在不同地方显示相同的伪装文字
+  private appRootPath: string | null = null // 缓存应用根目录路径
 
   constructor() {
     // 伪装文字数组
@@ -64,6 +65,40 @@ class DisguiseManager {
       '公司金融',
       '行为金融学'
     ]
+  }
+
+  /**
+   * 获取应用根目录路径
+   * @returns {Promise<string>} 应用根目录路径
+   */
+  async getAppRootPath(): Promise<string> {
+    if (this.appRootPath) {
+      return this.appRootPath
+    }
+
+    try {
+      if (window.electronAPI && window.electronAPI.getAppRootPath) {
+        const result = await window.electronAPI.getAppRootPath()
+        if (result.success) {
+          this.appRootPath = result.path
+          console.log('获取到应用根目录路径:', this.appRootPath)
+          return this.appRootPath
+        } else {
+          console.error('获取应用根目录路径失败:', result.error)
+          throw new Error(result.error)
+        }
+      } else {
+        // 浏览器环境，使用当前域名
+        this.appRootPath = window.location.origin
+        console.log('浏览器环境，使用当前域名作为根路径:', this.appRootPath)
+        return this.appRootPath
+      }
+    } catch (error) {
+      console.error('获取应用根目录路径失败:', error)
+      // 降级处理
+      this.appRootPath = window.location.origin
+      return this.appRootPath
+    }
   }
 
   /**
@@ -136,8 +171,16 @@ class DisguiseManager {
      const randomIndex = Math.floor(Math.random() * this.disguiseImages.length)
      const selectedImage = this.disguiseImages[randomIndex]
      
-     // 构建完整的图片路径 - 使用根目录的disguise文件夹
-     const disguiseImagePath = `./disguise/${selectedImage}`
+     // 构建完整的图片路径
+     let disguiseImagePath: string
+     if (window.electronAPI) {
+       // Electron环境：使用file://协议指向应用根目录的disguise文件夹
+       const appRootPath = await this.getAppRootPath()
+       disguiseImagePath = `file://${appRootPath}/disguise/${selectedImage}`
+     } else {
+       // 浏览器环境：使用相对路径
+       disguiseImagePath = `./disguise/${selectedImage}`
+     }
      
      console.log(`✅ 为图片 ${originalPath} 随机选择伪装图片: ${disguiseImagePath} (索引: ${randomIndex}, 总数量: ${this.disguiseImages.length})`)
      return disguiseImagePath

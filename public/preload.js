@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 伪装图片功能
   readDisguiseImages: () => ipcRenderer.invoke('read-disguise-images'),
+  getAppRootPath: () => ipcRenderer.invoke('get-app-root-path'),
   
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),

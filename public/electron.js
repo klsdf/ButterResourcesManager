@@ -2600,6 +2600,18 @@ ipcMain.handle('quit-and-install', async () => {
   }
 })
 
+// 获取应用根目录路径
+ipcMain.handle('get-app-root-path', async () => {
+  try {
+    const appRootPath = process.cwd()
+    console.log('应用根目录路径:', appRootPath)
+    return { success: true, path: appRootPath }
+  } catch (error) {
+    console.error('获取应用根目录路径失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 
 
 
