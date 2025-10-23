@@ -104,7 +104,7 @@ function createWindow() {
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
 app.whenReady().then(() => {
   createWindow()
-  createMenu()
+  Menu.setApplicationMenu(null) // 隐藏原生菜单栏
   createTray() // 创建系统托盘
   
   // 初始化自动更新
