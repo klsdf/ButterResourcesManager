@@ -68,7 +68,7 @@ class DisguiseManager {
 
   /**
    * 初始化伪装图片列表
-   * 从disguise文件夹中加载所有图片文件
+   * 从根目录的disguise文件夹中加载所有图片文件
    */
   async initialize() {
     if (this.isInitialized) {
@@ -79,75 +79,35 @@ class DisguiseManager {
     console.log('开始初始化DisguiseManager...')
     
     try {
-      // 在Electron环境中读取disguise文件夹
-      if (window.electronAPI && window.electronAPI.readDirectory) {
-        console.log('使用Electron API读取disguise文件夹...')
+      // 在Electron环境中读取根目录的disguise文件夹
+      if (window.electronAPI && window.electronAPI.readDisguiseImages) {
+        console.log('使用Electron API读取根目录disguise文件夹...')
         
-        // 尝试多个可能的路径
-        const possiblePaths = [
-          './public/disguise',
-          './disguise', 
-          'public/disguise',
-          'disguise'
-        ]
+        const result = await window.electronAPI.readDisguiseImages()
+        console.log('读取disguise文件夹结果:', result)
         
-        let result = null
-        for (const path of possiblePaths) {
-          console.log(`尝试路径: ${path}`)
-          try {
-            result = await window.electronAPI.readDirectory(path)
-            console.log(`路径 ${path} 返回结果:`, result)
-            if (result.success && result.files && result.files.length > 0) {
-              console.log(`✅ 成功使用路径: ${path}`)
-              break
-            }
-          } catch (error) {
-            console.log(`路径 ${path} 失败:`, error)
-          }
+        if (result.success && result.images) {
+          this.disguiseImages = result.images
+          console.log(`✅ 从根目录disguise文件夹加载了 ${this.disguiseImages.length} 张伪装图片:`, this.disguiseImages)
+        } else {
+          console.warn('❌ 读取disguise文件夹失败:', result.error)
+          // 如果没有图片，设置为空数组，后续会使用默认图片
+          this.disguiseImages = []
+          console.log('📁 disguise文件夹已自动创建，但其中没有图片文件')
         }
-        
-        if (result && result.success && result.files) {
-          console.log('读取到的文件列表:', result.files)
-          // 过滤出图片文件
-          const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
-          this.disguiseImages = result.files.filter(file => {
-            const ext = file.toLowerCase().substring(file.lastIndexOf('.'))
-            const isImage = imageExtensions.includes(ext)
-            console.log(`文件 ${file} 扩展名: ${ext}, 是否为图片: ${isImage}`)
-            return isImage
-          })
-          console.log(`✅ 加载了 ${this.disguiseImages.length} 张伪装图片:`, this.disguiseImages)
-         } else {
-           console.warn('❌ 所有路径都读取失败，尝试手动设置图片列表')
-           // 手动设置已知的图片文件
-           this.disguiseImages = [
-             'photo_2023-06-17_11-31-26.jpg', 
-             'photo_2023-06-17_20-55-22.jpg',
-             'photo_2024-11-19_01-39-14 (2).jpg'
-           ]
-           console.log('✅ 手动设置了伪装图片列表:', this.disguiseImages)
-         }
-       } else {
-         // 在浏览器环境中的降级处理
-         console.warn('❌ 当前环境不支持读取disguise文件夹，electronAPI:', !!window.electronAPI, 'readDirectory:', !!(window.electronAPI && window.electronAPI.readDirectory))
-         // 手动设置已知的图片文件
-         this.disguiseImages = [
-           'photo_2023-06-17_11-31-26.jpg', 
-           'photo_2023-06-17_20-55-22.jpg',
-           'photo_2024-11-19_01-39-14 (2).jpg'
-         ]
-         console.log('✅ 降级处理：手动设置了伪装图片列表:', this.disguiseImages)
-       }
-     } catch (error) {
-       console.error('❌ 初始化伪装图片失败:', error)
-       // 即使出错也设置一个默认图片
-       this.disguiseImages = [
-         'photo_2023-06-17_11-31-26.jpg', 
-         'photo_2023-06-17_20-55-22.jpg',
-         'photo_2024-11-19_01-39-14 (2).jpg'
-       ]
-       console.log('✅ 错误处理：手动设置了伪装图片列表:', this.disguiseImages)
-     }
+      } else {
+        // 在浏览器环境中的降级处理
+        console.warn('❌ 当前环境不支持读取disguise文件夹，electronAPI:', !!window.electronAPI, 'readDisguiseImages:', !!(window.electronAPI && window.electronAPI.readDisguiseImages))
+        // 设置为空数组，后续会使用默认图片
+        this.disguiseImages = []
+        console.log('✅ 降级处理：设置为空数组，将使用默认图片')
+      }
+    } catch (error) {
+      console.error('❌ 初始化伪装图片失败:', error)
+      // 即使出错也设置为空数组，后续会使用默认图片
+      this.disguiseImages = []
+      console.log('✅ 错误处理：设置为空数组，将使用默认图片')
+    }
 
     this.isInitialized = true
     console.log('DisguiseManager初始化完成，图片数量:', this.disguiseImages.length)
@@ -176,8 +136,8 @@ class DisguiseManager {
      const randomIndex = Math.floor(Math.random() * this.disguiseImages.length)
      const selectedImage = this.disguiseImages[randomIndex]
      
-     // 构建完整的图片路径
-     const disguiseImagePath = `./public/disguise/${selectedImage}`
+     // 构建完整的图片路径 - 使用根目录的disguise文件夹
+     const disguiseImagePath = `./disguise/${selectedImage}`
      
      console.log(`✅ 为图片 ${originalPath} 随机选择伪装图片: ${disguiseImagePath} (索引: ${randomIndex}, 总数量: ${this.disguiseImages.length})`)
      return disguiseImagePath

@@ -104,7 +104,7 @@ function createWindow() {
 // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
 app.whenReady().then(() => {
   createWindow()
-  Menu.setApplicationMenu(null) // 隐藏原生菜单栏
+  createMenu()
   createTray() // 创建系统托盘
   
   // 初始化自动更新
@@ -2074,6 +2074,58 @@ ipcMain.handle('list-files', async (event, dirPath) => {
   } catch (error) {
     console.error('列出目录文件失败:', error)
     return { success: false, error: error.message, files: [] }
+  }
+})
+
+// 专门用于读取伪装图片的 API
+ipcMain.handle('read-disguise-images', async () => {
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    
+    console.log('=== 读取伪装图片 ===')
+    
+    // 使用根目录下的 disguise 文件夹
+    const disguiseDir = path.join(process.cwd(), 'disguise')
+    console.log('伪装图片目录:', disguiseDir)
+    
+    // 检查目录是否存在，如果不存在则创建
+    if (!fs.existsSync(disguiseDir)) {
+      console.log('disguise 目录不存在，正在创建...')
+      try {
+        fs.mkdirSync(disguiseDir, { recursive: true })
+        console.log('✅ disguise 目录创建成功')
+      } catch (error) {
+        console.error('❌ 创建 disguise 目录失败:', error)
+        return { success: false, error: '创建 disguise 目录失败: ' + error.message, images: [] }
+      }
+    }
+    
+    // 读取目录内容
+    const files = fs.readdirSync(disguiseDir)
+    console.log('disguise 目录中的文件数量:', files.length)
+    console.log('文件列表:', files)
+    
+    // 过滤出图片文件
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+    const imageFiles = files.filter(file => {
+      const ext = path.extname(file).toLowerCase()
+      const isImage = imageExtensions.includes(ext)
+      console.log(`文件 ${file} 扩展名: ${ext}, 是否为图片: ${isImage}`)
+      return isImage
+    })
+    
+    console.log(`✅ 找到 ${imageFiles.length} 张伪装图片:`, imageFiles)
+    
+    return { 
+      success: true, 
+      images: imageFiles,
+      directory: disguiseDir,
+      hasImages: imageFiles.length > 0
+    }
+  } catch (error) {
+    console.error('❌ 读取伪装图片失败:', error)
+    return { success: false, error: error.message, images: [] }
   }
 })
 

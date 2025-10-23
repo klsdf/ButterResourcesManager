@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFileStats: (filePath) => ipcRenderer.invoke('get-file-stats', filePath),
   listFiles: (dirPath) => ipcRenderer.invoke('list-files', dirPath),
   
+  // 伪装图片功能
+  readDisguiseImages: () => ipcRenderer.invoke('read-disguise-images'),
+  
   // 文件选择对话框
   selectExecutableFile: () => ipcRenderer.invoke('select-executable-file'),
   selectImageFile: (defaultPath) => ipcRenderer.invoke('select-image-file', defaultPath),
