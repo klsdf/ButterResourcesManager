@@ -598,36 +598,16 @@ export default {
       console.error('通知服务初始化失败:', error)
     }
 
-    // 然后从 SaveManager 加载设置
+    // 然后从 SaveManager 加载设置（所有降级逻辑由 SaveManager 处理）
     try {
       const settings = await saveManager.loadSettings()
-      if (settings && settings.theme) {
-        console.log('从 SaveManager 加载主题设置:', settings.theme)
-        this.applyTheme(settings.theme)
-      } else {
-        // 降级到本地存储
-        const savedTheme = localStorage.getItem('butter-manager-theme')
-        if (savedTheme) {
-          console.log('从本地存储加载主题设置:', savedTheme)
-          this.applyTheme(savedTheme)
-        } else {
-          // 默认主题
-          console.log('使用默认主题: auto')
-          this.applyTheme('auto')
-        }
-      }
+      const theme = settings?.theme || 'auto'
+      console.log('从 SaveManager 加载主题设置:', theme)
+      this.applyTheme(theme)
     } catch (error) {
-      console.warn('从 SaveManager 加载设置失败，使用本地存储:', error)
-      // 降级到本地存储
-      const savedTheme = localStorage.getItem('butter-manager-theme')
-      if (savedTheme) {
-        console.log('从本地存储加载主题设置:', savedTheme)
-        this.applyTheme(savedTheme)
-      } else {
-        // 默认主题
-        console.log('使用默认主题: auto')
-        this.applyTheme('auto')
-      }
+      console.warn('从 SaveManager 加载设置失败，使用默认主题:', error)
+      // 如果 SaveManager 也失败了，使用默认主题
+      this.applyTheme('auto')
     }
 
     // 启动游戏运行状态检查
