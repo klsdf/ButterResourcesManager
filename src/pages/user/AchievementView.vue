@@ -2,16 +2,14 @@
   <div class="achievement-view">
     <div class="achievement-content">
       <div class="achievement-header">
-        <h4>🏆 成就系统</h4>
-        <p>查看你的成就和里程碑</p>
-        <div class="test-buttons">
+        <!-- <div class="test-buttons">
           <button @click="testAchievementNotification" class="test-button">
             测试成就通知
           </button>
           <button @click="resetAchievementStates" class="test-button reset-button">
             重置成就状态
           </button>
-        </div>
+        </div> -->
       </div>
       
       <div class="achievement-body">
@@ -489,24 +487,7 @@ export default {
   overflow: hidden;
 }
 
-.achievement-header {
-  padding: 20px 0;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 20px;
-}
 
-.achievement-header h4 {
-  margin: 0 0 8px 0;
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.achievement-header p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
 
 .test-buttons {
   margin-top: 12px;

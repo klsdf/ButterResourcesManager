@@ -1327,6 +1327,19 @@ export default {
     isGameRunning(game) {
       return this.$parent.isGameRunning(game.id)
     },
+    playScreenshotSound() {
+      try {
+        const audio = new Audio('/camera.mp3')
+        audio.volume = 1 // 设置音量为100%，可以根据需要调整
+        audio.play().catch(error => {
+          console.warn('播放截图音效失败:', error)
+          // 忽略播放失败，不影响截图功能
+        })
+      } catch (error) {
+        console.warn('创建音频对象失败:', error)
+        // 忽略错误，不影响截图功能
+      }
+    },
     async takeScreenshot() {
       // 防止重复截图：检查是否正在截图或距离上次截图时间太短
       const now = Date.now()
@@ -1404,6 +1417,9 @@ export default {
 
           if (result.success) {
             console.log('截图成功:', result.filepath, '窗口:', result.windowName)
+
+            // 播放截图音效
+            this.playScreenshotSound()
 
             if (showNotification) {
               // 延迟显示通知，避免通知被包含在截图中

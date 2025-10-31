@@ -105,7 +105,7 @@
 import VideoManager from '../utils/VideoManager.ts'
 import saveManager from '../utils/SaveManager.ts'
 import FormField from '../components/FormField.vue'
-import VideoSelector from '../components/VideoSelector.vue'
+import VideoSelector from './video/VideoSelector.vue'
 
 export default {
   name: 'CollectionsView',

@@ -4,6 +4,90 @@
 
       
       <div class="statistics-body">
+        <!-- 时间统计 -->
+        <div class="statistics-section">
+          <h5>⏰ 时间统计</h5>
+          <div class="time-statistics-grid">
+            <div class="time-statistics-card">
+              <div class="time-statistics-icon">📅</div>
+              <div class="time-statistics-content">
+                <div class="time-statistics-label">第一次使用时间</div>
+                <div class="time-statistics-value">{{ formatJoinDate }}</div>
+              </div>
+            </div>
+            <div class="time-statistics-card">
+              <div class="time-statistics-icon">🕒</div>
+              <div class="time-statistics-content">
+                <div class="time-statistics-label">本次登录时间</div>
+                <div class="time-statistics-value">{{ formatCurrentLogin }}</div>
+              </div>
+            </div>
+            <div class="time-statistics-card">
+              <div class="time-statistics-icon">🕐</div>
+              <div class="time-statistics-content">
+                <div class="time-statistics-label">上一次登录时间</div>
+                <div class="time-statistics-value">{{ formatLastActive }}</div>
+              </div>
+            </div>
+            <div class="time-statistics-card">
+              <div class="time-statistics-icon">⏱️</div>
+              <div class="time-statistics-content">
+                <div class="time-statistics-label">总使用时长</div>
+                <div class="time-statistics-value">{{ formatTotalUsageTimeWithSession }}</div>
+              </div>
+            </div>
+            <div class="time-statistics-card">
+              <div class="time-statistics-icon">🕐</div>
+              <div class="time-statistics-content">
+                <div class="time-statistics-label">本次会话时长</div>
+                <div class="time-statistics-value">{{ formatCurrentSessionTime }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 登录日历 -->
+        <div class="statistics-section">
+          <h5>📅 登录日历</h5>
+          <div class="calendar-container">
+            <div class="calendar-header">
+              <button @click="previousMonth" class="calendar-nav-btn">‹</button>
+              <h6 class="calendar-title">{{ currentMonthYear }}</h6>
+              <button @click="nextMonth" class="calendar-nav-btn">›</button>
+            </div>
+            <div class="calendar-grid">
+              <div class="calendar-weekday" v-for="day in weekdays" :key="day">{{ day }}</div>
+              <div 
+                v-for="day in calendarDays" 
+                :key="day.key"
+                :class="['calendar-day', { 
+                  'other-month': !day.isCurrentMonth,
+                  'today': day.isToday,
+                  'checked': day.isChecked,
+                  'current-month': day.isCurrentMonth
+                }]"
+              >
+                <span class="day-number">{{ day.day }}</span>
+                <span v-if="day.isChecked" class="check-mark">✓</span>
+              </div>
+            </div>
+            <div class="calendar-stats">
+              <div class="stat-item">
+                <span class="stat-number">{{ totalCheckDays }}</span>
+                <span class="stat-label">总登录天数</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-number">{{ currentMonthCheckDays }}</span>
+                <span class="stat-label">本月登录</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-number">{{ currentStreak }}</span>
+                <span class="stat-label">连续登录</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 媒体数量总览 -->
         <div class="statistics-section">
           <h5>📈 媒体数量总览</h5>
@@ -257,6 +341,19 @@ export default {
   name: 'StatisticsView',
   data() {
     return {
+      userProfile: {
+        name: '',
+        joinDate: null,
+        loginHistory: [], // 登录时间队列，最多2个元素：[本次登录时间, 上一次登录时间]
+        checkInDays: [], // 登录日期数组，格式：['2024-01-15', '2024-01-16']
+        totalUsageTime: 0, // 总使用时长（秒）
+        sessionStartTime: null, // 当前会话开始时间
+        lastSessionEndTime: null // 上次会话结束时间
+      },
+      currentDate: new Date(),
+      weekdays: ['日', '一', '二', '三', '四', '五', '六'],
+      currentSessionTime: 0, // 当前会话使用时长（秒）
+      usageTimer: null, // 定时器引用
       mediaStats: [
         { type: 'games', label: '游戏', icon: '🎮', count: 0 },
         { type: 'images', label: '图片', icon: '🖼️', count: 0 },
@@ -313,7 +410,302 @@ export default {
       }
     }
   },
+  computed: {
+    formatJoinDate() {
+      if (!this.userProfile.joinDate) return '未知'
+      const date = new Date(this.userProfile.joinDate)
+      if (isNaN(date.getTime())) return '未知'
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`
+    },
+    formatCurrentLogin() {
+      // 从登录队列读取本次登录时间（第一个元素），如果没有则使用 sessionStartTime
+      const loginTime = (this.userProfile.loginHistory && this.userProfile.loginHistory.length > 0) 
+        ? this.userProfile.loginHistory[0] 
+        : this.userProfile.sessionStartTime
+      
+      if (!loginTime) return '未知'
+      const date = new Date(loginTime)
+      if (isNaN(date.getTime())) return '未知'
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`
+    },
+    formatLastActive() {
+      // 从登录队列读取上一次登录时间（第二个元素），如果队列只有一个元素或为空，则显示"无记录"
+      if (!this.userProfile.loginHistory || this.userProfile.loginHistory.length < 2) {
+        return '无记录'
+      }
+      const lastLoginTime = this.userProfile.loginHistory[1]
+      if (!lastLoginTime) return '无记录'
+      const date = new Date(lastLoginTime)
+      if (isNaN(date.getTime())) return '无记录'
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`
+    },
+    currentMonthYear() {
+      return this.currentDate.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long'
+      })
+    },
+    calendarDays() {
+      const year = this.currentDate.getFullYear()
+      const month = this.currentDate.getMonth()
+      
+      // 获取当月第一天和最后一天
+      const firstDay = new Date(year, month, 1)
+      const lastDay = new Date(year, month + 1, 0)
+      
+      // 获取第一天是星期几
+      const firstDayWeek = firstDay.getDay()
+      
+      // 获取上个月最后几天
+      const prevMonth = new Date(year, month, 0)
+      const prevMonthLastDay = prevMonth.getDate()
+      
+      const days = []
+      
+      // 添加上个月的末尾几天
+      for (let i = firstDayWeek - 1; i >= 0; i--) {
+        const day = prevMonthLastDay - i
+        days.push({
+          day,
+          key: `${year}-${month}-${day}`,
+          isCurrentMonth: false,
+          isToday: false,
+          isChecked: false
+        })
+      }
+      
+      // 添加当月的所有天
+      for (let day = 1; day <= lastDay.getDate(); day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        const isToday = this.isToday(year, month + 1, day)
+        const isChecked = this.userProfile.checkInDays.includes(dateStr)
+        
+        days.push({
+          day,
+          key: dateStr,
+          isCurrentMonth: true,
+          isToday,
+          isChecked
+        })
+      }
+      
+      // 添加下个月的开头几天，补齐6行
+      const remainingDays = 42 - days.length
+      for (let day = 1; day <= remainingDays; day++) {
+        days.push({
+          day,
+          key: `${year}-${month + 2}-${day}`,
+          isCurrentMonth: false,
+          isToday: false,
+          isChecked: false
+        })
+      }
+      
+      return days
+    },
+    totalCheckDays() {
+      return this.userProfile.checkInDays.length
+    },
+    currentMonthCheckDays() {
+      const year = this.currentDate.getFullYear()
+      const month = this.currentDate.getMonth() + 1
+      const monthPrefix = `${year}-${String(month).padStart(2, '0')}-`
+      
+      return this.userProfile.checkInDays.filter(date => date.startsWith(monthPrefix)).length
+    },
+    currentStreak() {
+      if (this.userProfile.checkInDays.length === 0) return 0
+      
+      const sortedDays = [...this.userProfile.checkInDays].sort()
+      let streak = 0
+      const today = new Date()
+      const todayStr = this.formatDate(today)
+      
+      // 从今天开始往前计算连续登录天数
+      for (let i = 0; i < 365; i++) {
+        const checkDate = new Date(today)
+        checkDate.setDate(today.getDate() - i)
+        const checkDateStr = this.formatDate(checkDate)
+        
+        if (sortedDays.includes(checkDateStr)) {
+          streak++
+        } else {
+          break
+        }
+      }
+      
+      return streak
+    },
+    // 格式化当前会话时长显示
+    formatCurrentSessionTime() {
+      return this.formatUsageTime(this.currentSessionTime)
+    },
+    // 格式化总使用时长（包含当前会话）
+    formatTotalUsageTimeWithSession() {
+      const totalWithSession = this.userProfile.totalUsageTime + this.currentSessionTime
+      return this.formatUsageTime(totalWithSession)
+    }
+  },
   methods: {
+    async loadUserProfile() {
+      try {
+        console.log('加载用户资料...')
+        const profile = await saveManager.loadUserProfile()
+        if (profile) {
+          this.userProfile = { ...this.userProfile, ...profile }
+          // 确保 joinDate 有值
+          if (!this.userProfile.joinDate) {
+            this.userProfile.joinDate = new Date().toISOString()
+          }
+          // 确保 loginHistory 数组存在
+          if (!this.userProfile.loginHistory) {
+            this.userProfile.loginHistory = []
+          }
+          // 如果之前没有设置过这些字段，现在需要保存
+          if (!profile.joinDate) {
+            await this.saveUserProfile()
+          }
+          console.log('用户资料加载成功:', this.userProfile)
+        } else {
+          // 如果是新用户，设置加入日期
+          this.userProfile.joinDate = new Date().toISOString()
+          // 确保 loginHistory 数组存在
+          if (!this.userProfile.loginHistory) {
+            this.userProfile.loginHistory = []
+          }
+          await this.saveUserProfile()
+        }
+      } catch (error) {
+        console.error('加载用户资料失败:', error)
+        // 即使出错，也设置默认值
+        if (!this.userProfile.joinDate) {
+          this.userProfile.joinDate = new Date().toISOString()
+        }
+        // 确保 loginHistory 数组存在
+        if (!this.userProfile.loginHistory) {
+          this.userProfile.loginHistory = []
+        }
+      }
+    },
+    async saveUserProfile() {
+      try {
+        // 确保 joinDate 有值（如果是新用户）
+        if (!this.userProfile.joinDate) {
+          this.userProfile.joinDate = new Date().toISOString()
+        }
+        // lastActive 应该在 startUsageTracking 时设置为 sessionStartTime，不在这里更新
+        
+        // 自动记录登录日期：如果今天还没有记录，则自动记录
+        await this.autoRecordLogin()
+        
+        await saveManager.saveUserProfile(this.userProfile)
+        console.log('用户资料保存成功')
+      } catch (error) {
+        console.error('保存用户资料失败:', error)
+      }
+    },
+    async autoRecordLogin() {
+      const today = new Date()
+      const todayStr = this.formatDate(today)
+      
+      // 如果今天还没有记录登录，则自动记录
+      if (!this.userProfile.checkInDays.includes(todayStr)) {
+        this.userProfile.checkInDays.push(todayStr)
+        console.log('自动记录登录日期:', todayStr)
+      }
+    },
+    formatDate(date) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    },
+    isToday(year, month, day) {
+      const today = new Date()
+      return today.getFullYear() === year && 
+             today.getMonth() + 1 === month && 
+             today.getDate() === day
+    },
+    previousMonth() {
+      this.currentDate = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() - 1, 1)
+    },
+    nextMonth() {
+      this.currentDate = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth() + 1, 1)
+    },
+    // 格式化使用时长显示（精确到秒）
+    formatUsageTime(seconds) {
+      const totalSeconds = Math.floor(seconds)
+      if (totalSeconds < 60) {
+        return `${totalSeconds}秒`
+      } else if (totalSeconds < 3600) {
+        const minutes = Math.floor(totalSeconds / 60)
+        const remainingSeconds = totalSeconds % 60
+        return `${minutes}分${remainingSeconds}秒`
+      } else if (totalSeconds < 86400) {
+        const hours = Math.floor(totalSeconds / 3600)
+        const minutes = Math.floor((totalSeconds % 3600) / 60)
+        const remainingSeconds = totalSeconds % 60
+        return `${hours}小时${minutes}分${remainingSeconds}秒`
+      } else {
+        const days = Math.floor(totalSeconds / 86400)
+        const hours = Math.floor((totalSeconds % 86400) / 3600)
+        const minutes = Math.floor((totalSeconds % 3600) / 60)
+        const remainingSeconds = totalSeconds % 60
+        return `${days}天${hours}小时${minutes}分${remainingSeconds}秒`
+      }
+    },
+    // 开始使用时长跟踪
+    async startUsageTracking() {
+      try {
+        await saveManager.startUsageTracking()
+        // 同步更新本地 userProfile（可能已经处理了未结束的会话）
+        const profile = await saveManager.loadUserProfile()
+        if (profile) {
+          this.userProfile.sessionStartTime = profile.sessionStartTime
+          this.userProfile.loginHistory = profile.loginHistory || []
+          this.userProfile.totalUsageTime = profile.totalUsageTime
+        }
+        // 重置当前会话时长为0（新的会话开始）
+        this.currentSessionTime = 0
+        this.startUsageTimer()
+        console.log('使用时长跟踪已开始')
+      } catch (error) {
+        console.error('开始使用时长跟踪失败:', error)
+      }
+    },
+    // 开始定时器更新当前会话时长
+    startUsageTimer() {
+      this.updateCurrentSessionTime()
+      this.usageTimer = setInterval(() => {
+        this.updateCurrentSessionTime()
+      }, 1000) // 每秒更新一次
+    },
+    // 更新当前会话时长
+    async updateCurrentSessionTime() {
+      try {
+        this.currentSessionTime = await saveManager.getCurrentSessionDuration()
+      } catch (error) {
+        console.error('更新当前会话时长失败:', error)
+      }
+    },
     async loadMediaStatistics() {
       try {
         this.isLoading = true
@@ -699,8 +1091,18 @@ export default {
   },
   async mounted() {
     console.log('统计页面已加载')
+    await this.loadUserProfile()
+    // 开始使用时长跟踪
+    await this.startUsageTracking()
     await this.loadMediaStatistics()
     await this.generateMonthlyReport()
+  },
+  beforeUnmount() {
+    // 页面卸载时停止使用时长跟踪
+    if (this.usageTimer) {
+      clearInterval(this.usageTimer)
+      this.usageTimer = null
+    }
   }
 }
 </script>
@@ -1119,5 +1521,231 @@ export default {
 .activity-stats {
   font-size: 0.8rem;
   color: var(--text-secondary);
+}
+
+/* 时间统计样式 */
+.time-statistics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.time-statistics-card {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.time-statistics-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.time-statistics-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-dark));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.time-statistics-card:hover::before {
+  opacity: 1;
+}
+
+.time-statistics-icon {
+  font-size: 2rem;
+  margin-right: 16px;
+  opacity: 0.8;
+}
+
+.time-statistics-content {
+  flex: 1;
+}
+
+.time-statistics-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.time-statistics-value {
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* 登录日历样式 */
+.calendar-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  max-width: 400px;
+}
+
+.calendar-container:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.calendar-nav-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-nav-btn:hover {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.calendar-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.calendar-weekday {
+  text-align: center;
+  padding: 6px 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.calendar-day {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  background: var(--bg-primary);
+  border: 1px solid transparent;
+  min-height: 32px;
+}
+
+.calendar-day.other-month {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.calendar-day.current-month {
+  opacity: 1;
+}
+
+.calendar-day.today {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+}
+
+.calendar-day.checked {
+  background: var(--accent-color, #10b981);
+  color: white;
+  border-color: var(--success-color, #10b981);
+}
+
+.calendar-day.current-month:hover:not(.other-month) {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+  transform: scale(1.05);
+}
+
+.day-number {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.check-mark {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 0.6rem;
+  font-weight: bold;
+}
+
+.calendar-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.calendar-stats .stat-item {
+  text-align: center;
+  padding: 8px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.calendar-stats .stat-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-color);
+}
+
+.calendar-stats .stat-number {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent-color);
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.calendar-stats .stat-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 </style>

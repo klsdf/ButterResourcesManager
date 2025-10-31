@@ -83,7 +83,7 @@
 </template>
 
 <script>
-import FormField from '../FormField.vue'
+import FormField from '../../components/FormField.vue'
 
 export default {
   name: 'AddVideoDialog',
