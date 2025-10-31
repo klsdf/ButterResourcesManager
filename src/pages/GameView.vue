@@ -954,8 +954,11 @@ export default {
       this.games = await saveManager.loadGames()
       this.extractAllTags()
 
-      // 检测文件存在性
-      await this.checkFileExistence()
+        // 检测文件存在性（仅在应用启动时检测一次）
+        if (this.$parent.shouldCheckFileLoss && this.$parent.shouldCheckFileLoss()) {
+          await this.checkFileExistence()
+          this.$parent.markFileLossChecked()
+        }
 
       // 为现有游戏计算文件夹大小（如果还没有的话）
       await this.updateExistingGamesFolderSize()
@@ -1164,10 +1167,6 @@ export default {
       this.updateFilterData()
     },
     filterByTag(tagName) {
-      console.log('GameView filterByTag START:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
-      console.log('selectedTags type:', typeof this.selectedTags, 'isArray:', Array.isArray(this.selectedTags))
-      console.log('selectedTags.indexOf check:', this.selectedTags.indexOf(tagName))
-      console.log('excludedTags.indexOf check:', this.excludedTags.indexOf(tagName))
 
       if (this.selectedTags.indexOf(tagName) !== -1) {
         // 如果当前是选中状态，则取消选择
@@ -1215,10 +1214,6 @@ export default {
 
     // 排除方法
     excludeByTag(tagName) {
-      console.log('GameView excludeByTag:', tagName, 'selectedTags:', this.selectedTags, 'excludedTags:', this.excludedTags)
-      console.log('excludedTags.indexOf check:', this.excludedTags.indexOf(tagName))
-      console.log('selectedTags.indexOf check:', this.selectedTags.indexOf(tagName))
-
       if (this.excludedTags.indexOf(tagName) !== -1) {
         // 如果已经是排除状态，则取消排除
         console.log('Removing from excludedTags')
@@ -1513,36 +1508,6 @@ export default {
         notify.native('导出失败', `导出失败: ${error.message}`)
       }
     },
-
-    async importGames() {
-      try {
-        // 创建文件输入元素
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.accept = '.json'
-        input.onchange = async (event) => {
-          const file = (event.target as HTMLInputElement).files[0]
-          if (file) {
-            const result = await saveManager.importData(file)
-            if (result.success) {
-              this.games = saveManager.loadGames()
-              notify.native(
-                '导入成功',
-                `成功导入 ${result.imported.games} 个游戏`
-              )
-            } else {
-              notify.native('导入失败', (result as any).error || '导入失败')
-            }
-          }
-        }
-        input.click()
-      } catch (error) {
-        console.error('导入游戏数据失败:', error)
-        notify.native('导入失败', `导入失败: ${error.message}`)
-      }
-    },
-
-
 
     async getStorageInfo() {
       const info = await saveManager.getStorageInfo()

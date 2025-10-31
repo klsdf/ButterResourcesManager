@@ -1022,8 +1022,11 @@ export default {
       // 提取标签和作者
       this.extractAllTagsAndAuthors()
       
-      // 检测文件存在性
-      await this.checkFileExistence()
+      // 检测文件存在性（仅在应用启动时检测一次）
+      if (this.$parent.shouldCheckFileLoss && this.$parent.shouldCheckFileLoss()) {
+        await this.checkFileExistence()
+        this.$parent.markFileLossChecked()
+      }
       
       // 计算小说列表总页数
       this.updateNovelPagination()

@@ -437,8 +437,11 @@ export default {
         this.audios = await audioManager.loadAudios()
         console.log('音频数据加载完成:', this.audios.length, '个音频')
         
-        // 检测文件存在性
-        await this.checkFileExistence()
+        // 检测文件存在性（仅在应用启动时检测一次）
+        if (this.$parent.shouldCheckFileLoss && this.$parent.shouldCheckFileLoss()) {
+          await this.checkFileExistence()
+          this.$parent.markFileLossChecked()
+        }
         
         // 更新筛选器数据
         this.updateFilterOptions()

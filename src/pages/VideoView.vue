@@ -715,8 +715,11 @@ export default {
         this.videos = this.videoManager.getVideos()
         this.extractAllFilters()
         
-        // 检测文件存在性
-        await this.checkFileExistence()
+        // 检测文件存在性（仅在应用启动时检测一次）
+        if (this.$parent.shouldCheckFileLoss && this.$parent.shouldCheckFileLoss()) {
+          await this.checkFileExistence()
+          this.$parent.markFileLossChecked()
+        }
         
         // 自动更新未知时长的视频
         await this.autoUpdateUnknownDurations()
@@ -1109,10 +1112,20 @@ export default {
             folderPath = filePath.substring(0, lastSlashIndex)
           }
         } else if (filePath.includes('/') || filePath.includes('\\')) {
-          // 通过文件路径检测文件夹
+          // 检查是否是拖拽文件夹的情况
+          // 如果文件名和路径的最后一部分相同，说明拖拽的是文件夹
           const pathParts = filePath.replace(/\\/g, '/').split('/')
-          folderName = pathParts[pathParts.length - 2] // 倒数第二个部分通常是文件夹名
-          folderPath = pathParts.slice(0, -1).join('/')
+          const lastPathPart = pathParts[pathParts.length - 1]
+          
+          if (file.name === lastPathPart) {
+            // 拖拽的是文件夹，文件夹路径就是完整路径
+            folderPath = filePath.replace(/\\/g, '/')
+            folderName = file.name
+          } else {
+            // 拖拽的是文件，文件夹路径是去掉文件名后的路径
+            folderPath = pathParts.slice(0, -1).join('/')
+            folderName = pathParts[pathParts.length - 2]
+          }
         }
         
         if (folderPath && folderName) {
@@ -1322,10 +1335,10 @@ export default {
           
           // 添加到文件夹管理器
           if (this.folderManager) {
-            const addResult = this.folderManager.addFolder(newFolder)
+            const addResult = await this.folderManager.addFolder(newFolder)
             console.log('文件夹管理器添加结果:', addResult)
             
-            if (addResult.success) {
+            if (addResult) {
               console.log(`文件夹 "${folder.name}" 添加成功`)
               results.push({
                 success: true,
@@ -1334,12 +1347,12 @@ export default {
                 message: '文件夹添加成功'
               })
             } else {
-              console.error(`文件夹 "${folder.name}" 添加失败:`, addResult.error)
+              console.error(`文件夹 "${folder.name}" 添加失败`)
               results.push({
                 success: false,
                 folderName: folder.name,
                 folderPath: folder.path,
-                error: addResult.error || '添加失败'
+                error: '添加失败'
               })
             }
           } else {

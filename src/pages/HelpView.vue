@@ -43,14 +43,6 @@
             <span class="nav-icon">❓</span>
             <span class="nav-text">常见问题</span>
           </li>
-          <li class="nav-item" :class="{ active: activeSection === 'project' }" @click="setActiveSection('project')">
-            <span class="nav-icon">🔗</span>
-            <span class="nav-text">项目地址</span>
-          </li>
-          <li class="nav-item" :class="{ active: activeSection === 'contact' }" @click="setActiveSection('contact')">
-            <span class="nav-icon">📞</span>
-            <span class="nav-text">联系我们</span>
-          </li>
         </ul>
       </nav>
     </div>
@@ -71,9 +63,11 @@
           </DetailCard>
           <DetailCard title="✨ 核心特性">
             <ul>
-              <li><strong>绿色便携：</strong>无需安装，解压即用，不写入注册表</li>
-              <li><strong>本地存储：</strong>所有数据保存在本地，确保隐私安全</li>
-              <li><strong>一站式管理：</strong>支持常见的图片、视频、音频和文本格式，一站式管理所有类型的媒体文件</li>
+              <li><strong>完全本地、绝对隐私：</strong>所有数据保存在本地，绝不联网（至少现在是这样）。</li>
+              <li><strong>类Steam的应用管理：</strong>可以为所有EXE文件提供时长记录、截图功能。</li>
+              <li><strong>信息记录狂魔：</strong>自动记录各种数据，包括游戏时长、游戏运行次数、第一次运行时间、上一次运行时间等。并且会自动整理日报、周报，为您提供全方位的信息记录。</li>
+              <li><strong>tag索引系统：</strong>管理器会自动收集所有资源的tag，并显示到不同资源的左侧导航栏，可以通过点击TAG的方式超快速索引所需的资源，再也不用纠结把资源放到哪个文件夹了</li>
+              <li><strong>多种资源支持：</strong>不同于steam单一的游戏管理逻辑，本管理器不仅可以管理应用还支持漫画、视频、音频、小说、网站等多种资源的管理。</li>
             </ul>
           </DetailCard>
           <DetailCard title="🛠️ 技术栈">
@@ -83,7 +77,34 @@
               <span class="tech-tag">Vite</span>
               <span class="tech-tag">Node.js</span>
               <span class="tech-tag">CSS3</span>
-              <span class="tech-tag">JavaScript ES6+</span>
+              <span class="tech-tag">TypeScript</span>
+            </div>
+          </DetailCard>
+          <DetailCard title="📂 项目地址">
+            我要star，我要star，start、start要要要~
+            <div class="project-links">
+              <div @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager.git')" class="project-link">
+                <span class="link-icon">🐙</span>
+                <span class="link-text">GitHub 仓库</span>
+              </div>
+              <div @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager/releases')" class="project-link">
+                <span class="link-icon">📦</span>
+                <span class="link-text">下载最新版本</span>
+              </div>
+            </div>
+          </DetailCard>
+          <DetailCard title="📧 联系方式兼客服中心（BuShi">
+            <div class="contact-methods">
+              <div class="contact-method">
+                <span class="contact-icon">💬</span>
+                <div class="contact-details">
+                  <h4>GitHub</h4>
+                  <p>主要开发平台，问题反馈和代码贡献</p>
+                  <span @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager')" class="external-link">
+                    github.com/klsdf/ButterResourcesManager
+                  </span>
+                </div>
+              </div>
             </div>
           </DetailCard>
         </div>
@@ -93,14 +114,12 @@
       <section v-if="activeSection === 'general'" class="content-section">
         <div class="section-header">
           <h1>🛠️ 通用管理模块</h1>
-          <p class="section-subtitle">通用的资源管理解决方案</p>
+          <p class="section-subtitle">不知道往哪里放的说明我都会放这里</p>
         </div>
+        <p class="module-intro">
+          通用管理模块是整个应用所通用的功能和特性。
+        </p>
         <div class="module-detail">
-          <DetailCard title="🛠️ 通用模块简介">
-            <p>
-              通用管理模块是整个应用所通用的功能和特性。
-            </p>
-          </DetailCard>
 
           <DetailCard title="🎯 窗口管理">
             <ul>
@@ -117,6 +136,29 @@
               <li><strong>开发者工具：</strong>Ctrl+Shift+I</li>
             </ul>
           </DetailCard>
+
+          <DetailCard title="🎯 伪装模式">
+            伪装模式是一个非常使用的功能，打开这个模式后，所有资源的封面图
+          </DetailCard>
+
+          <DetailCard title="🎯 数据的存储">
+            <ul>
+              <li><strong>数据的存储位置：</strong>默认在应用目录的 SaveData 文件夹中</li>
+              <li><strong>会存储哪些内容：</strong>存档会自动保存添加的所有资源路径和信息。同时会自动复制封面图到文件夹中。游戏的截图也会保存到存档中</li>
+              <li><strong>如何更改存档位置：</strong>如需更改存档位置，可以在设置中的"存档文件夹位置"中改为自定义目录，并设置自定义的文件夹路径。设置完毕后，如果文件夹里面没有SaveData，管理器会自动在这个目录下创建SaveData 文件夹，并将现有存档的内容复制到这里。如果这个目录已经有SaveData 文件夹，会读取这个文件夹。</li>
+            </ul>
+          </DetailCard>
+
+          <DetailCard title="🎯 tag索引系统">
+            <b>这个功能是管理器最重要的核心功能。</b><br>
+            <ul>
+              <li><strong>tag索引系统：</strong>管理器会自动收集所有资源的tag，并显示到不同资源的左侧导航栏</li>
+              <li><strong>如何注册一个tag：</strong>在添加资源时，可以为资源添加tag。tag可以是任意的字符串，比如"萝莉"、"萝莉"、"萝莉"和"萝莉"等。</li>
+              <li><strong>如何使用tag索引系统：</strong>左键tag代表选择包含这个tag的资源。右键tag代表剔除这个tag的资源。</li>
+              <li><strong>tag的多选</strong>当点击多个tag时，默认使用“AND”运算。例如选择了白丝和萝莉两个tag，则代表选择同时包含白丝和萝莉的资源。</li>
+
+            </ul>
+          </DetailCard>
         </div>
       </section>
 
@@ -125,7 +167,7 @@
 
         <div class="section-header">
           <h1>🎮 游戏管理模块</h1>
-          <p class="section-subtitle">专业的游戏资源管理解决方案</p>
+          <p class="section-subtitle">实际上也可以管应用。我的unity和PS等软件就是用这个管的。还挺好用的</p>
         </div>
         <div class="module-detail">
           <DetailCard title="🎮 游戏模块简介">
@@ -140,12 +182,44 @@
             </ul>
           </DetailCard>
 
+          <DetailCard title="🎯 添加游戏信息">
+            
+          </DetailCard>
+
           <DetailCard title="🎯 删除游戏">
             <ul>
               <li><strong>右键菜单删除游戏：</strong>对游戏卡进行右键，可以看到删除的选项。</li>
               <li><strong>详情页删除游戏：</strong>在游戏的详情页内，可以看到删除游戏的选项。</li>
             </ul>
           </DetailCard>
+          <DetailCard title="🎯 修改游戏信息">
+
+          </DetailCard>
+          <DetailCard title="🎯 游戏文件丢失检测">
+
+          </DetailCard>
+          <DetailCard title="🎯 应用内启动游戏">
+
+</DetailCard>
+          <DetailCard title="🎯 游戏时长记录 🔥🔥">
+
+          </DetailCard>
+
+          <DetailCard title="🎯 其他游戏信息记录">
+            除了最为重要的游戏时长外，游戏还会记录以下数据：<br>
+            - 第一次注册该游戏的时间
+            - 上一次运行该游戏的时间
+          </DetailCard>
+          <DetailCard title="🎯 游戏截图功能 🔥🔥">
+
+          </DetailCard>
+
+
+
+
+
+
+
         </div>
       </section>
 
@@ -153,16 +227,20 @@
       <section v-if="activeSection === 'image'" class="content-section">
         <div class="section-header">
           <h1>🖼️ 图片管理模块</h1>
-          <p class="section-subtitle">强大的图片收藏和管理工具</p>
+          <p class="section-subtitle">我一般用来看漫画，主打一个方便</p>
         </div>
         <div class="module-detail">
           <DetailCard title="🖼️ 图片模块简介">
             <p>图片管理模块主要用于管理文件夹，比如漫画和套图等资源，不适合管理单一的图片。图片管理器最重要的功能是内置的漫画阅读器，阅读体验远高于windows自带的阅读器。</p>
           </DetailCard>
-          <DetailCard title="📁 图片资源的添加">
+          <DetailCard title="🖼️ 图片文件夹的添加">
 
           </DetailCard>
-          <DetailCard title="📤 快速添加">
+          <DetailCard title="🗑️ 删除图片文件夹">
+
+          </DetailCard>
+
+          <DetailCard title="🎯 内部和外部阅读器">
 
           </DetailCard>
         </div>
@@ -172,9 +250,12 @@
       <section v-if="activeSection === 'video'" class="content-section">
         <div class="section-header">
           <h1>🎬 视频管理模块</h1>
-          <p class="section-subtitle">专业的视频文件管理解决方案</p>
+          <p class="section-subtitle">适合看那种能重复看的电影👍</p>
         </div>
         <div class="module-detail">
+          <DetailCard title="🎬 视频模块简介">
+            <p>视频管理模块可以同时管理单一视频和视频文件夹，这是考虑到电影和番剧/电视剧的两种类型而设计的。电影类资源往往是单一的视频，而番剧/电视剧往往会有多个相似的视频组成同一个系列。因此在本地文件容易呈现文件夹的形式。因此视频模块可以同时管理这两种资源。</p>
+          </DetailCard>
           <DetailCard title="🎬 视频播放">
             <p>内置视频播放器，支持 MP4、AVI、MKV 等格式，双击视频文件即可播放。</p>
           </DetailCard>
@@ -184,6 +265,9 @@
           <DetailCard title="⌨️ 播放控制">
             <p>空格键播放/暂停，方向键控制进度，ESC 退出全屏，支持音量调节。</p>
           </DetailCard>
+          <DetailCard title="🎯 内部和外部播放器">
+
+          </DetailCard>
         </div>
       </section>
 
@@ -191,7 +275,7 @@
       <section v-if="activeSection === 'novel'" class="content-section">
         <div class="section-header">
           <h1>📚 小说管理模块</h1>
-          <p class="section-subtitle">专业的电子书阅读和管理工具</p>
+          <p class="section-subtitle">我不咋用，只是觉得应该加一个，就加了</p>
         </div>
         <div class="module-detail">
           <DetailCard title="📖 电子书阅读">
@@ -210,7 +294,7 @@
       <section v-if="activeSection === 'website'" class="content-section">
         <div class="section-header">
           <h1>🌐 网站收藏模块</h1>
-          <p class="section-subtitle">便捷的网站书签管理工具</p>
+          <p class="section-subtitle">我只能说比浏览器自带的好用很多。我收藏的网页太多了，每次都要找好久</p>
         </div>
         <div class="module-detail">
           <DetailCard title="🔖 网站收藏">
@@ -229,18 +313,13 @@
       <section v-if="activeSection === 'audio'" class="content-section">
         <div class="section-header">
           <h1>🎵 音频管理模块</h1>
-          <p class="section-subtitle">强大的音频播放和管理工具</p>
+          <p class="section-subtitle">我超喜欢这个全局播放器，听优香ASMR这一块👍</p>
         </div>
         <div class="module-detail">
-          <DetailCard title="🎵 音频播放">
-            <p>支持 MP3、WAV、FLAC 等格式，双击音频文件即可播放，显示歌曲信息。</p>
+          <DetailCard title="🎵 全局音频管理器">
+            
           </DetailCard>
-          <DetailCard title="📋 播放列表">
-            <p>创建和管理多个播放列表，支持顺序播放、随机播放、单曲循环等模式。</p>
-          </DetailCard>
-          <DetailCard title="⌨️ 播放控制">
-            <p>空格键播放/暂停，方向键控制进度，支持后台播放和音量调节。</p>
-          </DetailCard>
+          
         </div>
       </section>
 
@@ -249,190 +328,28 @@
       <section v-if="activeSection === 'faq'" class="content-section">
         <div class="section-header">
           <h1>❓ 常见问题</h1>
-          <p class="section-subtitle">使用过程中可能遇到的问题及解决方案</p>
+          <p class="section-subtitle">这里本来没有问题，问的人多了就有了问题</p>
         </div>
         <div class="faq-content">
           <div class="faq-category">
-            <h3>📁 文件管理问题</h3>
+            <h3>神秘问题</h3>
             <div class="faq-list">
               <div class="faq-item">
-                <h4>Q: 如何添加新的媒体文件？</h4>
-                <p>A: 点击对应页面的"添加"按钮，选择文件或文件夹即可。也支持直接拖拽文件到应用界面。</p>
+                <h4>Q: 在管理器内删除资源后，本地的资源会删除吗？</h4>
+                <p>A: 永远不会！管理器只会删除资源在管理器内的引用，不会删除本地的资源。</p>
               </div>
               <div class="faq-item">
-                <h4>Q: 支持哪些文件格式？</h4>
-                <p>A: 支持常见的图片格式（JPG、PNG、GIF等）、视频格式（MP4、AVI、MKV等）、音频格式（MP3、WAV、FLAC等）以及文本文件。</p>
+                <h4>Q: 为什么开启隐藏模式后，所有的封面图都看不见了？</h4>
+                <p>A: 开启隐藏模式后，系统会自动读取根目录的disguise文件夹，但是这个文件夹默认的空的。所以请自行把伪装的图片放进去</p>
               </div>
-              <div class="faq-item">
-                <h4>Q: 如何批量操作文件？</h4>
-                <p>A: 按住 Ctrl 键选择多个项目，然后使用右键菜单或工具栏进行批量操作。</p>
-              </div>
+              
             </div>
           </div>
-          <div class="faq-category">
-            <h3>💾 数据存储问题</h3>
-            <div class="faq-list">
-              <div class="faq-item">
-                <h4>Q: 数据存储在哪里？</h4>
-                <p>A: 所有数据都保存在应用目录的 SaveData 文件夹中，包括配置文件、媒体信息和用户设置。</p>
-              </div>
-              <div class="faq-item">
-                <h4>Q: 如何备份数据？</h4>
-                <p>A: 可以复制整个 SaveData 文件夹来备份所有数据，或者使用设置中的导出功能。</p>
-              </div>
-              <div class="faq-item">
-                <h4>Q: 数据安全吗？</h4>
-                <p>A: 所有数据都保存在本地，不会上传到任何服务器，确保您的隐私安全。</p>
-              </div>
-            </div>
-          </div>
-          <div class="faq-category">
-            <h3>🎮 游戏管理问题</h3>
-            <div class="faq-list">
-              <div class="faq-item">
-                <h4>Q: 游戏启动失败怎么办？</h4>
-                <p>A: 检查游戏文件路径是否正确，确保游戏文件完整，尝试以管理员权限运行应用。</p>
-              </div>
-              <div class="faq-item">
-                <h4>Q: 截图功能不工作？</h4>
-                <p>A: 确保应用有屏幕录制权限，检查截图快捷键设置，尝试重启应用。</p>
-              </div>
-              <div class="faq-item">
-                <h4>Q: 游戏时长统计不准确？</h4>
-                <p>A: 游戏时长基于进程监控，如果游戏通过其他方式启动可能无法准确统计。</p>
-              </div>
-            </div>
-          </div>
+         
         </div>
       </section>
 
-      <!-- 项目地址 -->
-      <section v-if="activeSection === 'project'" class="content-section">
-        <div class="section-header">
-          <h1>🔗 项目信息</h1>
-          <p class="section-subtitle">开源项目，欢迎贡献和反馈</p>
-        </div>
-        <div class="project-content">
-          <DetailCard title="📂 项目地址">
-            <div class="project-links">
-              <a href="https://github.com/your-username/butter-manager-vue" target="_blank" class="project-link">
-                <span class="link-icon">🐙</span>
-                <span class="link-text">GitHub 仓库</span>
-              </a>
-              <a href="https://github.com/your-username/butter-manager-vue/releases" target="_blank"
-                class="project-link">
-                <span class="link-icon">📦</span>
-                <span class="link-text">下载发布版本</span>
-              </a>
-            </div>
-          </DetailCard>
-          <DetailCard title="📋 项目信息">
-            <div class="project-info">
-              <div class="info-item">
-                <span class="info-label">项目名称：</span>
-                <span class="info-value">Butter Manager</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">当前版本：</span>
-                <span class="info-value">v1.0.0</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">开源协议：</span>
-                <span class="info-value">MIT License</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">开发语言：</span>
-                <span class="info-value">JavaScript, Vue.js, Electron</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">支持平台：</span>
-                <span class="info-value">Windows, macOS, Linux</span>
-              </div>
-            </div>
-          </DetailCard>
-          <DetailCard title="🤝 贡献指南">
-            <div class="contribution-guide">
-              <p>欢迎为项目做出贡献！您可以通过以下方式参与：</p>
-              <ul>
-                <li><strong>报告问题：</strong>在 GitHub Issues 中报告 bug 或提出功能建议</li>
-                <li><strong>提交代码：</strong>Fork 项目，创建分支，提交 Pull Request</li>
-                <li><strong>完善文档：</strong>改进文档，添加使用说明</li>
-                <li><strong>测试反馈：</strong>测试新功能，提供使用反馈</li>
-              </ul>
-            </div>
-          </DetailCard>
-        </div>
-      </section>
 
-      <!-- 联系我们 -->
-      <section v-if="activeSection === 'contact'" class="content-section">
-        <div class="section-header">
-          <h1>📞 联系我们</h1>
-          <p class="section-subtitle">获取帮助和支持</p>
-        </div>
-        <div class="contact-content">
-          <DetailCard title="🆘 获取帮助">
-            <div class="help-options">
-              <div class="help-option">
-                <span class="help-icon">📚</span>
-                <div class="help-text">
-                  <h4>查看文档</h4>
-                  <p>浏览本帮助页面，了解详细的使用说明</p>
-                </div>
-              </div>
-              <div class="help-option">
-                <span class="help-icon">🐛</span>
-                <div class="help-text">
-                  <h4>报告问题</h4>
-                  <p>在 GitHub Issues 中报告 bug 或提出建议</p>
-                </div>
-              </div>
-              <div class="help-option">
-                <span class="help-icon">💬</span>
-                <div class="help-text">
-                  <h4>社区讨论</h4>
-                  <p>参与 GitHub Discussions 与其他用户交流</p>
-                </div>
-              </div>
-            </div>
-          </DetailCard>
-          <DetailCard title="📧 联系方式">
-            <div class="contact-methods">
-              <div class="contact-method">
-                <span class="contact-icon">🐙</span>
-                <div class="contact-details">
-                  <h4>GitHub</h4>
-                  <p>主要开发平台，问题反馈和代码贡献</p>
-                  <a href="https://github.com/your-username/butter-manager-vue" target="_blank">
-                    github.com/your-username/butter-manager-vue
-                  </a>
-                </div>
-              </div>
-              <div class="contact-method">
-                <span class="contact-icon">📧</span>
-                <div class="contact-details">
-                  <h4>邮箱</h4>
-                  <p>重要问题或商业合作请联系</p>
-                  <a href="mailto:your-email@example.com">your-email@example.com</a>
-                </div>
-              </div>
-            </div>
-          </DetailCard>
-          <DetailCard title="💝 支持项目">
-            <div class="support-options">
-              <p>如果您觉得这个项目对您有帮助，可以通过以下方式支持：</p>
-              <ul>
-                <li>⭐ 给项目点个 Star</li>
-                <li>🐛 报告 bug 和问题</li>
-                <li>💡 提出功能建议</li>
-                <li>📝 完善文档和教程</li>
-                <li>🔧 贡献代码和修复</li>
-                <li>📢 分享给其他用户</li>
-              </ul>
-            </div>
-          </DetailCard>
-        </div>
-      </section>
     </div>
   </div>
 </template>
@@ -453,6 +370,25 @@ export default {
   methods: {
     setActiveSection(section) {
       this.activeSection = section
+    },
+    async openExternalLink(url) {
+      try {
+        if (window.electronAPI && window.electronAPI.openExternal) {
+          const result = await window.electronAPI.openExternal(url)
+          if (!result.success) {
+            console.error('打开外部链接失败:', result.error)
+            // 降级到使用 window.open
+            window.open(url, '_blank')
+          }
+        } else {
+          // 如果 Electron API 不可用，降级到使用 window.open
+          window.open(url, '_blank')
+        }
+      } catch (error) {
+        console.error('打开外部链接出错:', error)
+        // 降级到使用 window.open
+        window.open(url, '_blank')
+      }
     }
   }
 }
@@ -574,6 +510,31 @@ export default {
   margin: 0;
 }
 
+/* 模块简介样式 */
+.module-intro {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  line-height: 1.7;
+  margin: 25px 0 35px 0;
+  padding: 20px 25px;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border-left: 4px solid var(--accent-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  font-weight: 500;
+}
+
+.module-intro::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+}
+
 /* 简介内容 */
 .intro-content {
   display: flex;
@@ -677,6 +638,7 @@ export default {
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 
 .project-link:hover {
@@ -822,6 +784,19 @@ export default {
   text-decoration: underline;
 }
 
+.external-link {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.external-link:hover {
+  text-decoration: underline;
+  color: var(--accent-hover);
+}
+
 .support-options p {
   color: var(--text-secondary);
   line-height: 1.6;
@@ -920,5 +895,9 @@ export default {
 
 [data-theme="dark"] .project-link:hover {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .module-intro {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 </style>

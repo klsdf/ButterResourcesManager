@@ -179,6 +179,8 @@ export default {
       // 应用使用时长跟踪
       appSessionStartTime: null, // 应用会话开始时间
       appUsageTimer: null, // 应用使用时长定时器
+      // 文件丢失检测控制
+      hasCheckedFileLoss: false, // 是否已经检测过文件丢失（应用启动时检测一次）
       navItems: [
         // {
         //   id: 'collections',
@@ -228,6 +230,16 @@ export default {
     }
   },
   methods: {
+    // 检查是否应该进行文件丢失检测
+    shouldCheckFileLoss() {
+      return !this.hasCheckedFileLoss
+    },
+    
+    // 标记文件丢失检测已完成
+    markFileLossChecked() {
+      this.hasCheckedFileLoss = true
+    },
+    
     switchView(viewId) {
       this.currentView = viewId
       // 保存当前页面到设置中
