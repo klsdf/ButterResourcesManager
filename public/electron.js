@@ -101,23 +101,68 @@ function createWindow() {
   })
 }
 
-// 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
-app.whenReady().then(() => {
-  createWindow()
-  createMenu()
-  createTray() // 创建系统托盘
-  
-  // 初始化自动更新
-  initAutoUpdater()
-  
-  // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
-  // 通常在应用程序中重新创建窗口
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+// 单实例锁：确保应用只能运行一个实例
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  // 如果获取锁失败，说明已有实例在运行，直接退出
+  console.log('应用已在运行，退出当前实例')
+  app.quit()
+} else {
+  // 监听第二个实例启动的事件
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // 当用户尝试启动第二个实例时，将焦点移到已运行的应用窗口
+    console.log('检测到第二个实例启动，将焦点移到已运行的窗口')
+    
+    if (mainWindow) {
+      // 如果窗口被最小化，恢复窗口
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+      }
+      
+      // 显示并聚焦窗口
+      mainWindow.show()
+      mainWindow.focus()
+      
+      // 在 Windows 上，确保窗口在最前面
+      if (process.platform === 'win32') {
+        mainWindow.setAlwaysOnTop(true)
+        // 短暂置顶后取消，确保窗口出现在最前面
+        setTimeout(() => {
+          mainWindow.setAlwaysOnTop(false)
+        }, 100)
+      }
+      
+      console.log('已运行的窗口已显示并聚焦')
+    } else {
+      // 如果窗口不存在（可能被销毁了），重新创建
+      console.log('主窗口不存在，重新创建窗口')
       createWindow()
     }
   })
-})
+  
+  // 当 Electron 完成初始化并准备创建浏览器窗口时调用此方法
+  app.whenReady().then(() => {
+    createWindow()
+    createMenu()
+    createTray() // 创建系统托盘
+    
+    // 初始化自动更新
+    initAutoUpdater()
+    
+    // 在 macOS 上，当单击 dock 图标并且没有其他窗口打开时，
+    // 通常在应用程序中重新创建窗口
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow()
+      } else if (mainWindow) {
+        // 如果窗口存在，显示并聚焦
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    })
+  })
+}
 
 // 当所有窗口都被关闭时退出应用
 app.on('window-all-closed', () => {

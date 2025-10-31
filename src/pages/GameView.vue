@@ -487,7 +487,7 @@ export default {
         console.log('更新前 - lastPlayed:', game.lastPlayed)
         console.log('更新前 - playCount:', game.playCount)
 
-        // 立即更新游戏统计（记录尝试启动的时间）
+        // 更新游戏统计（启动时也更新 lastPlayed，记录开始游玩的时间）
         game.lastPlayed = new Date().toISOString()
         game.playCount = (game.playCount || 0) + 1
 
@@ -1297,7 +1297,7 @@ export default {
       })
       console.log('GameView updateFilterData END')
     },
-    updateGamePlayTime(data) {
+    async updateGamePlayTime(data) {
       // 根据可执行文件路径找到对应的游戏
       const game = this.games.find(g => g.executablePath === data.executablePath)
       if (game) {
@@ -1305,6 +1305,13 @@ export default {
 
         // 从全局运行列表中移除（这会自动更新游戏时长）
         this.$parent.removeRunningGame(game.id)
+
+        // 更新上一次游玩时间（游戏结束时的时间，这样 lastPlayed 会记录最后一次活动）
+        game.lastPlayed = new Date().toISOString()
+        console.log(`游戏 ${game.name} 上一次游玩时间已更新为:`, game.lastPlayed)
+
+        // 保存更新后的数据
+        await this.saveGames()
 
         // 显示通知
         notify.native(
