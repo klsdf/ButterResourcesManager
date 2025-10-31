@@ -28,24 +28,11 @@
 
       <!-- 底部按钮 -->
       <div class="nav-footer">
-        <div :class="{ active: currentView === 'users' }" @click="switchView('users')"
-          class="nav-item users-item">
-          <span class="nav-icon">👤</span>
-          <span class="nav-text">用户</span>
-        </div>
-        <div :class="{ active: currentView === 'messages' }" @click="switchView('messages')"
-          class="nav-item messages-item">
-          <span class="nav-icon">📢</span>
-          <span class="nav-text">信息中心</span>
-        </div>
-        <div :class="{ active: currentView === 'help' }" @click="switchView('help')" class="nav-item help-item">
-          <span class="nav-icon">❓</span>
-          <span class="nav-text">帮助</span>
-        </div>
-        <div :class="{ active: currentView === 'settings' }" @click="switchView('settings')"
-          class="nav-item settings-item">
-          <span class="nav-icon">⚙️</span>
-          <span class="nav-text">设置</span>
+        <div v-for="viewId in footerViews" :key="viewId" 
+          :class="['nav-item', `${viewId}-item`, { active: currentView === viewId }]" 
+          @click="switchView(viewId)">
+          <span class="nav-icon">{{ viewConfig[viewId]?.icon || '' }}</span>
+          <span class="nav-text">{{ viewConfig[viewId]?.name || '' }}</span>
         </div>
       </div>
     </nav>
@@ -181,52 +168,78 @@ export default {
       appUsageTimer: null, // 应用使用时长定时器
       // 文件丢失检测控制
       hasCheckedFileLoss: false, // 是否已经检测过文件丢失（应用启动时检测一次）
-      navItems: [
-        // {
-        //   id: 'collections',
+      // 统一的页面配置
+      viewConfig: {
+        // 主导航页面
+        games: {
+          name: '游戏',
+          icon: '🎮',
+          description: '可以管理游戏、应用等exe文件'
+        },
+        images: {
+          name: '图片',
+          icon: '🖼️',
+          description: '可以管理图片文件夹，暂不支持单一图片的管理'
+        },
+        videos: {
+          name: '视频',
+          icon: '🎬',
+          description: '可以管理单一视频和视频文件夹'
+        },
+        novels: {
+          name: '小说',
+          icon: '📚',
+          description: '可以管理txt文件，暂不支持其余格式'
+        },
+        websites: {
+          name: '网站',
+          icon: '🌐',
+          description: '需要手动传入网址'
+        },
+        audio: {
+          name: '声音',
+          icon: '🎵',
+          description: '可以管理mp3、wav等常见音频文件'
+        },
+        // 底部导航页面
+        users: {
+          name: '用户',
+          icon: '👤',
+          description: '记录您的个人数据已经本软件的各种数据'
+        },
+        messages: {
+          name: '信息中心',
+          icon: '📢',
+          description: '查看系统通知和操作历史'
+        },
+        help: {
+          name: '帮助',
+          icon: '❓',
+          description: '了解应用功能和使用方法'
+        },
+        settings: {
+          name: '设置',
+          icon: '⚙️',
+          description: '管理应用设置和偏好'
+        },
+        // 合集页面（暂时注释）
+        // collections: {
         //   name: '合集',
         //   icon: '🗂️',
         //   description: '管理你的合集'
-        // },
-        {
-          id: 'games',
-          name: '游戏',
-          icon: '🎮',
-          description: '管理你的游戏资源'
-        },
-        {
-          id: 'images',
-          name: '图片',
-          icon: '🖼️',
-          description: '管理你的图片资源'
-        },
-        {
-          id: 'videos',
-          name: '视频',
-          icon: '🎬',
-          description: '管理你的视频资源'
-        },
-        {
-          id: 'novels',
-          name: '小说',
-          icon: '📚',
-          description: '管理你的小说资源'
-        },
-        {
-          id: 'websites',
-          name: '网站',
-          icon: '🌐',
-          description: '管理你的网站收藏'
-        },
-        {
-          id: 'audio',
-          name: '声音',
-          icon: '🎵',
-          description: '管理你的音频资源'
-        }
-  
-
-      ]
+        // }
+      },
+      navItems: []
+    }
+  },
+  computed: {
+    // 主导航页面ID列表
+    mainNavViewIds() {
+      return ['games', 'images', 'videos', 'novels', 'websites', 'audio']
+    },
+    // 底部导航页面ID列表
+    footerViews() {
+      return ['users', 'messages', 'help', 'settings']
     }
   },
   methods: {
@@ -244,8 +257,8 @@ export default {
       this.currentView = viewId
       // 保存当前页面到设置中
       this.saveCurrentView(viewId)
-      // 根据页面类型决定是否显示筛选器
-      this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(viewId)
+      // 根据页面类型决定是否显示筛选器（主导航页面有筛选器）
+      this.showFilterSidebar = this.mainNavViewIds.includes(viewId)
       // 重置筛选器数据
       this.resetFilterData()
       // 设置加载状态
@@ -467,36 +480,12 @@ export default {
       }
     },
     getCurrentViewTitle() {
-      if (this.currentView === 'settings') {
-        return '设置'
-      }
-      if (this.currentView === 'messages') {
-        return '信息中心'
-      }
-      if (this.currentView === 'help') {
-        return '帮助'
-      }
-      if (this.currentView === 'users') {
-        return '用户'
-      }
-      const item = this.navItems.find(item => item.id === this.currentView)
-      return item ? item.name : '未知，请配置'
+      const config = this.viewConfig[this.currentView]
+      return config?.name || '未知页面'
     },
     getCurrentViewDescription() {
-      if (this.currentView === 'settings') {
-        return '管理应用设置和偏好'
-      }
-      if (this.currentView === 'messages') {
-        return '查看系统通知和操作历史'
-      }
-      if (this.currentView === 'help') {
-        return '了解应用功能和使用方法'
-      }
-      if (this.currentView === 'users') {
-        return '管理你的用户资源'
-      }
-      const item = this.navItems.find(item => item.id === this.currentView)
-      return item ? item.description : '无描述，请配置'
+      const config = this.viewConfig[this.currentView]
+      return config?.description || '无描述'
     },
     applyTheme(theme) {
       this.theme = theme
@@ -542,8 +531,8 @@ export default {
       try {
         const settings = await saveManager.loadSettings()
         if (settings && settings.lastView) {
-          // 验证页面ID是否有效
-          const validViews = ['collections', 'games', 'images', 'videos', 'novels', 'websites', 'audio', 'users', 'messages', 'help', 'settings']
+          // 验证页面ID是否有效（从配置中获取所有有效的视图ID）
+          const validViews = Object.keys(this.viewConfig)
           if (validViews.includes(settings.lastView)) {
             console.log('✅ 加载最后访问页面:', settings.lastView)
             return settings.lastView
@@ -592,7 +581,15 @@ export default {
     }
 
     // 初始化筛选器状态
-    this.showFilterSidebar = ['games', 'images', 'videos', 'novels', 'websites', 'audio'].includes(this.currentView)
+    this.showFilterSidebar = this.mainNavViewIds.includes(this.currentView)
+    
+    // 初始化主导航菜单项
+    this.navItems = this.mainNavViewIds.map(viewId => ({
+      id: viewId,
+      name: this.viewConfig[viewId].name,
+      icon: this.viewConfig[viewId].icon,
+      description: this.viewConfig[viewId].description
+    }))
 
     // 初始化通知服务
     try {
