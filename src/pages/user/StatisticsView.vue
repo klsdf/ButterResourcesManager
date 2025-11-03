@@ -268,47 +268,6 @@
                     <div class="overview-number">{{ currentMonthReport.overview.newMediaCount }}</div>
                     <div class="overview-label">新增媒体</div>
                   </div>
-                  <div class="overview-item">
-                    <div class="overview-number">{{ currentMonthReport.overview.totalUsageTime }}</div>
-                    <div class="overview-label">总使用时长</div>
-                  </div>
-                  <div class="overview-item">
-                    <div class="overview-number">{{ currentMonthReport.overview.mostActiveDay }}</div>
-                    <div class="overview-label">最活跃日期</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 媒体分析 -->
-              <div class="report-section">
-                <h7>📈 媒体分析</h7>
-                <div class="analysis-grid">
-                  <div class="analysis-card">
-                    <div class="analysis-title">最常访问类型</div>
-                    <div class="analysis-value">{{ currentMonthReport.analysis.mostAccessedType }}</div>
-                  </div>
-                  <div class="analysis-card">
-                    <div class="analysis-title">新增收藏最多</div>
-                    <div class="analysis-value">{{ currentMonthReport.analysis.mostAddedType }}</div>
-                  </div>
-                  <div class="analysis-card">
-                    <div class="analysis-title">存储使用</div>
-                    <div class="analysis-value">{{ currentMonthReport.analysis.storageUsage }}</div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 活动统计 -->
-              <div class="report-section">
-                <h7>🎯 活动统计</h7>
-                <div class="activity-list">
-                  <div class="activity-item" v-for="activity in currentMonthReport.activities" :key="activity.type">
-                    <div class="activity-icon">{{ activity.icon }}</div>
-                    <div class="activity-info">
-                      <div class="activity-name">{{ activity.name }}</div>
-                      <div class="activity-stats">{{ activity.stats }}</div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -381,16 +340,8 @@ export default {
         title: '',
         subtitle: '',
         overview: {
-          newMediaCount: 0,
-          totalUsageTime: '0小时',
-          mostActiveDay: '暂无数据'
-        },
-        analysis: {
-          mostAccessedType: '暂无数据',
-          mostAddedType: '暂无数据',
-          storageUsage: '0GB'
-        },
-        activities: []
+          newMediaCount: 0
+        }
       }
     }
   },
@@ -906,27 +857,10 @@ export default {
         const currentMonthStart = new Date(currentYear, currentMonth - 1, 1)
         const newMediaCount = this.calculateNewMediaCount([games, images, videos, novels, websites, audios], currentMonthStart)
         
-        // 计算使用时长（基于游戏时长）
-        const totalUsageTime = this.calculateTotalUsageTime(games)
-        
-        // 计算最活跃日期（基于添加时间）
-        const mostActiveDay = this.calculateMostActiveDay([games, images, videos, novels, websites, audios], currentMonthStart)
-        
-        // 分析媒体类型
-        const analysis = this.analyzeMediaTypes([games, images, videos, novels, websites, audios], currentMonthStart)
-        
-        // 生成活动统计
-        const activities = this.generateActivityStats([games, images, videos, novels, websites, audios])
-        
         // 更新报告数据
         this.currentMonthReport.overview = {
-          newMediaCount,
-          totalUsageTime,
-          mostActiveDay
+          newMediaCount
         }
-        
-        this.currentMonthReport.analysis = analysis
-        this.currentMonthReport.activities = activities
         
         console.log('月度报告生成完成:', this.currentMonthReport)
         
@@ -949,123 +883,6 @@ export default {
         })
       })
       return totalNew
-    },
-    calculateTotalUsageTime(games) {
-      let totalSeconds = 0
-      games.forEach(game => {
-        if (game.playTime) {
-          totalSeconds += game.playTime
-        }
-      })
-      
-      const hours = Math.floor(totalSeconds / 3600)
-      const minutes = Math.floor((totalSeconds % 3600) / 60)
-      
-      if (hours > 0) {
-        return `${hours}小时${minutes}分钟`
-      } else {
-        return `${minutes}分钟`
-      }
-    },
-    calculateMostActiveDay(allMedia, monthStart) {
-      const dayCounts = {}
-      let maxCount = 0
-      let mostActiveDay = '暂无数据'
-      
-      allMedia.forEach(mediaList => {
-        mediaList.forEach(item => {
-          if (item.addedDate) {
-            const addedDate = new Date(item.addedDate)
-            if (addedDate >= monthStart) {
-              const day = addedDate.getDate()
-              dayCounts[day] = (dayCounts[day] || 0) + 1
-              if (dayCounts[day] > maxCount) {
-                maxCount = dayCounts[day]
-                mostActiveDay = `${addedDate.getMonth() + 1}月${day}日`
-              }
-            }
-          }
-        })
-      })
-      
-      return mostActiveDay
-    },
-    analyzeMediaTypes(allMedia, monthStart) {
-      const typeLabels = ['游戏', '图片', '视频', '小说', '网站', '音频']
-      const typeCounts = [0, 0, 0, 0, 0, 0]
-      const newCounts = [0, 0, 0, 0, 0, 0]
-      
-      allMedia.forEach((mediaList, index) => {
-        typeCounts[index] = mediaList.length
-        mediaList.forEach(item => {
-          if (item.addedDate) {
-            const addedDate = new Date(item.addedDate)
-            if (addedDate >= monthStart) {
-              newCounts[index]++
-            }
-          }
-        })
-      })
-      
-      // 找到最常访问的类型（总数最多）
-      const maxTotalIndex = typeCounts.indexOf(Math.max(...typeCounts))
-      const mostAccessedType = typeLabels[maxTotalIndex] || '暂无数据'
-      
-      // 找到新增最多的类型
-      const maxNewIndex = newCounts.indexOf(Math.max(...newCounts))
-      const mostAddedType = typeLabels[maxNewIndex] || '暂无数据'
-      
-      // 计算存储使用（简化计算）
-      const totalItems = typeCounts.reduce((sum, count) => sum + count, 0)
-      const storageUsage = totalItems > 0 ? `${(totalItems * 0.1).toFixed(1)}GB` : '0GB'
-      
-      return {
-        mostAccessedType,
-        mostAddedType,
-        storageUsage
-      }
-    },
-    generateActivityStats(allMedia) {
-      const [games, images, videos, novels, websites, audios] = allMedia
-      
-      return [
-        {
-          type: 'games',
-          name: '游戏启动',
-          icon: '🎮',
-          stats: `${games.filter(g => g.playCount > 0).length}个游戏被启动`
-        },
-        {
-          type: 'videos',
-          name: '视频观看',
-          icon: '🎬',
-          stats: `${videos.length}个视频收藏`
-        },
-        {
-          type: 'audios',
-          name: '音频播放',
-          icon: '🎵',
-          stats: `${audios.length}个音频收藏`
-        },
-        {
-          type: 'novels',
-          name: '小说阅读',
-          icon: '📚',
-          stats: `${novels.length}本小说收藏`
-        },
-        {
-          type: 'images',
-          name: '图片浏览',
-          icon: '🖼️',
-          stats: `${images.length}张图片收藏`
-        },
-        {
-          type: 'websites',
-          name: '网站访问',
-          icon: '🌐',
-          stats: `${websites.length}个网站收藏`
-        }
-      ]
     },
     async refreshMonthlyReport() {
       await this.generateMonthlyReport()

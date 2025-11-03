@@ -12,7 +12,12 @@
     <!-- 左侧导航栏 -->
     <nav class="sidebar" v-show="!isLoading">
       <div class="sidebar-header">
-        <img src="/butter-icon.png" alt="Butter Manager" class="sidebar-logo">
+        <img 
+          :src="logoIcon" 
+          alt="Butter Manager" 
+          class="sidebar-logo"
+          @click="onLogoClick"
+        >
         <h1> Butter Manager</h1>
         <p>万能的资源管理器</p>
         <p class="version">v{{ version }}</p>
@@ -151,6 +156,7 @@ export default {
       version: '0.0.0',
       isLoading: true, // 应用加载状态
       isInitialized: false, // 存档系统是否已初始化
+      isLogoClicked: false, // logo 是否被点击过
       // 筛选器相关数据
       showFilterSidebar: false,
       isFilterSidebarLoading: false,
@@ -240,9 +246,31 @@ export default {
     // 底部导航页面ID列表
     footerViews() {
       return ['users', 'messages', 'help', 'settings']
+    },
+    // 根据点击状态返回对应的 logo 图标
+    logoIcon() {
+      return this.isLogoClicked ? '/hide-icon.png' : '/butter-icon.png'
     }
   },
   methods: {
+    // 点击 logo 的处理方法
+    onLogoClick() {
+      // 播放解锁音效
+      this.playUnlockSound()
+      // 切换图标
+      this.isLogoClicked = true
+    },
+    // 播放解锁音效
+    playUnlockSound() {
+      try {
+        const audio = new Audio('/unlock.mp3')
+        audio.play().catch(error => {
+          console.warn('播放解锁音效失败:', error)
+        })
+      } catch (error) {
+        console.warn('创建音频对象失败:', error)
+      }
+    },
     // 检查是否应该进行文件丢失检测
     shouldCheckFileLoss() {
       return !this.hasCheckedFileLoss
@@ -666,6 +694,7 @@ export default {
   border-radius: 50%;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
   transition: all 0.3s ease;
+  cursor: pointer;
 }
 /* 筛选器侧边栏样式 */
 .filter-sidebar-container {
