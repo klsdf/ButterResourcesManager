@@ -1691,7 +1691,7 @@ export default {
     // 优化的图片解析方法 - 根据使用场景选择不同的加载策略
     resolveImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return './default-image.svg'
+        return './default-image.png'
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -1852,7 +1852,7 @@ export default {
     // 解析封面图 - 用于详情页封面和对话框预览，支持伪装模式
     resolveCoverImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return './default-image.svg'
+        return './default-image.png'
       }
       
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
@@ -1883,7 +1883,7 @@ export default {
     // 异步图片解析 - 用于需要DataURL的场景（如封面预览）
     async resolveImageAsync(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return './default-image.svg'
+        return './default-image.png'
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -1922,13 +1922,13 @@ export default {
             this.addToCache(imagePath, dataUrl, estimatedSize)
             return dataUrl
           } else {
-            this.addToCache(imagePath, './default-image.svg', 0)
-            return './default-image.svg'
+            this.addToCache(imagePath, './default-image.png', 0)
+            return './default-image.png'
           }
         } catch (error) {
           console.error('读取图片文件失败:', error)
-          this.addToCache(imagePath, './default-image.svg', 0)
-          return './default-image.svg'
+          this.addToCache(imagePath, './default-image.png', 0)
+          return './default-image.png'
         }
       } else {
         const normalizedPath = String(imagePath).replace(/\\/g, '/')
@@ -2016,7 +2016,7 @@ export default {
     },
     
     handleImageError(event) {
-      event.target.src = './default-image.svg'
+      event.target.src = './default-image.png'
     },
     
     getImageFileName(imagePath) {

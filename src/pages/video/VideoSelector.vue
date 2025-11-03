@@ -90,7 +90,7 @@ export default {
     
     getThumbnailUrl(thumbnail) {
       if (!thumbnail) {
-        return './default-video.svg'
+        return './default-video.png'
       }
       
       // 处理不同类型的缩略图路径
@@ -109,13 +109,13 @@ export default {
           return 'file://' + encoded
         } catch (error) {
           console.error('转换缩略图路径失败:', error)
-          return './default-video.svg'
+          return './default-video.png'
         }
       }
     },
     
     handleImageError(event) {
-      event.target.src = './default-video.svg'
+      event.target.src = './default-video.png'
     },
     
     formatDuration(minutes) {

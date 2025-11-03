@@ -164,7 +164,7 @@ class DisguiseManager {
     // 如果没有伪装图片，返回默认图片
     if (this.disguiseImages.length === 0) {
       console.log('❌ 没有可用的伪装图片，返回默认图片')
-      return './default-image.svg'
+      return './default-image.png'
     }
 
      // 每次都随机选择一张伪装图片（不使用缓存，确保每次都是随机的）

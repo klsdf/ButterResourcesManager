@@ -983,7 +983,7 @@ export default {
     },
     resolveCoverImage(imagePath) {
       if (!imagePath || (typeof imagePath === 'string' && imagePath.trim() === '')) {
-        return './default-novel.svg'
+        return './default-novel.png'
       }
       if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
         return imagePath
@@ -998,10 +998,10 @@ export default {
           if (dataUrl) {
             this.$set ? this.$set(this.imageCache, imagePath, dataUrl) : (this.imageCache[imagePath] = dataUrl)
           } else {
-            this.$set ? this.$set(this.imageCache, imagePath, './default-novel.svg') : (this.imageCache[imagePath] = './default-novel.svg')
+            this.$set ? this.$set(this.imageCache, imagePath, './default-novel.png') : (this.imageCache[imagePath] = './default-novel.png')
           }
         }).catch(() => {
-          this.$set ? this.$set(this.imageCache, imagePath, './default-novel.svg') : (this.imageCache[imagePath] = './default-novel.svg')
+          this.$set ? this.$set(this.imageCache, imagePath, './default-novel.png') : (this.imageCache[imagePath] = './default-novel.png')
         })
       } else {
         const normalizedPath = String(imagePath).replace(/\\/g, '/')
@@ -1009,10 +1009,10 @@ export default {
         this.$set ? this.$set(this.imageCache, imagePath, fileUrl) : (this.imageCache[imagePath] = fileUrl)
       }
       
-      return this.imageCache[imagePath] || './default-novel.svg'
+      return this.imageCache[imagePath] || './default-novel.png'
     },
     handleImageError(event) {
-      event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI4MCIgdmlld0JveD0iMCAwIDIwMCAyODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xMDAgMTIwSDgwVjE2MEgxMjBWMTIwWiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNODAgMTIwTDEwMCAxMDBMMTIwIDEyMEwxMDAgMTQwTDgwIDEyMFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'
+      event.target.src = './default-novel.png'
     },
     
     async loadNovels() {

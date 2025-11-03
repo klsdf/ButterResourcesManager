@@ -2498,7 +2498,7 @@ export default {
     getThumbnailUrl(thumbnail) {
       // 1. 空值检查：如果没有缩略图，返回默认图标
       if (!thumbnail) {
-        return './default-video.svg' // 使用相对路径的默认图标
+        return './default-video.png' // 使用相对路径的默认图标
       }
       
       // 2. 缓存检查：如果已经处理过这个缩略图，直接返回缓存结果
@@ -2562,7 +2562,7 @@ export default {
           return url
         } catch (error) {
           console.error('转换缩略图路径失败:', error)
-          return './default-video.svg'
+          return './default-video.png'
         }
       }
       
@@ -2581,7 +2581,7 @@ export default {
     async getThumbnailUrlAsync(thumbnail) {
       // 1. 空值检查
       if (!thumbnail) {
-        return './default-video.svg' // 默认图标
+        return './default-video.png' // 默认图标
       }
       
       // 2. 缓存检查：避免重复的异步操作
@@ -2624,7 +2624,7 @@ export default {
           return url
         } catch (error) {
           console.error('转换缩略图路径失败:', error)
-          return './default-video.svg'
+          return './default-video.png'
         }
       }
       
@@ -2672,7 +2672,7 @@ export default {
       
       // 5. 降级处理：如果异步方法也失败，使用默认图标
       console.log('使用默认图标')
-      event.target.src = './default-video.svg'
+      event.target.src = './default-video.png'
     },
 
     async onThumbnailLoad(event) {

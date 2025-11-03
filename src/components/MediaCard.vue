@@ -530,13 +530,13 @@ export default {
       return this.imageCache[imagePath] || this.getDefaultImage()
     },
     getDefaultImage() {
-      if (this.type === 'game') return './default-game.svg'
-      if (this.type === 'novel') return './default-novel.svg'
-      if (this.type === 'video') return './default-video.svg' // 视频使用视频默认图标
-      if (this.type === 'audio') return './default-audio.svg' // 音频使用音频默认图标
-      if (this.type === 'image') return './default-image.svg' // 图片使用图片默认图标
-      if (this.type === 'folder') return './default-video.svg' // 文件夹使用视频默认图标
-      return './default-novel.svg' // 默认使用小说图标
+      if (this.type === 'game') return './default-game.png'
+      if (this.type === 'novel') return './default-novel.png'
+      if (this.type === 'video') return './default-video.png' // 视频使用视频默认图标
+      if (this.type === 'audio') return './default-audio.png' // 音频使用音频默认图标
+      if (this.type === 'image') return './default-image.png' // 图片使用图片默认图标
+      if (this.type === 'folder') return './default-video.png' // 文件夹使用视频默认图标
+      return './icon.svg' // 默认使用小说图标
     },
     handleImageError(event) {
       const defaultImage = this.getDefaultImage()
@@ -664,7 +664,7 @@ export default {
 .media-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.3s ease;
 }
 
