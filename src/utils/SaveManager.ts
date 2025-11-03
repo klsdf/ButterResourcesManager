@@ -358,9 +358,7 @@ class SaveManager {
               joinDate: new Date().toISOString(),
               loginHistory: [], // 登录时间队列，最多2个元素：[本次登录时间, 上一次登录时间]
               checkInDays: [],
-              totalUsageTime: 0, // 总使用时长（秒）
-              sessionStartTime: null, // 当前会话开始时间，将在 startUsageTracking 时设置
-              lastSessionEndTime: null // 上次会话结束时间
+              totalUsageTime: 0 // 总使用时长（秒）
             }
           }
           break
@@ -1463,9 +1461,7 @@ class SaveManager {
         joinDate: new Date().toISOString(),
         loginHistory: [], // 登录时间队列，最多2个元素：[本次登录时间, 上一次登录时间]
         checkInDays: [],
-        totalUsageTime: 0, // 总使用时长（秒）
-        sessionStartTime: null, // 当前会话开始时间，将在 startUsageTracking 时设置
-        lastSessionEndTime: null // 上次会话结束时间
+        totalUsageTime: 0 // 总使用时长（秒）
       }
     } catch (error) {
       console.error('加载用户资料失败:', error)
@@ -1474,9 +1470,7 @@ class SaveManager {
         joinDate: new Date().toISOString(),
         loginHistory: [], // 登录时间队列，最多2个元素：[本次登录时间, 上一次登录时间]
         checkInDays: [],
-        totalUsageTime: 0, // 总使用时长（秒）
-        sessionStartTime: null, // 当前会话开始时间，将在 startUsageTracking 时设置
-        lastSessionEndTime: null // 上次会话结束时间
+        totalUsageTime: 0 // 总使用时长（秒）
       }
     }
   }
@@ -1681,25 +1675,13 @@ class SaveManager {
       
       const now = new Date().toISOString()
       
-      // 如果当前没有活跃会话，开始新的会话
-      if (!userProfile.sessionStartTime) {
-        // 设置新的会话开始时间（本次登录时间）
-        userProfile.sessionStartTime = now
-        
-        // 将本次登录时间添加到队列开头
-        userProfile.loginHistory.unshift(now)
-        
-        // 保持队列最多2个元素
-        if (userProfile.loginHistory.length > 2) {
-          userProfile.loginHistory.pop()
-        }
-        
-        await this.saveUserProfile(userProfile)
-        console.log('开始使用时长跟踪')
-      } else {
-        // 如果已经有 sessionStartTime，说明可能是应用重启后恢复
-        // 将之前的会话结束，并开始新的会话
-        const previousSessionStart = new Date(userProfile.sessionStartTime)
+      // 保存旧的登录时间（用于计算上次会话时长）
+      const previousLoginTime = userProfile.loginHistory.length > 0 ? userProfile.loginHistory[0] : null
+      
+      // 处理会话时长跟踪
+      // 如果 previousLoginTime 存在，说明是应用异常关闭后重启，需要累加上次会话时长
+      if (previousLoginTime) {
+        const previousSessionStart = new Date(previousLoginTime)
         const nowDate = new Date()
         const previousSessionDuration = Math.floor((nowDate.getTime() - previousSessionStart.getTime()) / 1000)
         
@@ -1707,47 +1689,27 @@ class SaveManager {
         const maxSessionDuration = 24 * 3600 // 24 小时
         const sessionDuration = Math.min(previousSessionDuration, maxSessionDuration)
         
-        // 检查旧的 sessionStartTime 是否已经在 loginHistory 中
-        // 如果已经在 loginHistory[0]，说明是应用正常关闭后重启，只需要更新本次登录时间
-        // 如果不在，说明是应用异常关闭后重启，需要将旧的 sessionStartTime 保存为上一次登录时间
-        const oldSessionInHistory = userProfile.loginHistory.length > 0 && 
-                                   userProfile.loginHistory[0] === userProfile.sessionStartTime
-        
-        if (!oldSessionInHistory) {
-          // 旧的 sessionStartTime 不在 loginHistory 中，需要将它保存为上一次登录时间
-          // 将之前的会话开始时间添加到队列开头（作为上一次登录时间）
-          userProfile.loginHistory.unshift(userProfile.sessionStartTime)
-          
-          // 保持队列最多2个元素
-          if (userProfile.loginHistory.length > 2) {
-            userProfile.loginHistory.pop()
-          }
-        } else {
-          // 旧的 sessionStartTime 已经在 loginHistory[0] 中
-          // 只需要将它移到 loginHistory[1]（作为上一次登录时间）
-          if (userProfile.loginHistory.length >= 1) {
-            // 将当前的 loginHistory[0] 移到 [1]，新的时间会覆盖 [0]
-            userProfile.loginHistory[1] = userProfile.loginHistory[0]
-          }
-        }
-        
         // 累加上次会话时长到总使用时长
         userProfile.totalUsageTime += sessionDuration
-        
-        // 设置新的会话开始时间（本次登录时间）
-        userProfile.sessionStartTime = now
-        
-        // 将新的会话开始时间设置为队列的第一个元素（作为本次登录时间）
-        userProfile.loginHistory[0] = now
-        
-        // 保持队列最多2个元素（如果长度超过2，删除多余的）
-        if (userProfile.loginHistory.length > 2) {
-          userProfile.loginHistory = userProfile.loginHistory.slice(0, 2)
-        }
-        
-        await this.saveUserProfile(userProfile)
-        console.log(`检测到未结束的会话，已结束并开始新会话。上次会话时长: ${sessionDuration}秒，总使用时长: ${userProfile.totalUsageTime}秒`)
       }
+      
+      // 更新登录历史队列：将旧的 loginHistory[0] 移到 [1]（作为上一次登录时间）
+      // 将当前时间设为 loginHistory[0]（作为本次登录时间）
+      if (userProfile.loginHistory.length > 0) {
+        // 如果有旧的登录时间，将其移到 [1] 位置
+        userProfile.loginHistory[1] = userProfile.loginHistory[0]
+        // 确保数组长度不超过2
+        userProfile.loginHistory = userProfile.loginHistory.slice(0, 2)
+      }
+      // 将当前登录时间设为 [0]
+      userProfile.loginHistory[0] = now
+      // 确保数组长度不超过2（防止数组意外扩展）
+      if (userProfile.loginHistory.length > 2) {
+        userProfile.loginHistory = userProfile.loginHistory.slice(0, 2)
+      }
+      
+      await this.saveUserProfile(userProfile)
+      console.log('开始使用时长跟踪')
       
       return true
     } catch (error) {
@@ -1764,16 +1726,14 @@ class SaveManager {
     try {
       const userProfile = await this.loadUserProfile()
       
-      if (userProfile.sessionStartTime) {
-        const sessionStart = new Date(userProfile.sessionStartTime)
+      // 使用 loginHistory[0] 作为当前会话开始时间
+      if (userProfile.loginHistory && userProfile.loginHistory.length > 0 && userProfile.loginHistory[0]) {
+        const sessionStart = new Date(userProfile.loginHistory[0])
         const sessionEnd = new Date()
         const sessionDuration = Math.floor((sessionEnd.getTime() - sessionStart.getTime()) / 1000) // 转换为秒
         
         // 更新总使用时长
         userProfile.totalUsageTime += sessionDuration
-        userProfile.lastSessionEndTime = sessionEnd.toISOString()
-        userProfile.sessionStartTime = null // 清除当前会话开始时间
-        // loginHistory 队列已在 startUsageTracking 时更新，这里不需要再次更新
         
         await this.saveUserProfile(userProfile)
         console.log(`会话结束，本次使用时长: ${sessionDuration}秒，总使用时长: ${userProfile.totalUsageTime}秒`)
@@ -1794,8 +1754,9 @@ class SaveManager {
     try {
       const userProfile = await this.loadUserProfile()
       
-      if (userProfile.sessionStartTime) {
-        const sessionStart = new Date(userProfile.sessionStartTime)
+      // 使用 loginHistory[0] 作为当前会话开始时间
+      if (userProfile.loginHistory && userProfile.loginHistory.length > 0 && userProfile.loginHistory[0]) {
+        const sessionStart = new Date(userProfile.loginHistory[0])
         const now = new Date()
         return Math.floor((now.getTime() - sessionStart.getTime()) / 1000)
       }

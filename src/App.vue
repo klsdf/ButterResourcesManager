@@ -12,7 +12,7 @@
     <!-- 左侧导航栏 -->
     <nav class="sidebar" v-show="!isLoading">
       <div class="sidebar-header">
-        <img src="/butter-logo.svg" alt="Butter Manager" class="sidebar-logo">
+        <img src="/butter-icon.png" alt="Butter Manager" class="sidebar-logo">
         <h1> Butter Manager</h1>
         <p>万能的资源管理器</p>
         <p class="version">v{{ version }}</p>
@@ -655,6 +655,18 @@ export default {
   overflow: hidden;
 }
 
+
+.sidebar-logo{
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  margin: 0 auto;
+  display: block;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+}
 /* 筛选器侧边栏样式 */
 .filter-sidebar-container {
   display: flex;

@@ -83,11 +83,13 @@
           <DetailCard title="📂 项目地址">
             我要star，我要star，start、start要要要~
             <div class="project-links">
-              <div @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager.git')" class="project-link">
+              <div @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager.git')"
+                class="project-link">
                 <span class="link-icon">🐙</span>
                 <span class="link-text">GitHub 仓库</span>
               </div>
-              <div @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager/releases')" class="project-link">
+              <div @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager/releases')"
+                class="project-link">
                 <span class="link-icon">📦</span>
                 <span class="link-text">下载最新版本</span>
               </div>
@@ -99,9 +101,21 @@
                 <span class="contact-icon">💬</span>
                 <div class="contact-details">
                   <h4>GitHub</h4>
-                  <p>主要开发平台，问题反馈和代码贡献</p>
-                  <span @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager')" class="external-link">
-                    github.com/klsdf/ButterResourcesManager
+                  <p>可以去issues板块反馈技术问题</p>
+                  <span @click="openExternalLink('https://github.com/klsdf/ButterResourcesManager/issues')"
+                    class="external-link">
+                    https://github.com/klsdf/ButterResourcesManager/issues
+                  </span>
+                </div>
+              </div>
+
+              <div class="contact-method">
+                <span class="contact-icon">💬</span>
+                <div class="contact-details">
+                  <h4>QQ</h4>
+                  <p>吹水用，以及有什么建议可以在这里反馈</p>
+                  <span @click="openExternalLink('https://qm.qq.com/q/SSh1pEXHaw')" class="external-link">
+                    点击链接加入群聊【ButterManager 客服群】：https://qm.qq.com/q/SSh1pEXHaw
                   </span>
                 </div>
               </div>
@@ -145,7 +159,9 @@
             <ul>
               <li><strong>数据的存储位置：</strong>默认在应用目录的 SaveData 文件夹中</li>
               <li><strong>会存储哪些内容：</strong>存档会自动保存添加的所有资源路径和信息。同时会自动复制封面图到文件夹中。游戏的截图也会保存到存档中</li>
-              <li><strong>如何更改存档位置：</strong>如需更改存档位置，可以在设置中的"存档文件夹位置"中改为自定义目录，并设置自定义的文件夹路径。设置完毕后，如果文件夹里面没有SaveData，管理器会自动在这个目录下创建SaveData 文件夹，并将现有存档的内容复制到这里。如果这个目录已经有SaveData 文件夹，会读取这个文件夹。</li>
+              <li>
+                <strong>如何更改存档位置：</strong>如需更改存档位置，可以在设置中的"存档文件夹位置"中改为自定义目录，并设置自定义的文件夹路径。设置完毕后，如果文件夹里面没有SaveData，管理器会自动在这个目录下创建SaveData
+                文件夹，并将现有存档的内容复制到这里。如果这个目录已经有SaveData 文件夹，会读取这个文件夹。</li>
             </ul>
           </DetailCard>
 
@@ -169,12 +185,10 @@
           <h1>🎮 游戏管理模块</h1>
           <p class="section-subtitle">实际上也可以管应用。我的unity和PS等软件就是用这个管的。还挺好用的</p>
         </div>
+        <p class="module-intro">
+          游戏管理模块是黄油管理器的核心功能之一。它实现了一套类似steam的软件管理系统。帮助您管理各种类型的游戏文件，并帮您获得游戏的附加信息。游玩时模块会自动记录您游戏的时长、运行次数、最后游玩时间等统计信息。并提供了一个功能强大的截图工具，让您在游戏中可以快速截图。
+        </p>
         <div class="module-detail">
-          <DetailCard title="🎮 游戏模块简介">
-            <p>
-              游戏管理模块是黄油管理器的核心功能之一。它实现了一套类似steam的软件管理系统。帮助您管理各种类型的游戏文件，并帮您获得游戏的附加信息。游玩时模块会自动记录您游戏的时长、运行次数、最后游玩时间等统计信息。并提供了一个功能强大的截图工具，让您在游戏中可以快速截图。
-            </p>
-          </DetailCard>
           <DetailCard title="🎯 添加游戏">
             <ul>
               <li><strong>用按钮添加游戏：</strong>在游戏页的上方有一个添加游戏的按钮，点击后会弹出添加游戏的对话框，您可以在这里添加游戏。添加游戏时，必须指定一个游戏exe文件。</li>
@@ -182,27 +196,36 @@
             </ul>
           </DetailCard>
 
-          <DetailCard title="🎯 添加游戏信息">
-            
-          </DetailCard>
-
           <DetailCard title="🎯 删除游戏">
+            删除游戏仅仅是值移除本管理器对游戏的引用，不会删除本地的游戏文件。
             <ul>
               <li><strong>右键菜单删除游戏：</strong>对游戏卡进行右键，可以看到删除的选项。</li>
               <li><strong>详情页删除游戏：</strong>在游戏的详情页内，可以看到删除游戏的选项。</li>
             </ul>
           </DetailCard>
           <DetailCard title="🎯 修改游戏信息">
+            <ul>
+              <li><strong>右键菜单修改游戏信息：</strong>对游戏卡进行右键，可以看到修改信息的选项。</li>
+              <li><strong>详情页修改游戏信息：</strong>在游戏的详情页内，可以看到修改游戏信息的选项。</li>
+            </ul>
 
           </DetailCard>
           <DetailCard title="🎯 游戏文件丢失检测">
 
+            进入游戏页面时，会自动检测所有的游戏文件是否存在。如果不存在，则会在游戏卡的左上角显示一个警告标志。
+            游戏文件丢失不会导致数据丢失。所有的数据记录仍然会保存
+
           </DetailCard>
           <DetailCard title="🎯 应用内启动游戏">
-
-</DetailCard>
+            <ul>
+              <li>点击游戏卡的中央部位可以快速启动游戏</li>
+              <li>右键菜单可以快速启动游戏</li>
+              <li>详情页可以快速启动游戏</li>
+            </ul>
+    
+          </DetailCard>
           <DetailCard title="🎯 游戏时长记录 🔥🔥">
-
+            通过APP内启动游戏时，会自动记录游戏时长。并且会每秒同步游戏的总时长。
           </DetailCard>
 
           <DetailCard title="🎯 其他游戏信息记录">
@@ -211,6 +234,10 @@
             - 上一次运行该游戏的时间
           </DetailCard>
           <DetailCard title="🎯 游戏截图功能 🔥🔥">
+            <ul>
+              <li>进入游戏后，按下ctrl+f12可以快速截图。截图键可以自定义</li>
+              <li>右键游戏卡， 可以从菜单中打开截图文件夹</li>
+            </ul>
 
           </DetailCard>
 
@@ -229,19 +256,30 @@
           <h1>🖼️ 图片管理模块</h1>
           <p class="section-subtitle">我一般用来看漫画，主打一个方便</p>
         </div>
+        <p class="module-intro">
+          图片管理模块主要用于管理文件夹，比如漫画和套图等资源，不适合管理单一的图片。图片管理器最重要的功能是内置的漫画阅读器，可以直接在APP内快速地阅读漫画。
+        </p>
         <div class="module-detail">
-          <DetailCard title="🖼️ 图片模块简介">
-            <p>图片管理模块主要用于管理文件夹，比如漫画和套图等资源，不适合管理单一的图片。图片管理器最重要的功能是内置的漫画阅读器，阅读体验远高于windows自带的阅读器。</p>
-          </DetailCard>
           <DetailCard title="🖼️ 图片文件夹的添加">
-
+            <ul>
+              <li>点击图片页的上方添加图片文件夹按钮，可以添加图片文件夹</li>
+              <li>拖动图片文件夹到图片页，可以添加图片文件夹</li>
+            </ul>
           </DetailCard>
           <DetailCard title="🗑️ 删除图片文件夹">
+            <ul>
+              <li>点击漫画卡，进入详情页后，点击删除漫画</li>
+              <li>右键图片文件夹，可以从菜单中删除图片文件夹</li>
+            </ul>
 
           </DetailCard>
 
           <DetailCard title="🎯 内部和外部阅读器">
+            <ul>
+              <li>内部阅读器：本APP提供了内部阅读器可以非常方便地阅读漫画。</li>
+              <li>外部阅读器：如果不想使用自带的阅读器，可以在设置-图片-图片阅读方式  进行设置</li>
 
+            </ul>
           </DetailCard>
         </div>
       </section>
@@ -250,12 +288,14 @@
       <section v-if="activeSection === 'video'" class="content-section">
         <div class="section-header">
           <h1>🎬 视频管理模块</h1>
-          <p class="section-subtitle">适合看那种能重复看的电影👍</p>
+          <p class="section-subtitle">适合电影和番剧/电视剧，喜欢屯电影的可以试试👍</p>
+        </div>
+
+        <div class="module-intro">
+          视频管理模块可以同时管理单一视频和视频文件夹，这是考虑到电影和番剧/电视剧的两种类型而设计的。电影类资源往往是单一的视频，而番剧/电视剧往往会有多个相似的视频组成同一个系列。因此在本地文件容易呈现文件夹的形式。因此视频模块可以同时管理这两种资源。
         </div>
         <div class="module-detail">
-          <DetailCard title="🎬 视频模块简介">
-            <p>视频管理模块可以同时管理单一视频和视频文件夹，这是考虑到电影和番剧/电视剧的两种类型而设计的。电影类资源往往是单一的视频，而番剧/电视剧往往会有多个相似的视频组成同一个系列。因此在本地文件容易呈现文件夹的形式。因此视频模块可以同时管理这两种资源。</p>
-          </DetailCard>
+
           <DetailCard title="🎬 视频播放">
             <p>内置视频播放器，支持 MP4、AVI、MKV 等格式，双击视频文件即可播放。</p>
           </DetailCard>
@@ -277,15 +317,19 @@
           <h1>📚 小说管理模块</h1>
           <p class="section-subtitle">我不咋用，只是觉得应该加一个，就加了</p>
         </div>
+
+        <div class="module-intro">
+          小说管理模块主要用于管理txt文件，本模块也内置了一个阅读器，可以直接在APP内快速地阅读小说。
+        </div>
         <div class="module-detail">
-          <DetailCard title="📖 电子书阅读">
-            <p>支持 TXT、EPUB、PDF 等格式，双击文件即可开始阅读，自动记录阅读进度。</p>
+          <DetailCard title="🎯 添加小说">
+            <ul>
+              <li>点击小说页的上方添加小说按钮，可以添加小说</li>
+              <li>拖动txt文件到小说页，可以添加小说</li>
+            </ul>
           </DetailCard>
-          <DetailCard title="🔖 阅读书签">
-            <p>支持添加书签和目录导航，快速跳转到指定章节，支持断点续读。</p>
-          </DetailCard>
-          <DetailCard title="🎨 阅读设置">
-            <p>可调节字体大小、行距、背景色，支持夜间模式，个性化阅读体验。</p>
+          <DetailCard title="🎨 内置阅读器的设置">
+            <p>阅读器的设置可以在设置-小说中进行设置。可以设置字体大小、行距、背景色，支持夜间模式，个性化阅读体验。</p>
           </DetailCard>
         </div>
       </section>
@@ -296,15 +340,14 @@
           <h1>🌐 网站收藏模块</h1>
           <p class="section-subtitle">我只能说比浏览器自带的好用很多。我收藏的网页太多了，每次都要找好久</p>
         </div>
+        <div class="module-intro">
+          网站收藏模块主要用于管理网站收藏,目前其实处于beta阶段，功能还不完善。只能对网页打tag方便索引。
+        </div>
         <div class="module-detail">
-          <DetailCard title="🔖 网站收藏">
-            <p>保存常用网站的链接、标题和描述，支持分类整理和快速访问。</p>
-          </DetailCard>
-          <DetailCard title="📥 书签导入">
-            <p>支持从 Chrome、Firefox、Edge 等浏览器导入书签，一键迁移收藏夹。</p>
-          </DetailCard>
-          <DetailCard title="📤 书签导出">
-            <p>导出为标准的 HTML 书签文件，方便备份或分享给其他浏览器。</p>
+          <DetailCard title="🔖 添加网站">
+            <ul>
+              <li>点击网站页的上方添加网站按钮，可以添加网站</li>
+            </ul>
           </DetailCard>
         </div>
       </section>
@@ -315,9 +358,16 @@
           <h1>🎵 音频管理模块</h1>
           <p class="section-subtitle">我超喜欢这个全局播放器，听优香ASMR这一块👍</p>
         </div>
+
+        <div class="module-intro">
+          音频管理模块主要用于管理音频文件,目前暂时不支持视频。除此之外，考虑到很多人（比如我）喜欢在看漫画的时候听音声，所以该模块内置了全局的音频播放器。您可以在任何时候播放音频。
+        </div>
         <div class="module-detail">
-          <DetailCard title="🎵 全局音频管理器">
-            
+          <DetailCard title="🎵 添加音频">
+            <ul>
+              <li>点击音频页的上方添加音频按钮，可以添加音频</li>
+              <li>拖动音频文件到音频页，可以添加音频</li>
+            </ul>
           </DetailCard>
           
         </div>
@@ -342,10 +392,10 @@
                 <h4>Q: 为什么开启隐藏模式后，所有的封面图都看不见了？</h4>
                 <p>A: 开启隐藏模式后，系统会自动读取根目录的disguise文件夹，但是这个文件夹默认的空的。所以请自行把伪装的图片放进去</p>
               </div>
-              
+
             </div>
           </div>
-         
+
         </div>
       </section>
 

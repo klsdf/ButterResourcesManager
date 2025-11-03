@@ -214,6 +214,11 @@ class NotificationService {
     })
   }
 
+  // 成就解锁通知（别名，方便调用）
+  achievement(achievement) {
+    return this.achievementUnlocked(achievement)
+  }
+
   // 批量成就解锁通知
   achievementsUnlocked(achievements) {
     if (!this.checkInitialized()) return null

@@ -379,6 +379,20 @@ export default {
       await this.loadAchievementData()
     },
     
+    // 播放成就解锁音效
+    playAchievementSound() {
+      try {
+        const audio = new Audio('/achievement.mp3')
+        audio.volume = 1 // 设置音量为100%，可以根据需要调整
+        audio.play().catch(error => {
+          console.warn('播放成就音效失败:', error)
+          // 忽略播放失败，不影响成就功能
+        })
+      } catch (error) {
+        console.warn('创建音频对象失败:', error)
+        // 忽略错误，不影响成就功能
+      }
+    },
     // 检测新解锁的成就
     async checkNewlyUnlockedAchievements() {
       const newlyUnlocked = []
@@ -403,6 +417,8 @@ export default {
         // 每个成就单独弹出通知，添加延迟避免重叠
         newlyUnlocked.forEach((achievement, index) => {
           setTimeout(() => {
+            // 播放成就解锁音效
+            this.playAchievementSound()
             notify.achievement(achievement)
           }, index * 1000) // 每个成就间隔1秒弹出
         })
@@ -439,6 +455,8 @@ export default {
       // 模拟多个成就解锁，一个一个弹出
       testAchievements.forEach((achievement, index) => {
         setTimeout(() => {
+          // 播放成就解锁音效
+          this.playAchievementSound()
           notify.achievement(achievement)
         }, index * 1000) // 每个成就间隔1秒弹出
       })

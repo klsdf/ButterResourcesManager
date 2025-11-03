@@ -155,13 +155,6 @@
                 <div class="media-overview-label">空间占用</div>
               </div>
             </div>
-            <div class="media-overview-card">
-              <div class="media-overview-icon">👆</div>
-              <div class="media-overview-info">
-                <div class="media-overview-number">{{ isLoading ? '...' : imageStats.clickCount }}</div>
-                <div class="media-overview-label">点击次数</div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -181,13 +174,6 @@
               <div class="media-overview-info">
                 <div class="media-overview-number">{{ isLoading ? '...' : videoStats.storage }}</div>
                 <div class="media-overview-label">空间占用</div>
-              </div>
-            </div>
-            <div class="media-overview-card">
-              <div class="media-overview-icon">👆</div>
-              <div class="media-overview-info">
-                <div class="media-overview-number">{{ isLoading ? '...' : videoStats.clickCount }}</div>
-                <div class="media-overview-label">点击次数</div>
               </div>
             </div>
           </div>
@@ -346,9 +332,7 @@ export default {
         joinDate: null,
         loginHistory: [], // 登录时间队列，最多2个元素：[本次登录时间, 上一次登录时间]
         checkInDays: [], // 登录日期数组，格式：['2024-01-15', '2024-01-16']
-        totalUsageTime: 0, // 总使用时长（秒）
-        sessionStartTime: null, // 当前会话开始时间
-        lastSessionEndTime: null // 上次会话结束时间
+        totalUsageTime: 0 // 总使用时长（秒）
       },
       currentDate: new Date(),
       weekdays: ['日', '一', '二', '三', '四', '五', '六'],
@@ -424,10 +408,10 @@ export default {
       return `${year}年${month}月${day}日 ${hours}:${minutes}:${seconds}`
     },
     formatCurrentLogin() {
-      // 从登录队列读取本次登录时间（第一个元素），如果没有则使用 sessionStartTime
+      // 从登录队列读取本次登录时间（第一个元素）
       const loginTime = (this.userProfile.loginHistory && this.userProfile.loginHistory.length > 0) 
         ? this.userProfile.loginHistory[0] 
-        : this.userProfile.sessionStartTime
+        : null
       
       if (!loginTime) return '未知'
       const date = new Date(loginTime)
@@ -611,7 +595,7 @@ export default {
         if (!this.userProfile.joinDate) {
           this.userProfile.joinDate = new Date().toISOString()
         }
-        // lastActive 应该在 startUsageTracking 时设置为 sessionStartTime，不在这里更新
+        // lastActive 由 loginHistory 队列维护，不在这里更新
         
         // 自动记录登录日期：如果今天还没有记录，则自动记录
         await this.autoRecordLogin()
@@ -672,23 +656,21 @@ export default {
         return `${days}天${hours}小时${minutes}分${remainingSeconds}秒`
       }
     },
-    // 开始使用时长跟踪
-    async startUsageTracking() {
+    // 初始化使用时长跟踪（仅同步数据，不调用 startUsageTracking，因为已在 App.vue 中调用）
+    async initializeUsageTracking() {
       try {
-        await saveManager.startUsageTracking()
         // 同步更新本地 userProfile（可能已经处理了未结束的会话）
         const profile = await saveManager.loadUserProfile()
         if (profile) {
-          this.userProfile.sessionStartTime = profile.sessionStartTime
           this.userProfile.loginHistory = profile.loginHistory || []
           this.userProfile.totalUsageTime = profile.totalUsageTime
         }
         // 重置当前会话时长为0（新的会话开始）
         this.currentSessionTime = 0
         this.startUsageTimer()
-        console.log('使用时长跟踪已开始')
+        console.log('使用时长跟踪已初始化')
       } catch (error) {
-        console.error('开始使用时长跟踪失败:', error)
+        console.error('初始化使用时长跟踪失败:', error)
       }
     },
     // 开始定时器更新当前会话时长
@@ -1092,8 +1074,8 @@ export default {
   async mounted() {
     console.log('统计页面已加载')
     await this.loadUserProfile()
-    // 开始使用时长跟踪
-    await this.startUsageTracking()
+    // 初始化使用时长跟踪（仅同步数据，startUsageTracking 已在 App.vue 中调用）
+    await this.initializeUsageTracking()
     await this.loadMediaStatistics()
     await this.generateMonthlyReport()
   },
@@ -1154,18 +1136,32 @@ export default {
 }
 
 
-/* 统计区域样式 */
+/* 统计区域样式 - 卡片包裹 */
 .statistics-section {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.statistics-section:hover {
+  border-color: var(--accent-color);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 .statistics-section h5 {
-  margin: 0 0 16px 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--text-primary);
   display: flex;
   align-items: center;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border-color);
 }
 
 /* 统计网格样式 */
@@ -1250,31 +1246,32 @@ export default {
   opacity: 0.4;
 }
 
-/* 媒体总览网格样式 */
+/* 媒体总览网格样式 - 改为竖向排列 */
 .media-overview-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 16px;
 }
 
 .media-overview-card {
   display: flex;
   align-items: center;
-  padding: 16px;
+  padding: 18px 20px;
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 10px;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  width: 100%;
 }
 
 .media-overview-card:hover {
   background: var(--bg-hover);
   border-color: var(--accent-color);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .media-overview-card::before {
@@ -1282,9 +1279,9 @@ export default {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent-color), var(--accent-color-light));
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent-color), var(--accent-color-light));
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -1294,30 +1291,34 @@ export default {
 }
 
 .media-overview-icon {
-  font-size: 1.8rem;
-  margin-right: 12px;
-  opacity: 0.8;
+  font-size: 2rem;
+  margin-right: 16px;
+  opacity: 0.9;
   transition: transform 0.3s ease;
+  min-width: 40px;
+  text-align: center;
 }
 
 .media-overview-card:hover .media-overview-icon {
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 
 .media-overview-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .media-overview-number {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.8rem;
+  font-weight: 700;
   color: var(--accent-color);
-  line-height: 1;
-  margin-bottom: 2px;
+  line-height: 1.2;
 }
 
 .media-overview-label {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--text-secondary);
   font-weight: 500;
 }
