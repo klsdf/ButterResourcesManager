@@ -1329,7 +1329,7 @@ export default {
     },
     playScreenshotSound() {
       try {
-        const audio = new Audio('/camera.mp3')
+        const audio = new Audio('./camera.mp3')
         audio.volume = 1 // 设置音量为100%，可以根据需要调整
         audio.play().catch(error => {
           console.warn('播放截图音效失败:', error)

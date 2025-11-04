@@ -249,7 +249,7 @@ export default {
     },
     // 根据点击状态返回对应的 logo 图标
     logoIcon() {
-      return this.isLogoClicked ? '/hide-icon.png' : '/butter-icon.png'
+      return this.isLogoClicked ? './hide-icon.png' : './butter-icon.png'
     }
   },
   methods: {
@@ -263,7 +263,7 @@ export default {
     // 播放解锁音效
     playUnlockSound() {
       try {
-        const audio = new Audio('/unlock.mp3')
+        const audio = new Audio('./unlock.mp3')
         audio.play().catch(error => {
           console.warn('播放解锁音效失败:', error)
         })

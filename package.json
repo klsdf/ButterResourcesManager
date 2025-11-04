@@ -51,6 +51,9 @@
       "public/butter-logo.svg",
       "public/butter-icon.ico",
       "public/butter-icon.png",
+      "public/hide-icon.png",
+      "public/unlock.mp3",
+      "public/camera.mp3",
       "disguise/**/*",
       "node_modules/**/*"
     ],
