@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (filePath) => ipcRenderer.invoke('open-external', filePath),
   
   // 游戏启动
-  launchGame: (executablePath) => ipcRenderer.invoke('launch-game', executablePath),
+  launchGame: (executablePath, gameName) => ipcRenderer.invoke('launch-game', executablePath, gameName),
   
   // 系统信息
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
@@ -54,7 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showNotification: (title, body) => ipcRenderer.invoke('show-notification', title, body),
   
   // 截图功能
-  takeScreenshot: (gameName, directory, format, quality) => ipcRenderer.invoke('take-screenshot', gameName, directory, format, quality),
+  takeScreenshot: (directory, format, quality, runningGameNames) => ipcRenderer.invoke('take-screenshot', directory, format, quality, runningGameNames),
   getScreenshotsDirectory: () => ipcRenderer.invoke('get-screenshots-directory'),
   setScreenshotsDirectory: () => ipcRenderer.invoke('set-screenshots-directory'),
   

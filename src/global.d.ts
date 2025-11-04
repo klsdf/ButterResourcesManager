@@ -63,11 +63,11 @@ declare global {
       readTextFile: (filePath: string) => Promise<{ success: boolean; content?: string; fileSize?: number; wordCount?: number; encoding?: string; error?: string }>
       
       // 游戏启动
-      launchGame: (executablePath: string) => Promise<{ success: boolean; pid?: number; error?: string }>
+      launchGame: (executablePath: string, gameName?: string) => Promise<{ success: boolean; pid?: number; error?: string }>
       
       // 系统功能
       showNotification: (title: string, body: string) => Promise<void>
-      takeScreenshot: (gameName: string, directory?: string, format?: string, quality?: number) => Promise<{ success: boolean; filepath?: string; filename?: string; windowName?: string; gameFolder?: string; screenshotsDir?: string; error?: string }>
+      takeScreenshot: (directory?: string, format?: string, quality?: number, runningGameNames?: string[]) => Promise<{ success: boolean; filepath?: string; filename?: string; windowName?: string; gameFolder?: string; screenshotsDir?: string; matchedGame?: string | null; error?: string }>
       updateGlobalShortcut: (newKey: string) => Promise<{ success: boolean; key?: string; error?: string }>
       checkGlobalShortcutAvailable: (key: string) => Promise<{ success: boolean; available?: boolean; error?: string }>
       

@@ -466,35 +466,14 @@ ipcMain.handle('select-image-file', async (event, defaultPath = null) => {
 // 新增：专门用于选择截图文件夹中图片的 IPC 处理程序
 ipcMain.handle('select-screenshot-image', async (event, screenshotDir) => {
   try {
+    console.log('=== select-screenshot-image IPC 处理开始 ===')
+    console.log('接收到的 screenshotDir:', screenshotDir)
+    
     const fs = require('fs')
     const path = require('path')
     
-    // 将相对路径转换为绝对路径
-    let absolutePath = screenshotDir
-    if (!path.isAbsolute(screenshotDir)) {
-      absolutePath = path.join(process.cwd(), screenshotDir)
-    }
-    
-    console.log('选择截图图片，目标目录:', absolutePath)
-    
-    // 确保目录存在
-    if (!fs.existsSync(absolutePath)) {
-      console.log('截图目录不存在，创建目录:', absolutePath)
-      fs.mkdirSync(absolutePath, { recursive: true })
-    }
-    
-    // 检查目录中是否有图片文件
-    const files = fs.readdirSync(absolutePath)
-    const imageFiles = files.filter(file => {
-      const ext = path.extname(file).toLowerCase()
-      return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
-    })
-    
-    console.log('目录中的图片文件:', imageFiles)
-    
     const dialogOptions = {
       title: '选择截图作为封面',
-      defaultPath: absolutePath,
       filters: [
         { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] },
         { name: '所有文件', extensions: ['*'] }
@@ -502,14 +481,101 @@ ipcMain.handle('select-screenshot-image', async (event, screenshotDir) => {
       properties: ['openFile']
     }
     
+    // 如果提供了截图目录路径，设置为默认目录
+    if (screenshotDir) {
+      console.log('处理 screenshotDir:', screenshotDir)
+      
+      // 确保路径格式正确（统一使用反斜杠，因为是 Windows）
+      const normalizedPath = screenshotDir.replace(/\//g, '\\')
+      console.log('规范化后的路径:', normalizedPath)
+      
+      // 检查路径是否存在
+      try {
+        // 将相对路径转换为绝对路径
+        let absolutePath = normalizedPath
+        if (!path.isAbsolute(normalizedPath)) {
+          // 如果是相对路径，基于应用目录
+          absolutePath = path.join(process.cwd(), normalizedPath)
+          console.log('转换为绝对路径:', absolutePath)
+        } else {
+          console.log('已经是绝对路径:', absolutePath)
+        }
+        
+        console.log('检查路径是否存在:', absolutePath)
+        console.log('路径是否存在:', fs.existsSync(absolutePath))
+        
+        // 检查目录是否存在
+        if (fs.existsSync(absolutePath)) {
+          const stats = fs.statSync(absolutePath)
+          console.log('路径类型:', stats.isDirectory() ? '目录' : '文件')
+          
+          if (stats.isDirectory()) {
+            // 使用绝对路径作为 defaultPath
+            dialogOptions.defaultPath = absolutePath
+            console.log('✅ 设置默认路径为:', absolutePath)
+            
+            // 检查目录中是否有图片文件（可选，用于日志）
+            try {
+              const files = fs.readdirSync(absolutePath)
+              const imageFiles = files.filter(file => {
+                const ext = path.extname(file).toLowerCase()
+                return ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext)
+              })
+              console.log('目录中的图片文件数量:', imageFiles.length)
+            } catch (readError) {
+              console.warn('读取目录内容失败:', readError)
+            }
+          } else {
+            console.log('⚠️ 路径不是目录，使用父目录')
+            // 如果路径是文件，使用其父目录
+            const parentDir = path.dirname(absolutePath)
+            if (fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory()) {
+              dialogOptions.defaultPath = parentDir
+              console.log('✅ 使用父目录作为默认路径:', parentDir)
+            }
+          }
+        } else {
+          console.log('⚠️ 路径不存在，尝试创建目录')
+          // 如果路径不存在，尝试创建目录
+          try {
+            fs.mkdirSync(absolutePath, { recursive: true })
+            console.log('✅ 已创建目录:', absolutePath)
+            dialogOptions.defaultPath = absolutePath
+            console.log('✅ 设置默认路径为:', absolutePath)
+          } catch (mkdirError) {
+            console.warn('⚠️ 创建目录失败，使用父目录:', mkdirError)
+            // 如果创建失败，尝试使用父目录
+            const parentDir = path.dirname(absolutePath)
+            if (fs.existsSync(parentDir) && fs.statSync(parentDir).isDirectory()) {
+              dialogOptions.defaultPath = parentDir
+              console.log('✅ 使用父目录作为默认路径:', parentDir)
+            }
+          }
+        }
+      } catch (pathError) {
+        console.error('❌ 处理默认路径时出错:', pathError)
+        // 如果处理路径时出错，使用规范化后的路径
+        dialogOptions.defaultPath = normalizedPath
+      }
+    } else {
+      console.log('⚠️ 未提供 screenshotDir，使用系统默认')
+    }
+    
+    console.log('最终 dialogOptions:', dialogOptions)
+    console.log('=== 打开文件选择对话框 ===')
+    
     const result = await dialog.showOpenDialog(mainWindow, dialogOptions)
     
+    console.log('对话框返回结果:', result)
+    
     if (!result.canceled && result.filePaths.length > 0) {
+      console.log('✅ 用户选择的文件:', result.filePaths[0])
       return result.filePaths[0]
     }
+    console.log('⚠️ 用户取消了选择')
     return null
   } catch (error) {
-    console.error('选择截图图片失败:', error)
+    console.error('❌ 选择截图图片失败:', error)
     throw error
   }
 })
@@ -1033,9 +1099,123 @@ ipcMain.handle('read-file-as-data-url', async (event, filePath) => {
 // 存储游戏进程信息
 const gameProcesses = new Map()
 
-ipcMain.handle('launch-game', async (event, executablePath) => {
+// 辅助函数：获取当前活跃窗口的 PID（Windows）
+async function getActiveWindowPID() {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') {
+      reject(new Error('仅支持 Windows 平台'))
+      return
+    }
+    
+    const { exec } = require('child_process')
+    // 使用 PowerShell 获取活跃窗口的 PID
+    const psCommand = `Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    public static uint GetForegroundWindowProcessId() {
+        IntPtr hWnd = GetForegroundWindow();
+        uint processId;
+        GetWindowThreadProcessId(hWnd, out processId);
+        return processId;
+    }
+}
+"@ ; [Win32]::GetForegroundWindowProcessId()`
+    
+    exec(`powershell -Command "${psCommand}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        console.warn('获取活跃窗口 PID 失败:', error)
+        reject(error)
+        return
+      }
+      
+      const pid = parseInt(stdout.trim(), 10)
+      if (isNaN(pid)) {
+        reject(new Error('无法解析 PID'))
+        return
+      }
+      
+      resolve(pid)
+    })
+  })
+}
+
+// 辅助函数：获取进程的父进程 PID（Windows）
+async function getParentProcessID(pid) {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') {
+      reject(new Error('仅支持 Windows 平台'))
+      return
+    }
+
+    const { exec } = require('child_process')
+    const psCommand = `Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" | Select-Object -ExpandProperty ParentProcessId`
+
+    exec(`powershell -Command "${psCommand}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        reject(error)
+        return
+      }
+
+      const parentPid = parseInt(stdout.trim(), 10)
+      if (isNaN(parentPid)) {
+        reject(new Error('无法解析父进程 PID'))
+        return
+      }
+
+      resolve(parentPid)
+    })
+  })
+}
+
+// 辅助函数：通过 PID 查找对应的游戏信息（包括子进程）
+async function findGameInfoByPID(pid) {
+  // 首先检查直接匹配
+  if (gameProcesses.has(pid)) {
+    return gameProcesses.get(pid)
+  }
+
+  // 如果不是直接匹配，检查是否是某个游戏进程的子进程
+  // 通过向上遍历进程树来查找
+  let currentPid = pid
+  const maxDepth = 10 // 防止无限循环
+  let depth = 0
+
   try {
-    console.log('启动游戏:', executablePath)
+    while (depth < maxDepth) {
+      // 获取当前进程的父进程 PID
+      const parentPid = await getParentProcessID(currentPid)
+      
+      // 检查父进程是否在我们的游戏进程列表中
+      if (gameProcesses.has(parentPid)) {
+        console.log(`✅ 通过进程树匹配到游戏: PID ${pid} 是游戏进程 ${parentPid} 的子进程`)
+        return gameProcesses.get(parentPid)
+      }
+
+      // 如果父进程是系统进程（PID < 100），停止查找
+      if (parentPid < 100) {
+        break
+      }
+
+      currentPid = parentPid
+      depth++
+    }
+  } catch (error) {
+    // 如果获取父进程失败，返回 null
+    console.warn('检查进程树时出错:', error.message)
+    return null
+  }
+
+  return null
+}
+
+ipcMain.handle('launch-game', async (event, executablePath, gameName) => {
+  try {
+    console.log('启动游戏:', executablePath, '游戏名称:', gameName)
     
     // 检查文件是否存在
     const fs = require('fs')
@@ -1054,7 +1234,8 @@ ipcMain.handle('launch-game', async (event, executablePath) => {
     const gameInfo = {
       process: gameProcess,
       startTime: startTime,
-      executablePath: executablePath
+      executablePath: executablePath,
+      gameName: gameName || null
     }
     
     // 存储进程信息
@@ -1171,9 +1352,9 @@ ipcMain.handle('show-notification', (event, title, body) => {
 })
 
 // 截图功能
-ipcMain.handle('take-screenshot', async (event, gameName, customDirectory, format = 'png', quality = 90) => {
+ipcMain.handle('take-screenshot', async (event, customDirectory, format = 'png', quality = 90, runningGameNames = []) => {
   try {
-    console.log('开始截图，游戏:', gameName, '格式:', format, '质量:', quality)
+    console.log('开始截图，格式:', format, '质量:', quality, '运行中的游戏:', runningGameNames)
     
     // 获取所有可用的窗口源
     const sources = await desktopCapturer.getSources({
@@ -1203,34 +1384,49 @@ ipcMain.handle('take-screenshot', async (event, gameName, customDirectory, forma
              !name.includes('electron.app.electron')
     })
     
-    let targetSource = null
-    
-    // 始终优先选择游戏窗口，如果没有游戏窗口则使用激活窗口
-    if (gameName && gameName !== 'Screenshot') {
-      targetSource = nonSystemWindows.find(source => {
-        const name = source.name.toLowerCase()
-        const gameNameLower = gameName.toLowerCase()
-        return name.includes(gameNameLower) || gameNameLower.includes(name)
-      })
-      if (targetSource) {
-        console.log('找到匹配的游戏窗口:', targetSource.name)
-      }
-    }
-    
-    // 如果没找到游戏窗口，选择当前激活窗口
-    if (!targetSource && nonSystemWindows.length > 0) {
-      targetSource = nonSystemWindows[0]
-      console.log('未找到游戏窗口，选择当前激活窗口:', targetSource.name)
-    } else if (!targetSource) {
-      targetSource = sources[0]
-      console.log('使用默认窗口:', targetSource.name)
-    }
-    
-    if (!targetSource) {
+    if (nonSystemWindows.length === 0) {
       throw new Error('未找到可截图的窗口')
     }
     
-    console.log('最终选择截图窗口:', targetSource.name)
+    // 首先获取当前聚焦的窗口（通常是第一个非系统窗口）
+    const targetSource = nonSystemWindows[0]
+    const windowName = targetSource.name
+    console.log('当前聚焦的窗口:', windowName)
+    
+    // 判断窗口是否是正在运行的游戏 - 通过 PID 匹配
+    let folderName = 'Screenshots'
+    let matchedGameName = null
+    
+    try {
+      // 获取当前活跃窗口的 PID
+      const activeWindowPID = await getActiveWindowPID()
+      console.log('活跃窗口 PID:', activeWindowPID)
+      
+      // 使用 findGameInfoByPID 查找匹配的游戏（包括子进程）
+      const matchedGameInfo = await findGameInfoByPID(activeWindowPID)
+      
+      if (matchedGameInfo && matchedGameInfo.gameName) {
+        // 如果匹配到游戏进程，使用游戏名称作为文件夹名
+        matchedGameName = matchedGameInfo.gameName
+        folderName = matchedGameName.replace(/[<>:"/\\|?*]/g, '_').trim()
+        console.log('✅ 通过 PID 匹配到运行中的游戏:', matchedGameName, '活跃窗口PID:', activeWindowPID)
+      } else {
+        // 如果没有匹配到，使用窗口名称作为文件夹名
+        folderName = windowName.replace(/[<>:"/\\|?*]/g, '_').trim()
+        console.log('⚠️ 未通过 PID 匹配到游戏进程，使用窗口名称:', windowName)
+      }
+    } catch (pidError) {
+      // 如果获取 PID 失败，直接使用窗口名称作为文件夹名
+      console.warn('获取活跃窗口 PID 失败，使用窗口名称:', pidError.message)
+      folderName = windowName.replace(/[<>:"/\\|?*]/g, '_').trim()
+      console.log('使用窗口名称作为文件夹名:', windowName)
+    }
+    
+    if (!folderName || folderName.trim() === '') {
+      folderName = 'Screenshots'
+    }
+    
+    console.log('最终选择截图窗口:', windowName, '保存文件夹:', folderName)
     const thumbnail = targetSource.thumbnail
     
     // 确定截图保存目录
@@ -1241,15 +1437,7 @@ ipcMain.handle('take-screenshot', async (event, gameName, customDirectory, forma
       baseScreenshotsDir = path.join(app.getPath('documents'), 'Butter Manager', 'Screenshots')
     }
     
-    // 为每个游戏创建单独的文件夹
-    let gameFolderName = 'Screenshots'
-    if (gameName && gameName !== 'Screenshot') {
-      // 清理游戏名称，移除非法字符
-      gameFolderName = gameName.replace(/[<>:"/\\|?*]/g, '_').trim()
-      if (!gameFolderName) {
-        gameFolderName = 'Screenshots'
-      }
-    }
+    const gameFolderName = folderName
     
     const screenshotsDir = path.join(baseScreenshotsDir, gameFolderName)
     
@@ -1259,9 +1447,10 @@ ipcMain.handle('take-screenshot', async (event, gameName, customDirectory, forma
       console.log('创建游戏截图文件夹:', screenshotsDir)
     }
     
-    // 生成文件名
+    // 生成文件名，使用匹配的游戏名称或窗口名称
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const filename = `${gameName || 'Screenshot'}_${timestamp}.${format}`
+    const fileNameBase = matchedGameName || windowName || 'Screenshot'
+    const filename = `${fileNameBase.replace(/[<>:"/\\|?*]/g, '_')}_${timestamp}.${format}`
     const filepath = path.join(screenshotsDir, filename)
     
     // 根据格式保存截图
@@ -1288,9 +1477,10 @@ ipcMain.handle('take-screenshot', async (event, gameName, customDirectory, forma
       success: true,
       filepath: filepath,
       filename: filename,
-      windowName: targetSource.name,
+      windowName: windowName,
       gameFolder: gameFolderName,
-      screenshotsDir: screenshotsDir
+      screenshotsDir: screenshotsDir,
+      matchedGame: matchedGameName || null
     }
   } catch (error) {
     console.error('截图失败:', error)
@@ -1565,10 +1755,26 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
       return { success: false, error: '无效的文件夹路径' }
     }
     
-    // 如果是相对路径，转换为绝对路径
-    let absolutePath = folderPath
-    if (!path.isAbsolute(folderPath)) {
-      absolutePath = path.resolve(process.cwd(), folderPath)
+    // 规范化路径：处理混合路径分隔符
+    // 先统一为 /，然后规范化
+    let normalizedPath = folderPath.replace(/\\/g, '/')
+    
+    // 判断是否为绝对路径（考虑 Windows 盘符格式）
+    const isAbsolute = /^[A-Za-z]:/.test(normalizedPath) || path.isAbsolute(normalizedPath)
+    
+    // 转换为绝对路径并规范化
+    let absolutePath
+    if (!isAbsolute) {
+      absolutePath = path.resolve(process.cwd(), normalizedPath)
+    } else {
+      // 已经是绝对路径，使用 path.normalize 来规范化
+      absolutePath = path.normalize(normalizedPath)
+    }
+    
+    // 在 Windows 上，确保路径格式正确（全部使用 \）
+    // path.normalize 在 Windows 上可能不会转换所有 /，所以强制转换
+    if (process.platform === 'win32') {
+      absolutePath = absolutePath.replace(/\//g, '\\')
     }
     
     console.log('解析后的绝对路径:', absolutePath)
@@ -1587,7 +1793,17 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
     
     // 打开文件夹
     console.log('正在打开文件夹:', absolutePath)
-    await shell.openPath(absolutePath)
+    
+    // 在 Windows 上，使用 explorer 命令确保正确定位文件夹
+    if (process.platform === 'win32') {
+      // 使用 explorer 命令打开文件夹，确保正确定位
+      spawn('explorer', [absolutePath], { detached: true, stdio: 'ignore' })
+      console.log('使用 explorer 打开文件夹:', absolutePath)
+    } else {
+      // 在其他平台上使用 shell.openPath
+      await shell.openPath(absolutePath)
+    }
+    
     return { success: true }
   } catch (error) {
     console.error('打开文件夹失败:', error)

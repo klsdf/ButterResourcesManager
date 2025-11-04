@@ -505,7 +505,7 @@ export default {
 
         if (this.isElectronEnvironment && window.electronAPI && window.electronAPI.launchGame) {
           console.log('使用 Electron API 启动游戏')
-          const result = await window.electronAPI.launchGame(game.executablePath)
+          const result = await window.electronAPI.launchGame(game.executablePath, game.name)
 
           if (result.success) {
             console.log('游戏启动成功，进程ID:', result.pid)
@@ -677,15 +677,16 @@ export default {
         // 根据截图位置设置确定基础路径
         let baseScreenshotsPath = ''
         if (settings.screenshotLocation === 'default') {
-          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+          // 使用默认路径，跟随存档位置
+          baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         } else if (settings.screenshotLocation === 'custom') {
           baseScreenshotsPath = settings.screenshotsPath || ''
         } else {
-          baseScreenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+          baseScreenshotsPath = settings.screenshotsPath || `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
-          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+          baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         // 为每个游戏创建单独的文件夹（与截图功能保持一致）
@@ -782,15 +783,16 @@ export default {
         // 根据截图位置设置确定基础路径
         let baseScreenshotsPath = ''
         if (settings.screenshotLocation === 'default') {
-          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+          // 使用默认路径，跟随存档位置
+          baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         } else if (settings.screenshotLocation === 'custom') {
           baseScreenshotsPath = settings.screenshotsPath || ''
         } else {
-          baseScreenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+          baseScreenshotsPath = settings.screenshotsPath || `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
-          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+          baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         // 为每个游戏创建单独的文件夹（与截图功能保持一致）
@@ -1354,9 +1356,9 @@ export default {
       console.log('开始截图，时间戳:', now)
 
       try {
-        // 获取当前正在运行的游戏
-        const runningGame = this.games.find(game => this.isGameRunning(game))
-        const gameName = runningGame ? runningGame.name : 'Screenshot'
+        // 获取所有正在运行的游戏名称列表
+        const runningGames = this.games.filter(game => this.isGameRunning(game))
+        const runningGameNames = runningGames.map(game => game.name)
 
         // 获取用户设置的截图选项
 
@@ -1366,14 +1368,14 @@ export default {
         // 根据截图位置设置确定实际路径
         let screenshotsPath = ''
         if (settings.screenshotLocation === 'default') {
-          // 使用默认路径
-          screenshotsPath = 'SaveData/Game/Screenshots'
+          // 使用默认路径，跟随存档位置
+          screenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         } else if (settings.screenshotLocation === 'custom') {
           // 使用自定义路径
           screenshotsPath = settings.screenshotsPath || ''
         } else {
           // 兼容旧设置：如果没有screenshotLocation，使用screenshotsPath
-          screenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+          screenshotsPath = settings.screenshotsPath || `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         const screenshotFormat = settings.screenshotFormat || 'png'
@@ -1383,7 +1385,7 @@ export default {
         const smartWindowDetection = settings.smartWindowDetection !== false
 
         console.log('截图设置:', {
-          gameName,
+          runningGames: runningGameNames,
           screenshotLocation: settings.screenshotLocation,
           screenshotsPath,
           customPath: settings.screenshotsPath,
@@ -1409,10 +1411,10 @@ export default {
           }
 
           const result = await window.electronAPI.takeScreenshot(
-            gameName,
             screenshotsPath,
             screenshotFormat,
-            screenshotQuality
+            screenshotQuality,
+            runningGameNames
           )
 
           if (result.success) {
@@ -1424,10 +1426,13 @@ export default {
             if (showNotification) {
               // 延迟显示通知，避免通知被包含在截图中
               setTimeout(() => {
+                const folderInfo = result.matchedGame 
+                  ? `游戏文件夹: ${result.gameFolder}` 
+                  : `文件夹: ${result.gameFolder}`
                 notify.toast(
                   'success',
                   '截图成功',
-                  `截图已保存为: ${result.filename}\n游戏文件夹: ${result.gameFolder}\n窗口: ${result.windowName}`
+                  `截图已保存为: ${result.filepath}\n${folderInfo}\n窗口: ${result.windowName}`
                 )
               }, 100) // 延迟100ms显示通知
             }
@@ -1603,19 +1608,19 @@ export default {
         // 根据截图位置设置确定基础路径
         let baseScreenshotsPath = ''
         if (settings.screenshotLocation === 'default') {
-          // 使用默认路径
-          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+          // 使用默认路径，跟随存档位置
+          baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         } else if (settings.screenshotLocation === 'custom') {
           // 使用自定义路径
           baseScreenshotsPath = settings.screenshotsPath || ''
         } else {
           // 兼容旧设置：如果没有screenshotLocation，使用screenshotsPath
-          baseScreenshotsPath = settings.screenshotsPath || 'SaveData/Game/Screenshots'
+          baseScreenshotsPath = settings.screenshotsPath || `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         // 如果自定义路径为空，回退到默认路径
         if (!baseScreenshotsPath || baseScreenshotsPath.trim() === '') {
-          baseScreenshotsPath = 'SaveData/Game/Screenshots'
+          baseScreenshotsPath = `${saveManager.dataDirectory}/Game/Screenshots`
         }
 
         // 为每个游戏创建单独的文件夹（与截图功能保持一致）
