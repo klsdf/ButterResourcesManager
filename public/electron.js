@@ -1144,6 +1144,35 @@ public class Win32 {
   })
 }
 
+// 辅助函数：通过 PID 获取进程的主窗口标题（Windows）
+async function getWindowTitleByPID(pid) {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') {
+      reject(new Error('仅支持 Windows 平台'))
+      return
+    }
+
+    const { exec } = require('child_process')
+    const psCommand = `Get-Process -Id ${pid} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty MainWindowTitle`
+    
+    exec(`powershell -Command "${psCommand}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        // 如果进程不存在或没有窗口，返回 null
+        if (error.code === 1 || stdout.trim() === '') {
+          resolve(null)
+          return
+        }
+        reject(error)
+        return
+      }
+
+      const windowTitle = stdout.trim()
+      // 如果窗口标题为空，返回 null
+      resolve(windowTitle || null)
+    })
+  })
+}
+
 // 辅助函数：获取进程的父进程 PID（Windows）
 async function getParentProcessID(pid) {
   return new Promise((resolve, reject) => {
@@ -1274,7 +1303,44 @@ ipcMain.handle('launch-game', async (event, executablePath, gameName) => {
     gameProcess.unref()
     
     console.log('游戏已启动，进程ID:', gameProcess.pid)
-    return { success: true, pid: gameProcess.pid }
+    
+    // 等待一段时间让窗口创建，然后尝试获取窗口名称
+    let windowTitle = null
+    try {
+      // 等待 1 秒让窗口有时间创建
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // 尝试获取窗口标题（最多重试 3 次）
+      for (let i = 0; i < 3; i++) {
+        windowTitle = await getWindowTitleByPID(gameProcess.pid)
+        if (windowTitle) {
+          console.log('✅ 获取到窗口标题:', windowTitle)
+          break
+        }
+        // 如果还没获取到，再等待 2 秒后重试
+        if (i < 2) {
+          await new Promise(resolve => setTimeout(resolve, 2000))
+        }
+      }
+      
+      if (!windowTitle) {
+        console.log('⚠️ 未能获取到窗口标题（可能窗口还未创建或进程没有窗口）')
+      }
+    } catch (error) {
+      console.warn('获取窗口标题时出错:', error.message)
+      // 不影响启动流程，继续执行
+    }
+    
+    // 将窗口标题保存到 gameInfo 中
+    if (windowTitle) {
+      gameInfo.windowTitle = windowTitle
+    }
+    
+    return { 
+      success: true, 
+      pid: gameProcess.pid,
+      windowTitle: windowTitle || undefined  // 如果没有窗口标题，不包含这个字段
+    }
   } catch (error) {
     console.error('启动游戏失败:', error)
     return { success: false, error: error.message }
@@ -1352,9 +1418,9 @@ ipcMain.handle('show-notification', (event, title, body) => {
 })
 
 // 截图功能
-ipcMain.handle('take-screenshot', async (event, customDirectory, format = 'png', quality = 90, runningGameNames = []) => {
+ipcMain.handle('take-screenshot', async (event, customDirectory, format = 'png', quality = 90, runningGamesInfo = {}) => {
   try {
-    console.log('开始截图，格式:', format, '质量:', quality, '运行中的游戏:', runningGameNames)
+    console.log('开始截图，格式:', format, '质量:', quality, '运行中的游戏信息:', runningGamesInfo)
     
     // 获取所有可用的窗口源
     const sources = await desktopCapturer.getSources({
@@ -1390,36 +1456,36 @@ ipcMain.handle('take-screenshot', async (event, customDirectory, format = 'png',
     
     // 首先获取当前聚焦的窗口（通常是第一个非系统窗口）
     const targetSource = nonSystemWindows[0]
+
+    console.log('------------------------------')
+    console.log('当前聚焦的窗口:', targetSource)
+
+    console.log('------------------------------')
+
     const windowName = targetSource.name
     console.log('当前聚焦的窗口:', windowName)
     
-    // 判断窗口是否是正在运行的游戏 - 通过 PID 匹配
+    // 判断窗口是否是正在运行的游戏 - 通过窗口标题匹配
     let folderName = 'Screenshots'
     let matchedGameName = null
     
-    try {
-      // 获取当前活跃窗口的 PID
-      const activeWindowPID = await getActiveWindowPID()
-      console.log('活跃窗口 PID:', activeWindowPID)
-      
-      // 使用 findGameInfoByPID 查找匹配的游戏（包括子进程）
-      const matchedGameInfo = await findGameInfoByPID(activeWindowPID)
-      
-      if (matchedGameInfo && matchedGameInfo.gameName) {
-        // 如果匹配到游戏进程，使用游戏名称作为文件夹名
-        matchedGameName = matchedGameInfo.gameName
-        folderName = matchedGameName.replace(/[<>:"/\\|?*]/g, '_').trim()
-        console.log('✅ 通过 PID 匹配到运行中的游戏:', matchedGameName, '活跃窗口PID:', activeWindowPID)
-      } else {
-        // 如果没有匹配到，使用窗口名称作为文件夹名
-        folderName = windowName.replace(/[<>:"/\\|?*]/g, '_').trim()
-        console.log('⚠️ 未通过 PID 匹配到游戏进程，使用窗口名称:', windowName)
+    // 在 runningGamesInfo 中查找匹配的窗口标题
+    if (windowName && Object.keys(runningGamesInfo).length > 0) {
+      for (const [gameId, gameData] of Object.entries(runningGamesInfo)) {
+        // 比较窗口标题（精确匹配）
+        if (gameData.windowTitle && gameData.windowTitle === windowName) {
+          matchedGameName = gameData.gameName
+          folderName = (matchedGameName || windowName).replace(/[<>:"/\\|?*]/g, '_').trim()
+          console.log('✅ 通过窗口标题匹配到运行中的游戏:', matchedGameName || gameId, '窗口标题:', windowName)
+          break
+        }
       }
-    } catch (pidError) {
-      // 如果获取 PID 失败，直接使用窗口名称作为文件夹名
-      console.warn('获取活跃窗口 PID 失败，使用窗口名称:', pidError.message)
+    }
+    
+    // 如果没有匹配到游戏，使用窗口名称作为文件夹名
+    if (!matchedGameName) {
       folderName = windowName.replace(/[<>:"/\\|?*]/g, '_').trim()
-      console.log('使用窗口名称作为文件夹名:', windowName)
+      console.log('⚠️ 未匹配到游戏，使用窗口名称:', windowName)
     }
     
     if (!folderName || folderName.trim() === '') {

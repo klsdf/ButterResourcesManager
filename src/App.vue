@@ -164,10 +164,8 @@ export default {
         filters: []
       },
       // 全局游戏运行状态管理
-      runningGames: new Set(), // 存储正在运行的游戏ID
+      runningGames: new Map(), // 存储正在运行的游戏信息 {gameId: {id, pid, windowTitle, gameName, startTime}}
       statusCheckInterval: null, // 定期检查运行状态的定时器
-      // 游戏时长跟踪
-      gameSessionStartTimes: new Map(), // 存储游戏会话开始时间 {gameId: startTime}
       playtimeUpdateInterval: null, // 定期更新游戏时长的定时器
       // 应用使用时长跟踪
       appSessionStartTime: null, // 应用会话开始时间
@@ -347,28 +345,31 @@ export default {
       return refMap[this.currentView]
     },
     // 全局游戏运行状态管理方法
-    addRunningGame(gameId) {
-      this.runningGames.add(gameId)
-      // 记录游戏会话开始时间
-      this.gameSessionStartTimes.set(gameId, Date.now())
-      console.log('全局添加运行游戏:', gameId, '会话开始时间:', new Date().toISOString(), '当前运行游戏:', Array.from(this.runningGames))
+    addRunningGame(gameInfo) {
+      // gameInfo: { id: string, pid: number, windowTitle?: string, gameName?: string }
+      const runtimeGameData = {
+        id: gameInfo.id,
+        pid: gameInfo.pid,
+        windowTitle: gameInfo.windowTitle || null,
+        gameName: gameInfo.gameName || null,
+        startTime: Date.now()
+      }
+      this.runningGames.set(gameInfo.id, runtimeGameData)
+      console.log('全局添加运行游戏:', runtimeGameData, '当前运行游戏:', Array.from(this.runningGames.keys()))
     },
     removeRunningGame(gameId) {
-      // 计算本次会话的游戏时长
-      const sessionStartTime = this.gameSessionStartTimes.get(gameId)
-      if (sessionStartTime) {
-        const sessionDuration = Math.floor((Date.now() - sessionStartTime) / 1000) // 转换为秒
-        console.log(`游戏 ${gameId} 本次会话时长: ${sessionDuration} 秒`)
+      const runtimeGameData = this.runningGames.get(gameId)
+      if (runtimeGameData) {
+        // 计算本次会话的游戏时长
+        const sessionDuration = Math.floor((Date.now() - runtimeGameData.startTime) / 1000) // 转换为秒
+        console.log(`游戏 ${gameId} 本次会话时长: ${sessionDuration} 秒`, '游戏信息:', runtimeGameData)
         
         // 通知 GameView 更新游戏时长
         this.updateGamePlayTime(gameId, sessionDuration)
-        
-        // 清除会话开始时间
-        this.gameSessionStartTimes.delete(gameId)
       }
       
       this.runningGames.delete(gameId)
-      console.log('全局移除运行游戏:', gameId, '当前运行游戏:', Array.from(this.runningGames))
+      console.log('全局移除运行游戏:', gameId, '当前运行游戏:', Array.from(this.runningGames.keys()))
     },
     isGameRunning(gameId) {
       return this.runningGames.has(gameId)
@@ -389,7 +390,7 @@ export default {
         // 保存更新后的数据
         gameView.saveGames()
         
-        console.log(`游戏 ${game.name} 总时长更新为: ${game.playTime} 秒 (本次增加: ${sessionDuration} 秒)`)
+        // console.log(`游戏 ${game.name} 总时长更新为: ${game.playTime} 秒 (本次增加: ${sessionDuration} 秒)`)
       } else {
         console.warn('未找到对应的游戏:', gameId)
       }
@@ -408,7 +409,7 @@ export default {
       }
       
       console.log('开始检查所有游戏的运行状态...')
-      const runningGamesToCheck = Array.from(this.runningGames)
+      const runningGamesToCheck = Array.from(this.runningGames.keys())
       
       for (const gameId of runningGamesToCheck) {
         const game = gameView.games.find(g => g.id === gameId)
@@ -433,7 +434,7 @@ export default {
         }
       }
       
-      console.log('游戏运行状态检查完成，正在运行的游戏:', Array.from(this.runningGames))
+      console.log('游戏运行状态检查完成，正在运行的游戏:', Array.from(this.runningGames.keys()))
     },
     // 启动定期检查运行状态
     startPeriodicStatusCheck() {
@@ -458,13 +459,12 @@ export default {
     updateRunningGamesPlaytime() {
       const now = Date.now()
       
-      for (const gameId of this.runningGames) {
-        const sessionStartTime = this.gameSessionStartTimes.get(gameId)
-        if (sessionStartTime) {
-          const sessionDuration = Math.floor((now - sessionStartTime) / 1000)
+      for (const [gameId, runtimeGameData] of this.runningGames) {
+        if (runtimeGameData.startTime) {
+          const sessionDuration = Math.floor((now - runtimeGameData.startTime) / 1000)
           
           // 更新会话开始时间（重置计时器）
-          this.gameSessionStartTimes.set(gameId, now)
+          runtimeGameData.startTime = now
           
           // 更新游戏时长
           this.updateGamePlayTime(gameId, sessionDuration)

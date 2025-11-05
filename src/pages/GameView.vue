@@ -508,10 +508,18 @@ export default {
           const result = await window.electronAPI.launchGame(game.executablePath, game.name)
 
           if (result.success) {
+            console.log('------------------------------')
             console.log('游戏启动成功，进程ID:', result.pid)
+            console.log('游戏窗口标题:', result.windowTitle)
+            console.log('------------------------------')
 
-            // 将游戏添加到全局运行列表中
-            this.$parent.addRunningGame(game.id)
+            // 将游戏添加到全局运行列表中（包含完整信息）
+            this.$parent.addRunningGame({
+              id: game.id,
+              pid: result.pid,
+              windowTitle: result.windowTitle,
+              gameName: game.name
+            })
 
             // 显示成功提示
             notify.toast('success', '游戏启动成功', `${game.name} 已启动`)
@@ -1329,6 +1337,9 @@ export default {
     isGameRunning(game) {
       return this.$parent.isGameRunning(game.id)
     },
+
+
+
     playScreenshotSound() {
       try {
         const audio = new Audio('./camera.mp3')
@@ -1342,6 +1353,11 @@ export default {
         // 忽略错误，不影响截图功能
       }
     },
+        /*
+    **************************************************
+    * 截图功能
+    **************************************************
+    */
     async takeScreenshot() {
       // 防止重复截图：检查是否正在截图或距离上次截图时间太短
       const now = Date.now()
@@ -1356,10 +1372,20 @@ export default {
       console.log('开始截图，时间戳:', now)
 
       try {
-        // 获取所有正在运行的游戏名称列表
-        const runningGames = this.games.filter(game => this.isGameRunning(game))
-        const runningGameNames = runningGames.map(game => game.name)
-
+        // 直接从父组件获取正在运行的游戏信息（已经包含 gameName，无需重复查找）
+        const runningGamesMap = this.$parent.runningGames
+        // 转换为普通对象，包含完整的游戏信息（ID、PID、窗口标题、游戏名称等）
+        const runningGamesInfo = {}
+        for (const [gameId, runtimeGameData] of runningGamesMap) {
+          // 直接使用 runtimeGameData，已经包含所有信息
+          runningGamesInfo[gameId] = {
+            id: runtimeGameData.id,
+            pid: runtimeGameData.pid,
+            windowTitle: runtimeGameData.windowTitle,
+            gameName: runtimeGameData.gameName,
+            startTime: runtimeGameData.startTime
+          }
+        }
         // 获取用户设置的截图选项
 
         const settings = await saveManager.loadSettings()
@@ -1385,7 +1411,7 @@ export default {
         const smartWindowDetection = settings.smartWindowDetection !== false
 
         console.log('截图设置:', {
-          runningGames: runningGameNames,
+          runningGames: runningGamesInfo,
           screenshotLocation: settings.screenshotLocation,
           screenshotsPath,
           customPath: settings.screenshotsPath,
@@ -1414,7 +1440,7 @@ export default {
             screenshotsPath,
             screenshotFormat,
             screenshotQuality,
-            runningGameNames
+            runningGamesInfo
           )
 
           if (result.success) {
