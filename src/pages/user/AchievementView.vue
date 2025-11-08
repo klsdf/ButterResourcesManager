@@ -3,9 +3,6 @@
     <div class="achievement-content">
       <div class="achievement-header">
         <!-- <div class="test-buttons">
-          <button @click="testAchievementNotification" class="test-button">
-            测试成就通知
-          </button>
           <button @click="resetAchievementStates" class="test-button reset-button">
             重置成就状态
           </button>
@@ -51,7 +48,7 @@
                 <progress 
                   :value="achievement.current" 
                   :max="achievement.target"
-                  :title="`进度: ${achievement.progress.toFixed(1)}%`"
+                  :title="`进度: ${ achievement.current / achievement.target * 100 }%`"
                   class="progress-bar"
                 ></progress>
                 <span class="progress-text">{{ achievement.current }}/{{ achievement.target }}</span>
@@ -64,166 +61,234 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import saveManager from '../../utils/SaveManager.ts'
 import  notify  from '../../utils/NotificationService.ts'
 
 const ACHIEVEMENT_SOUND_PATH = '/achievement.mp3'
 
-const allAchievementDefinitions = [
-  // 图片收藏成就
+
+class BaseAchievementType
+{
+  constructor()
   {
+
+  }
+
+}
+
+
+class ProgressAchievementType extends BaseAchievementType
+{
+
+  current: number
+  target: number 
+  constructor(target: number) 
+  {
+    super()
+    this.target = target
+    this.current = 0
+  }
+}
+
+
+class TriggerAchievementType extends BaseAchievementType
+{
+
+}
+
+export class Achievement {
+  id: string
+  title: string
+  description: string
+  target: number | null
+  group: string
+  type: BaseAchievementType
+  unlocked: boolean
+
+  constructor(
+    id: string,
+    title: string,
+    description: string,
+    group: string,
+    type: BaseAchievementType 
+  ) {
+    this.id = id
+    this.title = title
+    this.description = description
+    this.group = group
+    this.type = type
+    this.target = type instanceof ProgressAchievementType ? type.target : null
+    this.unlocked = false
+  }
+}
+
+interface AchievementOptions {
+  id: string
+  title: string
+  description: string
+  group: string
+  type: BaseAchievementType
+}
+
+function defineAchievement({
+  id,
+  title,
+  description,
+  group,
+  type 
+}: AchievementOptions) {
+  return new Achievement(id, title, description, group, type)
+}
+
+
+const allAchievementDefinitions: Achievement[] = [
+  // 图片收藏成就
+  defineAchievement({
     id: 'image_collector_50',
     title: '图片新手',
     description: '收藏50张图片',
-    target: 50,
-    group: 'imageCollector'
-  },
-  {
+    group: 'imageCollector',
+    type: new ProgressAchievementType(50)
+
+  }),
+  defineAchievement({
     id: 'image_collector_100',
     title: '图片爱好者',
     description: '收藏100张图片',
-    target: 100,
-    group: 'imageCollector'
-  },
-  {
+    group: 'imageCollector',
+    type: new ProgressAchievementType(100)
+  }),
+  defineAchievement({
     id: 'image_collector_500',
     title: '图片收藏家',
     description: '收藏500张图片',
-    target: 500,
-    group: 'imageCollector'
-  },
-  {
+    group: 'imageCollector',
+    type: new ProgressAchievementType(500)
+  }),
+  defineAchievement({
     id: 'image_collector_1000',
     title: '图片大师',
     description: '收藏1000张图片',
-    target: 1000,
-    group: 'imageCollector'
-  },
+    group: 'imageCollector',
+    type: new ProgressAchievementType(1000)
+  }),
 
   // 游戏收藏成就
-  {
+  defineAchievement({
     id: 'game_collector_50',
     title: '游戏新手',
     description: '收藏50个游戏',
-    target: 50,
-    group: 'gameCollector'
-  },
-  {
+    group: 'gameCollector',
+    type: new ProgressAchievementType(50)
+  }),
+  defineAchievement({
     id: 'game_collector_100',
     title: '游戏爱好者',
     description: '收藏100个游戏',
-    target: 100,
-    group: 'gameCollector'
-  },
-  {
+    group: 'gameCollector',
+    type: new ProgressAchievementType(100)
+  }),
+  defineAchievement({
     id: 'game_collector_500',
     title: '游戏收藏家',
     description: '收藏500个游戏',
-    target: 500,
-    group: 'gameCollector'
-  },
-  {
+    group: 'gameCollector',
+    type: new ProgressAchievementType(500)
+  }),
+  defineAchievement({
     id: 'game_collector_1000',
     title: '游戏大师',
     description: '收藏1000个游戏',
-    target: 1000,
-    group: 'gameCollector'
-  },
+    group: 'gameCollector',
+    type: new ProgressAchievementType(1000)
+  }),
 
   // 视频收藏成就
-  {
+  defineAchievement({
     id: 'video_collector_50',
     title: '视频新手',
     description: '收藏50个视频',
-    target: 50,
-    group: 'videoCollector'
-  },
-  {
+    group: 'videoCollector',
+    type: new ProgressAchievementType(50)
+  }),
+  defineAchievement({
     id: 'video_collector_100',
     title: '视频爱好者',
     description: '收藏100个视频',
-    target: 100,
-    group: 'videoCollector'
-  },
-  {
+    group: 'videoCollector',
+    type: new ProgressAchievementType(100)
+  }),
+  defineAchievement({
     id: 'video_collector_500',
     title: '视频收藏家',
     description: '收藏500个视频',
-    target: 500,
-    group: 'videoCollector'
-  },
-  {
+    group: 'videoCollector',
+    type: new ProgressAchievementType(500)
+  }),
+  defineAchievement({
     id: 'video_collector_1000',
     title: '视频大师',
     description: '收藏1000个视频',
-    target: 1000,
-    group: 'videoCollector'
-  },
+    group: 'videoCollector',
+    type: new ProgressAchievementType(1000)
+  }),
 
   // 游戏时长成就
-  {
+  defineAchievement({
     id: 'game_time_1',
     title: '游戏新手',
     description: '游戏时长达到1小时',
-    target: 1,
-    group: 'gameTime'
-  },
-  {
+    group: 'gameTime',
+    type: new ProgressAchievementType(1)
+  }),
+  defineAchievement({
     id: 'game_time_10',
     title: '游戏爱好者',
     description: '游戏时长达到10小时',
-    target: 10,
-    group: 'gameTime'
-  },
-  {
+    group: 'gameTime',
+    type: new ProgressAchievementType(10)
+  }),
+  defineAchievement({
     id: 'game_time_20',
     title: '游戏玩家',
     description: '游戏时长达到20小时',
-    target: 20,
-    group: 'gameTime'
-  },
-  {
+    group: 'gameTime',
+    type: new ProgressAchievementType(20)
+  }),
+  defineAchievement({
     id: 'game_time_50',
     title: '游戏达人',
     description: '游戏时长达到50小时',
-    target: 50,
-    group: 'gameTime'
-  },
-  {
+    group: 'gameTime',
+    type: new ProgressAchievementType(50)
+  }),
+  defineAchievement({
     id: 'game_time_100',
     title: '游戏专家',
     description: '游戏时长达到100小时',
-    target: 100,
-    group: 'gameTime'
-  },
-  {
+    group: 'gameTime',
+    type: new ProgressAchievementType(100)
+  }),
+  defineAchievement({
     id: 'game_time_500',
     title: '游戏大师',
     description: '游戏时长达到500小时',
-    target: 500,
-    group: 'gameTime'
-  },
-  {
+    group: 'gameTime',
+    type: new ProgressAchievementType(500)
+  }),
+  defineAchievement({
     id: 'game_time_1000',
     title: '游戏传奇',
     description: '游戏时长达到1000小时',
-    target: 1000,
-    group: 'gameTime'
-  }
+    group: 'gameTime',
+    type: new ProgressAchievementType(1000)
+  }),
 ]
 
 const achievementDefinitionMap = new Map(
   allAchievementDefinitions.map(achievement => [achievement.id, achievement])
 )
-
-const createInitialAchievementStates = () =>
-  allAchievementDefinitions.map(definition => ({
-    ...definition,
-    current: 0,
-    progress: 0,
-    unlocked: false
-  }))
 
 function playAchievementSoundEffect() {
   try {
@@ -236,18 +301,6 @@ function playAchievementSoundEffect() {
     console.warn('创建音频对象失败:', error)
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /*
@@ -319,14 +372,14 @@ export default {
       videoCount: 0,
       totalGameTime: 0, // 总游戏时长（秒）
       savedAchievementStates: new Map(), // 存储已保存的成就状态，用于检测新解锁的成就
-      achievementStates: createInitialAchievementStates()
+      achievementStates: allAchievementDefinitions
     }
   },
   computed: {
     allAchievements() {
       return this.achievementStates
     },
-    unlockedAchievements() {
+    unlockedAchievements(): number {
       return this.allAchievements.filter(a => a.unlocked).length
     },
     totalAchievements() {
@@ -401,17 +454,8 @@ export default {
       }
 
       this.achievementStates.forEach(achievement => {
-        const current = currentValuesByGroup[achievement.group] ?? 0
-        achievement.current = current
-        const progress = (current / achievement.target) * 100
-        achievement.progress = Math.min(Math.max(progress, 0), 100)
-        achievement.unlocked = current >= achievement.target
-
-        if (achievement.id === 'image_collector_50') {
-          console.log(
-            `图片新手成就进度: ${achievement.current}/${achievement.target} = ${achievement.progress.toFixed(2)}%`
-          )
-        }
+        achievement.current = currentValuesByGroup[achievement.group] ?? 0
+        achievement.unlocked = achievement.current >= achievement.target
       })
     },
     async refreshAchievements() {
@@ -459,36 +503,6 @@ export default {
         // 即使没有新解锁的成就，也要更新保存的状态（以防数据不同步）
         await saveManager.updateAchievementStates(currentAchievementStates)
       }
-    },
-    
-    // 测试成就通知功能
-    testAchievementNotification() {
-      const testAchievements = [
-        {
-          id: 'test_achievement_1',
-          title: '测试成就1',
-          description: '这是第一个测试成就，用于验证通知功能'
-        },
-        {
-          id: 'test_achievement_2',
-          title: '测试成就2',
-          description: '这是第二个测试成就，验证连续弹出效果'
-        },
-        {
-          id: 'test_achievement_3',
-          title: '测试成就3',
-          description: '这是第三个测试成就，验证间隔弹出'
-        }
-      ]
-      
-      // 模拟多个成就解锁，一个一个弹出
-      testAchievements.forEach((achievement, index) => {
-        setTimeout(() => {
-          // 播放成就解锁音效
-          this.playAchievementSound()
-          notify.achievement(achievement)
-        }, index * 1000) // 每个成就间隔1秒弹出
-      })
     },
     
     // 重置成就状态（用于测试）
