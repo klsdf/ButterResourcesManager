@@ -393,7 +393,15 @@ import AddVideoDialog from './video/AddVideoDialog.vue'
 
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'
+import { unlockAchievement } from './user/AchievementView.vue'
 // 通过 preload 暴露的 electronAPI 进行调用
+
+const VIDEO_COLLECTION_ACHIEVEMENTS = [
+  { threshold: 50, id: 'video_collector_50' },
+  { threshold: 100, id: 'video_collector_100' },
+  { threshold: 500, id: 'video_collector_500' },
+  { threshold: 1000, id: 'video_collector_1000' }
+]
 
 export default {
   name: 'VideoView',
@@ -709,6 +717,24 @@ export default {
     }
   },
   methods: {
+    async checkVideoCollectionAchievements() {
+      if (!Array.isArray(this.videos)) return
+
+      const totalVideos = this.videos.length
+      const unlockPromises = VIDEO_COLLECTION_ACHIEVEMENTS
+        .filter(config => totalVideos >= config.threshold)
+        .map(config => unlockAchievement(config.id))
+
+      if (unlockPromises.length === 0) {
+        return
+      }
+
+      try {
+        await Promise.all(unlockPromises)
+      } catch (error) {
+        console.warn('触发视频收藏成就时出错:', error)
+      }
+    },
     async loadVideos() {
       if (this.videoManager) {
         await this.videoManager.loadVideos()
@@ -726,6 +752,7 @@ export default {
         
         // 计算视频列表总页数
         this.updateVideoPagination()
+        await this.checkVideoCollectionAchievements()
       }
     },
 
@@ -1092,7 +1119,8 @@ export default {
       for (const file of files) {
         const filePath = (file as any).path || file.name
         const webkitPath = (file as any).webkitRelativePath
-        
+        const normalizedPath = filePath ? filePath.replace(/\\/g, '/') : ''
+
         console.log('处理文件:', {
           name: file.name,
           path: filePath,
@@ -1104,28 +1132,33 @@ export default {
         
         if (webkitPath && webkitPath.includes('/')) {
           // 通过 webkitRelativePath 检测文件夹
-          const pathParts = webkitPath.split('/')
-          folderName = pathParts[0]
-          // 从文件路径中提取文件夹路径
-          const lastSlashIndex = filePath.lastIndexOf('/')
-          if (lastSlashIndex > 0) {
-            folderPath = filePath.substring(0, lastSlashIndex)
-          }
-        } else if (filePath.includes('/') || filePath.includes('\\')) {
-          // 检查是否是拖拽文件夹的情况
-          // 如果文件名和路径的最后一部分相同，说明拖拽的是文件夹
-          const pathParts = filePath.replace(/\\/g, '/').split('/')
-          const lastPathPart = pathParts[pathParts.length - 1]
-          
-          if (file.name === lastPathPart) {
-            // 拖拽的是文件夹，文件夹路径就是完整路径
-            folderPath = filePath.replace(/\\/g, '/')
+          const relativePath = webkitPath.replace(/\\/g, '/')
+          const relativeParts = relativePath.split('/')
+          folderName = relativeParts[0]
+
+          const basePath = normalizedPath.slice(0, normalizedPath.length - relativePath.length)
+          const sanitizedBasePath = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+          folderPath = sanitizedBasePath ? `${sanitizedBasePath}/${folderName}` : folderName
+          folderPath = folderPath.replace(/\\/g, '/')
+        } else {
+        const entry = typeof (file as any).webkitGetAsEntry === 'function'
+          ? (file as any).webkitGetAsEntry()
+          : null
+
+        if (entry && entry.isDirectory && normalizedPath) {
+          folderPath = normalizedPath
+          folderName = file.name
+        } else {
+          const hasExtension = /\.[^\\/]+$/.test(file.name)
+          const isLikelyDirectory =
+            (!file.type || file.type === '') &&
+            !hasExtension
+
+          if (isLikelyDirectory && normalizedPath) {
+            folderPath = normalizedPath
             folderName = file.name
-          } else {
-            // 拖拽的是文件，文件夹路径是去掉文件名后的路径
-            folderPath = pathParts.slice(0, -1).join('/')
-            folderName = pathParts[pathParts.length - 2]
           }
+        }
         }
         
         if (folderPath && folderName) {

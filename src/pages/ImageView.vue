@@ -318,6 +318,14 @@ import ComicViewer from '../components/ComicViewer.vue'
 import PathUpdateDialog from '../components/PathUpdateDialog.vue'
 
 import notify from '../utils/NotificationService.ts'
+import { unlockAchievement } from './user/AchievementView.vue'
+
+const IMAGE_COLLECTION_ACHIEVEMENTS = [
+  { threshold: 50, id: 'image_collector_50' },
+  { threshold: 100, id: 'image_collector_100' },
+  { threshold: 500, id: 'image_collector_500' },
+  { threshold: 1000, id: 'image_collector_1000' }
+]
 
 export default {
   name: 'ImageView',
@@ -552,6 +560,24 @@ export default {
     }
   },
   methods: {
+    async checkImageCollectionAchievements() {
+      if (!Array.isArray(this.albums)) return
+
+      const totalAlbums = this.albums.length
+      const unlockPromises = IMAGE_COLLECTION_ACHIEVEMENTS
+        .filter(config => totalAlbums >= config.threshold)
+        .map(config => unlockAchievement(config.id))
+
+      if (unlockPromises.length === 0) {
+        return
+      }
+
+      try {
+        await Promise.all(unlockPromises)
+      } catch (error) {
+        console.warn('触发图片收藏成就时出错:', error)
+      }
+    },
     async loadAlbums() {
       this.albums = await saveManager.loadImages()
       this.extractAllTags()
@@ -564,6 +590,7 @@ export default {
       
       // 计算漫画列表总页数
       this.updateAlbumPagination()
+      await this.checkImageCollectionAchievements()
     },
     
     async checkFileExistence() {
@@ -1114,6 +1141,7 @@ export default {
         
         // 重新提取标签和作者信息，更新筛选器
         this.extractAllTags()
+        await this.checkImageCollectionAchievements()
       } else {
         console.log('没有成功的文件夹，跳过保存')
       }
@@ -1255,6 +1283,7 @@ export default {
         console.log('创建专辑对象:', album)
         this.albums.push(album)
         await this.saveAlbums()
+        await this.checkImageCollectionAchievements()
         
         // 重新提取标签和作者信息，更新筛选器
         this.extractAllTags()

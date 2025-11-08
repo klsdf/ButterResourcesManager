@@ -150,6 +150,24 @@ import { formatPlayTime, formatLastPlayed, formatDateTime, formatDate, formatFir
 
 import saveManager from '../utils/SaveManager.ts'
 import notify from '../utils/NotificationService.ts'
+import { unlockAchievement } from './user/AchievementView.vue'
+
+const GAME_COLLECTION_ACHIEVEMENTS = [
+  { threshold: 50, id: 'game_collector_50' },
+  { threshold: 100, id: 'game_collector_100' },
+  { threshold: 500, id: 'game_collector_500' },
+  { threshold: 1000, id: 'game_collector_1000' }
+]
+
+const GAME_TIME_ACHIEVEMENTS = [
+  { threshold: 1, id: 'game_time_1' },
+  { threshold: 10, id: 'game_time_10' },
+  { threshold: 20, id: 'game_time_20' },
+  { threshold: 50, id: 'game_time_50' },
+  { threshold: 100, id: 'game_time_100' },
+  { threshold: 500, id: 'game_time_500' },
+  { threshold: 1000, id: 'game_time_1000' }
+]
 
 export default {
   name: 'GameView',
@@ -326,6 +344,51 @@ export default {
     }
   },
   methods: {
+    async checkGameCollectionAchievements() {
+      if (!Array.isArray(this.games)) return
+
+      const totalGames = this.games.length
+      const unlockPromises = GAME_COLLECTION_ACHIEVEMENTS
+        .filter(config => totalGames >= config.threshold)
+        .map(config => unlockAchievement(config.id))
+
+      if (unlockPromises.length === 0) {
+        return
+      }
+
+      try {
+        await Promise.all(unlockPromises)
+      } catch (error) {
+        console.warn('触发游戏收藏成就时出错:', error)
+      }
+    },
+    async checkGameTimeAchievements() {
+      if (!Array.isArray(this.games) || this.games.length === 0) return
+
+      const totalSeconds = this.games.reduce((sum, game) => {
+        const playTime = Number(game?.playTime) || 0
+        return sum + playTime
+      }, 0)
+
+      if (totalSeconds <= 0) {
+        return
+      }
+
+      const totalHours = totalSeconds / 3600
+      const unlockPromises = GAME_TIME_ACHIEVEMENTS
+        .filter(config => totalHours >= config.threshold)
+        .map(config => unlockAchievement(config.id))
+
+      if (unlockPromises.length === 0) {
+        return
+      }
+
+      try {
+        await Promise.all(unlockPromises)
+      } catch (error) {
+        console.warn('触发游戏时长成就时出错:', error)
+      }
+    },
     showAddGameDialog() {
       this.showAddDialog = true
       this.newGame = {
@@ -479,6 +542,7 @@ export default {
 
       this.games.push(game)
       await this.saveGames()
+      await this.checkGameCollectionAchievements()
       this.closeAddGameDialog()
     },
     async launchGame(game) {
@@ -979,6 +1043,8 @@ export default {
 
       // 计算游戏列表总页数
       this.updateGamePagination()
+      await this.checkGameCollectionAchievements()
+      await this.checkGameTimeAchievements()
     },
     async updateExistingGamesFolderSize() {
       // 为没有folderSize字段的现有游戏计算文件夹大小
@@ -1326,6 +1392,7 @@ export default {
 
         // 保存更新后的数据
         await this.saveGames()
+        await this.checkGameTimeAchievements()
 
         // 显示通知
         notify.native(
@@ -1859,6 +1926,7 @@ export default {
         // 保存游戏数据
         if (addedCount > 0) {
           await this.saveGames()
+          await this.checkGameCollectionAchievements()
           this.extractAllTags()
         }
 
