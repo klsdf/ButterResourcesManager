@@ -54,6 +54,8 @@
       "public/hide-icon.png",
       "public/unlock.mp3",
       "public/camera.mp3",
+      "public/achievement.mp3",
+      
       "disguise/**/*",
       "node_modules/**/*"
     ],

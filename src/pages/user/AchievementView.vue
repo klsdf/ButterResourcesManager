@@ -68,6 +68,247 @@
 import saveManager from '../../utils/SaveManager.ts'
 import  notify  from '../../utils/NotificationService.ts'
 
+const ACHIEVEMENT_SOUND_PATH = '/achievement.mp3'
+
+const allAchievementDefinitions = [
+  // 图片收藏成就
+  {
+    id: 'image_collector_50',
+    title: '图片新手',
+    description: '收藏50张图片',
+    target: 50,
+    group: 'imageCollector'
+  },
+  {
+    id: 'image_collector_100',
+    title: '图片爱好者',
+    description: '收藏100张图片',
+    target: 100,
+    group: 'imageCollector'
+  },
+  {
+    id: 'image_collector_500',
+    title: '图片收藏家',
+    description: '收藏500张图片',
+    target: 500,
+    group: 'imageCollector'
+  },
+  {
+    id: 'image_collector_1000',
+    title: '图片大师',
+    description: '收藏1000张图片',
+    target: 1000,
+    group: 'imageCollector'
+  },
+
+  // 游戏收藏成就
+  {
+    id: 'game_collector_50',
+    title: '游戏新手',
+    description: '收藏50个游戏',
+    target: 50,
+    group: 'gameCollector'
+  },
+  {
+    id: 'game_collector_100',
+    title: '游戏爱好者',
+    description: '收藏100个游戏',
+    target: 100,
+    group: 'gameCollector'
+  },
+  {
+    id: 'game_collector_500',
+    title: '游戏收藏家',
+    description: '收藏500个游戏',
+    target: 500,
+    group: 'gameCollector'
+  },
+  {
+    id: 'game_collector_1000',
+    title: '游戏大师',
+    description: '收藏1000个游戏',
+    target: 1000,
+    group: 'gameCollector'
+  },
+
+  // 视频收藏成就
+  {
+    id: 'video_collector_50',
+    title: '视频新手',
+    description: '收藏50个视频',
+    target: 50,
+    group: 'videoCollector'
+  },
+  {
+    id: 'video_collector_100',
+    title: '视频爱好者',
+    description: '收藏100个视频',
+    target: 100,
+    group: 'videoCollector'
+  },
+  {
+    id: 'video_collector_500',
+    title: '视频收藏家',
+    description: '收藏500个视频',
+    target: 500,
+    group: 'videoCollector'
+  },
+  {
+    id: 'video_collector_1000',
+    title: '视频大师',
+    description: '收藏1000个视频',
+    target: 1000,
+    group: 'videoCollector'
+  },
+
+  // 游戏时长成就
+  {
+    id: 'game_time_1',
+    title: '游戏新手',
+    description: '游戏时长达到1小时',
+    target: 1,
+    group: 'gameTime'
+  },
+  {
+    id: 'game_time_10',
+    title: '游戏爱好者',
+    description: '游戏时长达到10小时',
+    target: 10,
+    group: 'gameTime'
+  },
+  {
+    id: 'game_time_20',
+    title: '游戏玩家',
+    description: '游戏时长达到20小时',
+    target: 20,
+    group: 'gameTime'
+  },
+  {
+    id: 'game_time_50',
+    title: '游戏达人',
+    description: '游戏时长达到50小时',
+    target: 50,
+    group: 'gameTime'
+  },
+  {
+    id: 'game_time_100',
+    title: '游戏专家',
+    description: '游戏时长达到100小时',
+    target: 100,
+    group: 'gameTime'
+  },
+  {
+    id: 'game_time_500',
+    title: '游戏大师',
+    description: '游戏时长达到500小时',
+    target: 500,
+    group: 'gameTime'
+  },
+  {
+    id: 'game_time_1000',
+    title: '游戏传奇',
+    description: '游戏时长达到1000小时',
+    target: 1000,
+    group: 'gameTime'
+  }
+]
+
+const achievementDefinitionMap = new Map(
+  allAchievementDefinitions.map(achievement => [achievement.id, achievement])
+)
+
+const createInitialAchievementStates = () =>
+  allAchievementDefinitions.map(definition => ({
+    ...definition,
+    current: 0,
+    progress: 0,
+    unlocked: false
+  }))
+
+function playAchievementSoundEffect() {
+  try {
+    const audio = new Audio(ACHIEVEMENT_SOUND_PATH)
+    audio.volume = 1
+    audio.play().catch(error => {
+      console.warn('播放成就音效失败:', error)
+    })
+  } catch (error) {
+    console.warn('创建音频对象失败:', error)
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+**给外部使用的解锁逻辑
+***/
+export async function unlockAchievement(achievementId) {
+  try {
+    const definition = achievementDefinitionMap.get(achievementId)
+
+    if (!definition) {
+      console.warn('未找到对应的成就定义:', achievementId)
+      return { success: false, reason: 'UNKNOWN_ACHIEVEMENT' }
+    }
+
+    const achievementStates = await saveManager.loadAchievementStates()
+
+    if (!achievementStates.unlockedAchievements) {
+      achievementStates.unlockedAchievements = new Map()
+    }
+
+    const alreadyUnlocked = achievementStates.unlockedAchievements.get(achievementId)
+
+    if (alreadyUnlocked) {
+      return {
+        success: true,
+        alreadyUnlocked: true,
+        achievement: definition
+      }
+    }
+
+    achievementStates.unlockedAchievements.set(achievementId, true)
+    achievementStates.lastCheckTime = new Date().toISOString()
+
+    const saveSuccess = await saveManager.saveAchievementStates(achievementStates)
+
+    if (!saveSuccess) {
+      return { success: false, reason: 'SAVE_FAILED', achievement: definition }
+    }
+
+    playAchievementSoundEffect()
+    notify.achievement({
+      id: definition.id,
+      title: definition.title,
+      description: definition.description
+    })
+
+    return {
+      success: true,
+      alreadyUnlocked: false,
+      achievement: definition
+    }
+  } catch (error) {
+    console.error('主动解锁成就失败:', error)
+    return {
+      success: false,
+      reason: 'UNEXPECTED_ERROR',
+      error
+    }
+  }
+}
+
 export default {
   name: 'AchievementView',
   data() {
@@ -78,195 +319,12 @@ export default {
       videoCount: 0,
       totalGameTime: 0, // 总游戏时长（秒）
       savedAchievementStates: new Map(), // 存储已保存的成就状态，用于检测新解锁的成就
-      imageCollectorAchievements: [
-        {
-          id: 'image_collector_50',
-          title: '图片新手',
-          description: '收藏50张图片',
-          target: 50,
-          current: 0,
-          progress: 0,
-          unlocked: false,
-        },
-        {
-          id: 'image_collector_100',
-          title: '图片爱好者',
-          description: '收藏100张图片',
-          target: 100,
-          current: 0,
-          progress: 0,
-          unlocked: false,
-        },
-        {
-          id: 'image_collector_500',
-          title: '图片收藏家',
-          description: '收藏500张图片',
-          target: 500,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'image_collector_1000',
-          title: '图片大师',
-          description: '收藏1000张图片',
-          target: 1000,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        }
-      ],
-      gameCollectorAchievements: [
-        {
-          id: 'game_collector_50',
-          title: '游戏新手',
-          description: '收藏50个游戏',
-          target: 50,
-          current: 0,
-          progress: 0,
-          unlocked: false,
-        },
-        {
-          id: 'game_collector_100',
-          title: '游戏爱好者',
-          description: '收藏100个游戏',
-          target: 100,
-          current: 0,
-          progress: 0,
-          unlocked: false,
-        },
-        {
-          id: 'game_collector_500',
-          title: '游戏收藏家',
-          description: '收藏500个游戏',
-          target: 500,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_collector_1000',
-          title: '游戏大师',
-          description: '收藏1000个游戏',
-          target: 1000,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        }
-      ],
-      videoCollectorAchievements: [
-        {
-          id: 'video_collector_50',
-          title: '视频新手',
-          description: '收藏50个视频',
-          target: 50,
-          current: 0,
-          progress: 0,
-          unlocked: false,
-        },
-        {
-          id: 'video_collector_100',
-          title: '视频爱好者',
-          description: '收藏100个视频',
-          target: 100,
-          current: 0,
-          progress: 0,
-          unlocked: false,
-        },
-        {
-          id: 'video_collector_500',
-          title: '视频收藏家',
-          description: '收藏500个视频',
-          target: 500,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'video_collector_1000',
-          title: '视频大师',
-          description: '收藏1000个视频',
-          target: 1000,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        }
-      ],
-      gameTimeAchievements: [
-        {
-          id: 'game_time_1',
-          title: '游戏新手',
-          description: '游戏时长达到1小时',
-          target: 1,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_time_10',
-          title: '游戏爱好者',
-          description: '游戏时长达到10小时',
-          target: 10,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_time_20',
-          title: '游戏玩家',
-          description: '游戏时长达到20小时',
-          target: 20,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_time_50',
-          title: '游戏达人',
-          description: '游戏时长达到50小时',
-          target: 50,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_time_100',
-          title: '游戏专家',
-          description: '游戏时长达到100小时',
-          target: 100,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_time_500',
-          title: '游戏大师',
-          description: '游戏时长达到500小时',
-          target: 500,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        },
-        {
-          id: 'game_time_1000',
-          title: '游戏传奇',
-          description: '游戏时长达到1000小时',
-          target: 1000,
-          current: 0,
-          progress: 0,
-          unlocked: false
-        }
-      ]
+      achievementStates: createInitialAchievementStates()
     }
   },
   computed: {
     allAchievements() {
-      return [
-        ...this.imageCollectorAchievements,
-        ...this.gameCollectorAchievements,
-        ...this.videoCollectorAchievements,
-        ...this.gameTimeAchievements
-      ]
+      return this.achievementStates
     },
     unlockedAchievements() {
       return this.allAchievements.filter(a => a.unlocked).length
@@ -305,10 +363,7 @@ export default {
         this.totalGameTime = this.calculateTotalGameTime(games)
         
         // 更新所有成就
-        this.updateImageCollectorAchievements()
-        this.updateGameCollectorAchievements()
-        this.updateVideoCollectorAchievements()
-        this.updateGameTimeAchievements()
+        this.updateAchievementProgress()
         
         // 检测新解锁的成就并发送通知
         this.checkNewlyUnlockedAchievements()
@@ -327,36 +382,6 @@ export default {
         this.isLoading = false
       }
     },
-    updateImageCollectorAchievements() {
-      this.imageCollectorAchievements.forEach(achievement => {
-        achievement.current = this.imageCount
-        // 确保进度条准确反映真实进度，使用更精确的计算
-        const progress = (this.imageCount / achievement.target) * 100
-        achievement.progress = Math.min(Math.max(progress, 0), 100)
-        achievement.unlocked = this.imageCount >= achievement.target
-        
-        // 调试日志
-        if (achievement.id === 'image_collector_50') {
-          console.log(`图片新手成就进度: ${this.imageCount}/${achievement.target} = ${achievement.progress.toFixed(2)}%`)
-        }
-      })
-    },
-    updateGameCollectorAchievements() {
-      this.gameCollectorAchievements.forEach(achievement => {
-        achievement.current = this.gameCount
-        const progress = (this.gameCount / achievement.target) * 100
-        achievement.progress = Math.min(Math.max(progress, 0), 100)
-        achievement.unlocked = this.gameCount >= achievement.target
-      })
-    },
-    updateVideoCollectorAchievements() {
-      this.videoCollectorAchievements.forEach(achievement => {
-        achievement.current = this.videoCount
-        const progress = (this.videoCount / achievement.target) * 100
-        achievement.progress = Math.min(Math.max(progress, 0), 100)
-        achievement.unlocked = this.videoCount >= achievement.target
-      })
-    },
     calculateTotalGameTime(games) {
       let totalSeconds = 0
       games.forEach(game => {
@@ -366,13 +391,27 @@ export default {
       })
       return totalSeconds
     },
-    updateGameTimeAchievements() {
+    updateAchievementProgress() {
       const totalHours = Math.floor(this.totalGameTime / 3600) // 转换为小时
-      this.gameTimeAchievements.forEach(achievement => {
-        achievement.current = totalHours
-        const progress = (totalHours / achievement.target) * 100
+      const currentValuesByGroup = {
+        imageCollector: this.imageCount,
+        gameCollector: this.gameCount,
+        videoCollector: this.videoCount,
+        gameTime: totalHours
+      }
+
+      this.achievementStates.forEach(achievement => {
+        const current = currentValuesByGroup[achievement.group] ?? 0
+        achievement.current = current
+        const progress = (current / achievement.target) * 100
         achievement.progress = Math.min(Math.max(progress, 0), 100)
-        achievement.unlocked = totalHours >= achievement.target
+        achievement.unlocked = current >= achievement.target
+
+        if (achievement.id === 'image_collector_50') {
+          console.log(
+            `图片新手成就进度: ${achievement.current}/${achievement.target} = ${achievement.progress.toFixed(2)}%`
+          )
+        }
       })
     },
     async refreshAchievements() {
@@ -381,17 +420,7 @@ export default {
     
     // 播放成就解锁音效
     playAchievementSound() {
-      try {
-        const audio = new Audio('/achievement.mp3')
-        audio.volume = 1 // 设置音量为100%，可以根据需要调整
-        audio.play().catch(error => {
-          console.warn('播放成就音效失败:', error)
-          // 忽略播放失败，不影响成就功能
-        })
-      } catch (error) {
-        console.warn('创建音频对象失败:', error)
-        // 忽略错误，不影响成就功能
-      }
+      playAchievementSoundEffect()
     },
     // 检测新解锁的成就
     async checkNewlyUnlockedAchievements() {
