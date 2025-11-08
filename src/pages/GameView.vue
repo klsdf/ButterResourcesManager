@@ -510,14 +510,14 @@ export default {
           if (result.success) {
             console.log('------------------------------')
             console.log('游戏启动成功，进程ID:', result.pid)
-            console.log('游戏窗口标题:', result.windowTitle)
+            console.log('游戏窗口标题列表:', result.windowTitles)
             console.log('------------------------------')
 
             // 将游戏添加到全局运行列表中（包含完整信息）
             this.$parent.addRunningGame({
               id: game.id,
               pid: result.pid,
-              windowTitle: result.windowTitle,
+              windowTitles: result.windowTitles || [],
               gameName: game.name
             })
 
@@ -893,6 +893,10 @@ export default {
         }
 
         await this.saveGames()
+        
+        // 重新提取标签和开发商信息，更新筛选器
+        this.extractAllTags()
+        
         notify.native('保存成功', '游戏信息已更新')
         this.closeEditGameDialog()
       } catch (error) {
@@ -1374,17 +1378,22 @@ export default {
       try {
         // 直接从父组件获取正在运行的游戏信息（已经包含 gameName，无需重复查找）
         const runningGamesMap = this.$parent.runningGames
-        // 转换为普通对象，包含完整的游戏信息（ID、PID、窗口标题、游戏名称等）
+        // 转换为普通对象，包含完整的游戏信息（ID、PID、窗口标题数组、游戏名称等）
+        // 使用 JSON 序列化/反序列化确保对象可以被 IPC 正确传递
         const runningGamesInfo = {}
         for (const [gameId, runtimeGameData] of runningGamesMap) {
-          // 直接使用 runtimeGameData，已经包含所有信息
-          runningGamesInfo[gameId] = {
-            id: runtimeGameData.id,
-            pid: runtimeGameData.pid,
-            windowTitle: runtimeGameData.windowTitle,
-            gameName: runtimeGameData.gameName,
-            startTime: runtimeGameData.startTime
+          // 确保所有值都是可序列化的基本类型
+          const gameData = {
+            id: String(runtimeGameData.id),
+            pid: Number(runtimeGameData.pid),
+            windowTitles: Array.isArray(runtimeGameData.windowTitles) 
+              ? runtimeGameData.windowTitles.map(title => String(title)).filter(title => title)
+              : [],
+            gameName: runtimeGameData.gameName ? String(runtimeGameData.gameName) : null,
+            startTime: Number(runtimeGameData.startTime)
           }
+          // 使用 JSON 序列化确保对象可传递
+          runningGamesInfo[String(gameId)] = JSON.parse(JSON.stringify(gameData))
         }
         // 获取用户设置的截图选项
 

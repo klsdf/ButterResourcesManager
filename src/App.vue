@@ -164,7 +164,7 @@ export default {
         filters: []
       },
       // 全局游戏运行状态管理
-      runningGames: new Map(), // 存储正在运行的游戏信息 {gameId: {id, pid, windowTitle, gameName, startTime}}
+      runningGames: new Map(), // 存储正在运行的游戏信息 {gameId: {id, pid, windowTitles: string[], gameName, startTime}}
       statusCheckInterval: null, // 定期检查运行状态的定时器
       playtimeUpdateInterval: null, // 定期更新游戏时长的定时器
       // 应用使用时长跟踪
@@ -346,11 +346,11 @@ export default {
     },
     // 全局游戏运行状态管理方法
     addRunningGame(gameInfo) {
-      // gameInfo: { id: string, pid: number, windowTitle?: string, gameName?: string }
+      // gameInfo: { id: string, pid: number, windowTitles?: string[], gameName?: string }
       const runtimeGameData = {
         id: gameInfo.id,
         pid: gameInfo.pid,
-        windowTitle: gameInfo.windowTitle || null,
+        windowTitles: gameInfo.windowTitles || [],
         gameName: gameInfo.gameName || null,
         startTime: Date.now()
       }
@@ -395,9 +395,44 @@ export default {
         console.warn('未找到对应的游戏:', gameId)
       }
     },
+    // 更新运行游戏的窗口标题列表
+    async updateRunningGamesWindowTitles() {
+      if (!window.electronAPI || !window.electronAPI.getAllWindowTitlesByPID) {
+        console.log('无法更新窗口标题：Electron API 不可用')
+        return
+      }
+      
+      const runningGamesToUpdate: Array<[string, any]> = Array.from(this.runningGames.entries())
+      
+      for (const [gameId, runtimeGameData] of runningGamesToUpdate) {
+        try {
+          // 获取进程的所有窗口标题
+          const result = await window.electronAPI.getAllWindowTitlesByPID(runtimeGameData.pid)
+          
+          if (result.success && result.windowTitles && result.windowTitles.length > 0) {
+            // 检查是否有新的窗口标题
+            const oldTitles = runtimeGameData.windowTitles || []
+            const newTitles = result.windowTitles.filter(title => title && title.trim())
+            
+            // 合并去重，保留所有窗口标题
+            const allTitles = [...new Set([...oldTitles, ...newTitles])]
+            
+            // 如果有新增的窗口标题，更新数据
+            if (allTitles.length !== oldTitles.length || 
+                allTitles.some(title => !oldTitles.includes(title))) {
+              runtimeGameData.windowTitles = allTitles
+              console.log(`✅ 更新游戏 ${runtimeGameData.gameName || gameId} 的窗口标题列表:`, allTitles)
+            }
+          }
+        } catch (error) {
+          console.warn(`更新游戏 ${runtimeGameData.gameName || gameId} 窗口标题失败:`, error.message)
+          // 出错时不影响其他游戏，继续处理
+        }
+      }
+    },
     // 检查所有游戏的运行状态
     async checkAllGamesRunningStatus() {
-      if (!window.electronAPI || !window.electronAPI.checkProcessRunning) {
+      if (!window.electronAPI || !window.electronAPI.getAllWindowTitlesByPID) {
         console.log('无法检查游戏运行状态：Electron API 不可用')
         return
       }
@@ -409,9 +444,9 @@ export default {
       }
       
       console.log('开始检查所有游戏的运行状态...')
-      const runningGamesToCheck = Array.from(this.runningGames.keys())
+      const runningGamesToCheck: Array<[string, any]> = Array.from(this.runningGames.entries())
       
-      for (const gameId of runningGamesToCheck) {
+      for (const [gameId, runtimeGameData] of runningGamesToCheck) {
         const game = gameView.games.find(g => g.id === gameId)
         if (!game) {
           // 游戏不存在，从运行列表中移除
@@ -421,12 +456,16 @@ export default {
         }
         
         try {
-          // 检查游戏进程是否还在运行
-          const isRunning = await window.electronAPI.checkProcessRunning(game.executablePath)
-          if (!isRunning) {
-            // 游戏进程已结束，从运行列表中移除
-            this.runningGames.delete(gameId)
-            console.log(`游戏 ${game.name} 进程已结束，从运行列表中移除`)
+          // 通过 PID 检查游戏进程是否还在运行（尝试获取窗口标题，如果失败说明进程已结束）
+          const result = await window.electronAPI.getAllWindowTitlesByPID(runtimeGameData.pid)
+          if (!result.success) {
+            // 无法获取窗口标题，可能是进程已结束
+            // 如果之前有窗口标题但现在获取不到，可能是进程结束了
+            if (runtimeGameData.windowTitles && runtimeGameData.windowTitles.length > 0) {
+              // 之前有窗口，现在获取不到，可能是进程结束了
+              this.runningGames.delete(gameId)
+              console.log(`游戏 ${game.name} 进程已结束（无法获取窗口标题），从运行列表中移除`)
+            }
           }
         } catch (error) {
           console.error(`检查游戏 ${game.name} 运行状态失败:`, error)
@@ -443,8 +482,10 @@ export default {
         if (this.runningGames.size > 0) {
           console.log('定期检查游戏运行状态...')
           await this.checkAllGamesRunningStatus()
+          // 同时更新窗口标题列表（检测新创建的窗口）
+          await this.updateRunningGamesWindowTitles()
         }
-      }, 30000) // 30秒
+      }, 3000) // 3秒
     },
     // 启动定期更新游戏时长
     startPeriodicPlaytimeUpdate() {

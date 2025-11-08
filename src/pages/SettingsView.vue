@@ -304,30 +304,6 @@
                   </button>
                 </div>
               </div>
-              
-              <div class="setting-item">
-                <label class="setting-label">
-                  <span class="setting-title">测试通知</span>
-                  <span class="setting-desc">测试系统通知功能是否正常工作</span>
-                </label>
-                <div class="setting-control">
-                  <button class="btn-test-notification" @click="testNotification">
-                    测试通知
-                  </button>
-                </div>
-              </div>
-              
-              <div class="setting-item">
-                <label class="setting-label">
-                  <span class="setting-title">测试系统托盘</span>
-                  <span class="setting-desc">测试最小化到系统托盘功能</span>
-                </label>
-                <div class="setting-control">
-                  <button class="btn-test-tray" @click="testTray">
-                    测试托盘
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1423,74 +1399,6 @@ export default {
         this.isAutoSaving = false
         console.error('选择存档目录失败:', error)
         alert('选择目录失败: ' + error.message)
-      }
-    },
-    async testNotification() {
-      try {
-        if (window.electronAPI && window.electronAPI.showNotification) {
-          await window.electronAPI.showNotification(
-            '测试通知', 
-            '这是一个测试通知，用于验证通知功能是否正常工作。'
-          )
-        } else {
-          // 降级处理：使用浏览器通知
-          if (Notification.permission === 'granted') {
-            new Notification('测试通知', { 
-              body: '这是一个测试通知，用于验证通知功能是否正常工作。' 
-            })
-          } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(permission => {
-              if (permission === 'granted') {
-                new Notification('测试通知', { 
-                  body: '这是一个测试通知，用于验证通知功能是否正常工作。' 
-                })
-              } else {
-                alert('通知权限被拒绝')
-              }
-            })
-          } else {
-            alert('通知权限被拒绝，无法显示测试通知')
-          }
-        }
-      } catch (error) {
-        console.error('测试通知失败:', error)
-        alert('测试通知失败: ' + error.message)
-      }
-    },
-    
-    async testTray() {
-      try {
-        console.log('=== 测试系统托盘功能 ===')
-        
-        if (window.electronAPI && window.electronAPI.minimizeToTray) {
-          // 测试最小化到托盘
-          const result = await window.electronAPI.minimizeToTray()
-          if (result.success) {
-            console.log('✅ 最小化到托盘成功')
-            this.showToastNotification('托盘测试', '应用已最小化到系统托盘，请检查系统托盘区域')
-            
-            // 3秒后自动恢复窗口
-            setTimeout(async () => {
-              try {
-                if (window.electronAPI && window.electronAPI.restoreFromTray) {
-                  await window.electronAPI.restoreFromTray()
-                  console.log('✅ 从托盘恢复成功')
-                }
-              } catch (error) {
-                console.error('从托盘恢复失败:', error)
-              }
-            }, 3000)
-          } else {
-            console.error('❌ 最小化到托盘失败:', result.error)
-            this.showToastNotification(`最小化到托盘失败: ${result.error}`)
-          }
-        } else {
-          console.warn('当前环境不支持系统托盘功能')
-          this.showToastNotification('当前环境不支持系统托盘功能')
-        }
-      } catch (error) {
-        console.error('测试系统托盘失败:', error)
-        this.showToastNotification('测试系统托盘失败: ' + error.message)
       }
     },
     async showNotification(title, message) {

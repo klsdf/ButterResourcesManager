@@ -1173,6 +1173,46 @@ async function getWindowTitleByPID(pid) {
   })
 }
 
+// 辅助函数：通过 PID 获取进程的所有窗口标题（Windows）
+async function getAllWindowTitlesByPID(pid) {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') {
+      reject(new Error('仅支持 Windows 平台'))
+      return
+    }
+
+    const { exec } = require('child_process')
+    // 使用 PowerShell 获取进程的所有窗口标题
+    // 通过遍历所有进程，查找匹配 PID 的进程，收集所有非空的 MainWindowTitle
+    const psCommand = `$titles = @(); Get-Process | Where-Object { $_.Id -eq ${pid} } | ForEach-Object { if ($_.MainWindowTitle -and $_.MainWindowTitle.Trim() -ne '') { $titles += $_.MainWindowTitle.Trim() } }; $titles | Sort-Object -Unique | ForEach-Object { $_ }`
+    
+    exec(`powershell -Command "${psCommand}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+      if (error) {
+        // 如果进程不存在或没有窗口，返回空数组
+        if (error.code === 1 || stdout.trim() === '') {
+          resolve([])
+          return
+        }
+        reject(error)
+        return
+      }
+
+      const output = stdout.trim()
+      if (!output) {
+        resolve([])
+        return
+      }
+
+      // 按行分割并过滤空字符串
+      const titles = output.split('\n')
+        .map(title => title.trim())
+        .filter(title => title !== '')
+      
+      resolve(titles)
+    })
+  })
+}
+
 // 辅助函数：获取进程的父进程 PID（Windows）
 async function getParentProcessID(pid) {
   return new Promise((resolve, reject) => {
@@ -1304,17 +1344,17 @@ ipcMain.handle('launch-game', async (event, executablePath, gameName) => {
     
     console.log('游戏已启动，进程ID:', gameProcess.pid)
     
-    // 等待一段时间让窗口创建，然后尝试获取窗口名称
-    let windowTitle = null
+    // 等待一段时间让窗口创建，然后尝试获取所有窗口标题
+    let windowTitles = []
     try {
       // 等待 1 秒让窗口有时间创建
       await new Promise(resolve => setTimeout(resolve, 1000))
       
-      // 尝试获取窗口标题（最多重试 3 次）
+      // 尝试获取所有窗口标题（最多重试 3 次）
       for (let i = 0; i < 3; i++) {
-        windowTitle = await getWindowTitleByPID(gameProcess.pid)
-        if (windowTitle) {
-          console.log('✅ 获取到窗口标题:', windowTitle)
+        windowTitles = await getAllWindowTitlesByPID(gameProcess.pid)
+        if (windowTitles && windowTitles.length > 0) {
+          console.log('✅ 获取到窗口标题列表:', windowTitles)
           break
         }
         // 如果还没获取到，再等待 2 秒后重试
@@ -1323,7 +1363,7 @@ ipcMain.handle('launch-game', async (event, executablePath, gameName) => {
         }
       }
       
-      if (!windowTitle) {
+      if (!windowTitles || windowTitles.length === 0) {
         console.log('⚠️ 未能获取到窗口标题（可能窗口还未创建或进程没有窗口）')
       }
     } catch (error) {
@@ -1331,19 +1371,34 @@ ipcMain.handle('launch-game', async (event, executablePath, gameName) => {
       // 不影响启动流程，继续执行
     }
     
-    // 将窗口标题保存到 gameInfo 中
-    if (windowTitle) {
-      gameInfo.windowTitle = windowTitle
+    // 将窗口标题列表保存到 gameInfo 中
+    if (windowTitles && windowTitles.length > 0) {
+      gameInfo.windowTitles = windowTitles
     }
     
     return { 
       success: true, 
       pid: gameProcess.pid,
-      windowTitle: windowTitle || undefined  // 如果没有窗口标题，不包含这个字段
+      windowTitles: windowTitles.length > 0 ? windowTitles : undefined
     }
   } catch (error) {
     console.error('启动游戏失败:', error)
     return { success: false, error: error.message }
+  }
+})
+
+// 通过 PID 获取进程的所有窗口标题
+ipcMain.handle('get-all-window-titles-by-pid', async (event, pid) => {
+  try {
+    if (!pid) {
+      return { success: false, error: 'PID 不能为空' }
+    }
+    
+    const windowTitles = await getAllWindowTitlesByPID(pid)
+    return { success: true, windowTitles: windowTitles || [] }
+  } catch (error) {
+    console.error('获取窗口标题失败:', error)
+    return { success: false, error: error.message, windowTitles: [] }
   }
 })
 
@@ -1469,14 +1524,17 @@ ipcMain.handle('take-screenshot', async (event, customDirectory, format = 'png',
     let folderName = 'Screenshots'
     let matchedGameName = null
     
-    // 在 runningGamesInfo 中查找匹配的窗口标题
+    // 在 runningGamesInfo 中查找匹配的窗口标题（支持多个窗口标题）
     if (windowName && Object.keys(runningGamesInfo).length > 0) {
       for (const [gameId, gameData] of Object.entries(runningGamesInfo)) {
-        // 比较窗口标题（精确匹配）
-        if (gameData.windowTitle && gameData.windowTitle === windowName) {
+        // 使用 windowTitles 数组进行匹配
+        const titlesToCheck = gameData.windowTitles || []
+        
+        // 检查当前窗口标题是否在窗口标题列表中
+        if (titlesToCheck.includes(windowName)) {
           matchedGameName = gameData.gameName
           folderName = (matchedGameName || windowName).replace(/[<>:"/\\|?*]/g, '_').trim()
-          console.log('✅ 通过窗口标题匹配到运行中的游戏:', matchedGameName || gameId, '窗口标题:', windowName)
+          console.log('✅ 通过窗口标题匹配到运行中的游戏:', matchedGameName || gameId, '窗口标题:', windowName, '所有窗口:', titlesToCheck)
           break
         }
       }

@@ -63,11 +63,13 @@ declare global {
       readTextFile: (filePath: string) => Promise<{ success: boolean; content?: string; fileSize?: number; wordCount?: number; encoding?: string; error?: string }>
       
       // 游戏启动
-      launchGame: (executablePath: string, gameName?: string) => Promise<{ success: boolean; pid?: number; windowTitle?: string; error?: string }>
+      launchGame: (executablePath: string, gameName?: string) => Promise<{ success: boolean; pid?: number; windowTitles?: string[]; error?: string }>
+      // 通过 PID 获取所有窗口标题
+      getAllWindowTitlesByPID: (pid: number) => Promise<{ success: boolean; windowTitles?: string[]; error?: string }>
       
       // 系统功能
       showNotification: (title: string, body: string) => Promise<void>
-      takeScreenshot: (directory?: string, format?: string, quality?: number, runningGamesInfo?: Record<string, { id: string; pid: number; windowTitle?: string | null; gameName?: string | null; startTime?: number }>) => Promise<{ success: boolean; filepath?: string; filename?: string; windowName?: string; gameFolder?: string; screenshotsDir?: string; matchedGame?: string | null; error?: string }>
+      takeScreenshot: (directory?: string, format?: string, quality?: number, runningGamesInfo?: Record<string, { id: string; pid: number; windowTitles?: string[]; gameName?: string | null; startTime?: number }>) => Promise<{ success: boolean; filepath?: string; filename?: string; windowName?: string; gameFolder?: string; screenshotsDir?: string; matchedGame?: string | null; error?: string }>
       updateGlobalShortcut: (newKey: string) => Promise<{ success: boolean; key?: string; error?: string }>
       checkGlobalShortcutAvailable: (key: string) => Promise<{ success: boolean; available?: boolean; error?: string }>
       
