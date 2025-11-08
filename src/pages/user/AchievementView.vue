@@ -35,20 +35,23 @@
           >
             <div class="achievement-icon">
               <span v-if="achievement.unlocked">🏆</span>
-              <span v-else>📋</span>
+              <span v-else> 🔒</span>
             </div>
             <div class="achievement-info">
               <div class="achievement-title">
-                {{ achievement.title }}
+                {{ getAchievementTitle(achievement) }}
                 <span v-if="achievement.unlocked" class="status-badge completed">已完成</span>
                 <span v-else class="status-badge inProgress">进行中</span>
               </div>
-              <div class="achievement-description">{{ achievement.description }}</div>
-              <div class="achievement-progress">
+              <div class="achievement-description">{{ getAchievementDescription(achievement) }}</div>
+              <div 
+                v-if="achievement.kind === 'progress'"
+                class="achievement-progress"
+              >
                 <progress 
                   :value="achievement.current" 
                   :max="achievement.target"
-                  :title="`进度: ${ achievement.current / achievement.target * 100 }%`"
+                  :title="getProgressTitle(achievement)"
                   class="progress-bar"
                 ></progress>
                 <span class="progress-text">{{ achievement.current }}/{{ achievement.target }}</span>
@@ -68,33 +71,35 @@ import  notify  from '../../utils/NotificationService.ts'
 const ACHIEVEMENT_SOUND_PATH = '/achievement.mp3'
 
 
+type AchievementKind = 'progress' | 'trigger'
+
 class BaseAchievementType
 {
-  constructor()
+  kind: AchievementKind
+  constructor(kind: AchievementKind)
   {
-
+    this.kind = kind
   }
-
 }
 
 
 class ProgressAchievementType extends BaseAchievementType
 {
-
-  current: number
   target: number 
   constructor(target: number) 
   {
-    super()
+    super('progress')
     this.target = target
-    this.current = 0
   }
 }
 
 
 class TriggerAchievementType extends BaseAchievementType
 {
-
+  constructor()
+  {
+    super('trigger')
+  }
 }
 
 export class Achievement {
@@ -104,22 +109,43 @@ export class Achievement {
   target: number | null
   group: string
   type: BaseAchievementType
+  kind: AchievementKind
+  current: number | null
   unlocked: boolean
 
+  /**
+   * 是否隐藏
+   * 如果隐藏，则显示？？？作为标题，描述部分则显示提示
+   */
+  isHidden: boolean
+
+  /**
+   * 隐藏提示
+   * 如果隐藏，则显示提示
+   */
+  hiddenTip: string
+
   constructor(
-    id: string,
-    title: string,
-    description: string,
-    group: string,
-    type: BaseAchievementType 
-  ) {
+    {
+    id,
+    title,
+    description,
+    group,
+    type,
+    isHidden = false,
+    hiddenTip = ''
+  }: AchievementOptions) {
     this.id = id
     this.title = title
     this.description = description
     this.group = group
     this.type = type
+    this.kind = type.kind
     this.target = type instanceof ProgressAchievementType ? type.target : null
+    this.current = type instanceof ProgressAchievementType ? 0 : null
     this.unlocked = false
+    this.isHidden = isHidden
+    this.hiddenTip = hiddenTip
   }
 }
 
@@ -129,22 +155,15 @@ interface AchievementOptions {
   description: string
   group: string
   type: BaseAchievementType
-}
 
-function defineAchievement({
-  id,
-  title,
-  description,
-  group,
-  type 
-}: AchievementOptions) {
-  return new Achievement(id, title, description, group, type)
+  isHidden?: boolean
+  hiddenTip?: string
 }
 
 
 const allAchievementDefinitions: Achievement[] = [
   // 图片收藏成就
-  defineAchievement({
+  new Achievement({
     id: 'image_collector_50',
     title: '图片新手',
     description: '收藏50张图片',
@@ -152,21 +171,21 @@ const allAchievementDefinitions: Achievement[] = [
     type: new ProgressAchievementType(50)
 
   }),
-  defineAchievement({
+  new Achievement({
     id: 'image_collector_100',
     title: '图片爱好者',
     description: '收藏100张图片',
     group: 'imageCollector',
     type: new ProgressAchievementType(100)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'image_collector_500',
     title: '图片收藏家',
     description: '收藏500张图片',
     group: 'imageCollector',
     type: new ProgressAchievementType(500)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'image_collector_1000',
     title: '图片大师',
     description: '收藏1000张图片',
@@ -175,28 +194,28 @@ const allAchievementDefinitions: Achievement[] = [
   }),
 
   // 游戏收藏成就
-  defineAchievement({
+  new Achievement({
     id: 'game_collector_50',
     title: '游戏新手',
     description: '收藏50个游戏',
     group: 'gameCollector',
     type: new ProgressAchievementType(50)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_collector_100',
     title: '游戏爱好者',
     description: '收藏100个游戏',
     group: 'gameCollector',
     type: new ProgressAchievementType(100)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_collector_500',
     title: '游戏收藏家',
     description: '收藏500个游戏',
     group: 'gameCollector',
     type: new ProgressAchievementType(500)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_collector_1000',
     title: '游戏大师',
     description: '收藏1000个游戏',
@@ -205,28 +224,28 @@ const allAchievementDefinitions: Achievement[] = [
   }),
 
   // 视频收藏成就
-  defineAchievement({
+  new Achievement({
     id: 'video_collector_50',
     title: '视频新手',
     description: '收藏50个视频',
     group: 'videoCollector',
     type: new ProgressAchievementType(50)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'video_collector_100',
     title: '视频爱好者',
     description: '收藏100个视频',
     group: 'videoCollector',
     type: new ProgressAchievementType(100)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'video_collector_500',
     title: '视频收藏家',
     description: '收藏500个视频',
     group: 'videoCollector',
     type: new ProgressAchievementType(500)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'video_collector_1000',
     title: '视频大师',
     description: '收藏1000个视频',
@@ -235,55 +254,76 @@ const allAchievementDefinitions: Achievement[] = [
   }),
 
   // 游戏时长成就
-  defineAchievement({
+  new Achievement({
     id: 'game_time_1',
     title: '游戏新手',
     description: '游戏时长达到1小时',
     group: 'gameTime',
     type: new ProgressAchievementType(1)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_time_10',
     title: '游戏爱好者',
     description: '游戏时长达到10小时',
     group: 'gameTime',
     type: new ProgressAchievementType(10)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_time_20',
     title: '游戏玩家',
     description: '游戏时长达到20小时',
     group: 'gameTime',
     type: new ProgressAchievementType(20)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_time_50',
     title: '游戏达人',
     description: '游戏时长达到50小时',
     group: 'gameTime',
     type: new ProgressAchievementType(50)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_time_100',
     title: '游戏专家',
     description: '游戏时长达到100小时',
     group: 'gameTime',
     type: new ProgressAchievementType(100)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_time_500',
     title: '游戏大师',
     description: '游戏时长达到500小时',
     group: 'gameTime',
     type: new ProgressAchievementType(500)
   }),
-  defineAchievement({
+  new Achievement({
     id: 'game_time_1000',
     title: '游戏传奇',
     description: '游戏时长达到1000小时',
     group: 'gameTime',
     type: new ProgressAchievementType(1000)
   }),
+
+
+  new Achievement({
+    id: 'first_login',
+    title: '值得纪念的一天',
+    description: '首次使用本软件，值得纪念！',
+    group: 'firstLogin',
+    type: new TriggerAchievementType()
+  }),
+
+
+  new Achievement({
+    id: 'serect_click',
+    title: '没有人不喜欢美少女吧？',
+    description: '点击一次logo，显示美少女的隐藏logo',
+    group: 'serectClick',
+    type: new TriggerAchievementType(),
+    isHidden: true,
+    hiddenTip: '也许点击哪里之后可以解锁？'
+  }),
+
 ]
 
 const achievementDefinitionMap = new Map(
@@ -454,9 +494,43 @@ export default {
       }
 
       this.achievementStates.forEach(achievement => {
-        achievement.current = currentValuesByGroup[achievement.group] ?? 0
-        achievement.unlocked = achievement.current >= achievement.target
+        const savedState = this.savedAchievementStates.get(achievement.id)
+        const isSavedUnlocked = savedState === true
+        
+        if (achievement.kind === 'progress') {
+          achievement.current = currentValuesByGroup[achievement.group] ?? 0
+          const target = achievement.target ?? 0
+          achievement.unlocked = isSavedUnlocked || achievement.current >= target
+        } else {
+          achievement.current = null
+          achievement.unlocked = isSavedUnlocked
+        }
       })
+    },
+    getProgressTitle(achievement) {
+      if (achievement.kind !== 'progress' || !achievement.target) {
+        return '进度: 0%'
+      }
+
+      const safeCurrent = typeof achievement.current === 'number' ? achievement.current : 0
+      if (achievement.target === 0) {
+        return '进度: 0%'
+      }
+
+      const percent = Math.min(100, Math.round((safeCurrent / achievement.target) * 100))
+      return `进度: ${percent}%`
+    },
+    getAchievementTitle(achievement) {
+      if (achievement.isHidden && !achievement.unlocked) {
+        return '？？？'
+      }
+      return achievement.title
+    },
+    getAchievementDescription(achievement) {
+      if (achievement.isHidden && !achievement.unlocked) {
+        return achievement.hiddenTip || '继续探索以解锁这个成就'
+      }
+      return achievement.description
     },
     async refreshAchievements() {
       await this.loadAchievementData()

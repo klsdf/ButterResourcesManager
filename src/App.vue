@@ -129,6 +129,7 @@ import FilterSidebar from './components/FilterSidebar.vue'
 import notificationService from './utils/NotificationService.ts'
 
 import saveManager from './utils/SaveManager.ts'
+import { unlockAchievement } from './pages/user/AchievementView.vue'
 
 
 export default {
@@ -257,6 +258,10 @@ export default {
       this.playUnlockSound()
       // 切换图标
       this.isLogoClicked = true
+
+
+
+      unlockAchievement('serect_click')
     },
     // 播放解锁音效
     playUnlockSound() {
@@ -277,6 +282,11 @@ export default {
     // 标记文件丢失检测已完成
     markFileLossChecked() {
       this.hasCheckedFileLoss = true
+    },
+    
+    async checkFirstLoginAchievement() {
+         await unlockAchievement('first_login')
+
     },
     
     switchView(viewId) {
@@ -678,6 +688,8 @@ export default {
       // 如果 SaveManager 也失败了，使用默认主题
       this.applyTheme('auto')
     }
+
+    await this.checkFirstLoginAchievement()
 
     // 启动游戏运行状态检查
     this.startPeriodicStatusCheck()
