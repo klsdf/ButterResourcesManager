@@ -18,8 +18,8 @@
           class="sidebar-logo"
           @click="onLogoClick"
         >
-        <h1> Butter Manager</h1>
-        <p>万能的资源管理器</p>
+        <h1> 绿色资源管理器</h1>
+        <p>绿色、全能的资源管理器</p>
         <p class="version">v{{ version }}</p>
       </div>
 

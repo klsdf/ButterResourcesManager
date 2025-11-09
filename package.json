@@ -1,5 +1,5 @@
 {
-  "name": "butter-manager",
+  "name": "green-resource-manager",
   "version": "0.5.9",
   "description": "A Vue + Electron desktop application",
   "main": "public/electron.js",

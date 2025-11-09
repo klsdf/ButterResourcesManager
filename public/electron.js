@@ -81,7 +81,7 @@ function createWindow() {
       // 显示托盘通知
       if (tray) {
         tray.displayBalloon({
-          title: 'Butter Resource Manager',
+          title: 'Green Resource Manager',
           content: '应用已最小化到系统托盘',
           icon: nativeImage.createFromPath(path.join(__dirname, 'butter-icon.ico'))
         })
@@ -276,7 +276,7 @@ function createTray() {
     }
     
     // 设置托盘提示文本
-    tray.setToolTip('Butter Resource Manager')
+    tray.setToolTip('Green Resource Manager')
     
     // 创建托盘右键菜单
     const contextMenu = Menu.buildFromTemplate([
@@ -2452,9 +2452,6 @@ ipcMain.handle('list-files', async (event, dirPath) => {
     
     // 读取目录内容
     const files = fs.readdirSync(dirPath)
-    console.log('目录中的文件数量:', files.length)
-    console.log('文件列表:', files)
-    
     return { success: true, files: files }
   } catch (error) {
     console.error('列出目录文件失败:', error)
