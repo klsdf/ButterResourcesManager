@@ -118,44 +118,62 @@ export function* showSubtitles(
 		});
 	}
 
-	// 逐句显示字幕
-	for (let index = 0; index < texts.length; index++) {
-		const item = texts[index];
-		// 处理 VideoScript 或字符串
+	// 计算整个动画的总时长
+	let totalDuration = 0;
+	for (const item of texts) {
 		const script: VideoScript = typeof item === 'string' 
 			? { text: item } 
 			: item;
-		
-		// 更新进度条
-		if (progressBar) {
-			progressBar.updateProgress(index);
-		}
-
-		// 淡入
-		subtitle().text(script.text);
-		
-		// 并行执行回调（如果有）和字幕淡入
-		if (script.callback) {
-			const result = script.callback();
-			if (result && typeof result[Symbol.iterator] === 'function') {
-				// 并行执行回调动画和字幕淡入
-				yield* all(
-					container().opacity(1, fadeInDuration),
-					result as ThreadGenerator
-				);
-			} else {
-				yield* container().opacity(1, fadeInDuration);
-			}
-		} else {
-			yield* container().opacity(1, fadeInDuration);
-		}
-
-		// 显示持续时间（根据文本长度调整）
 		const duration = Math.max(minDisplayDuration, script.text.length * charsPerSecond);
-		yield* container().opacity(1, duration);
-
-		// 淡出
-		yield* container().opacity(0, fadeOutDuration);
+		totalDuration += fadeInDuration + duration + fadeOutDuration;
 	}
+
+	// 启动进度条动画，让它在整个动画过程中持续平滑增长
+	// 进度条动画与字幕动画并行运行，在后台持续更新
+	const progressAnimation = progressBar 
+		? progressBar.animateProgress(totalDuration)
+		: null;
+
+	// 并行执行进度条动画和字幕显示
+	yield* all(
+		// 字幕显示循环
+		(function* () {
+			for (let index = 0; index < texts.length; index++) {
+				const item = texts[index];
+				// 处理 VideoScript 或字符串
+				const script: VideoScript = typeof item === 'string' 
+					? { text: item } 
+					: item;
+				
+				// 淡入
+				subtitle().text(script.text);
+				
+				// 并行执行回调动画（如果有）和字幕淡入
+				const animations: ThreadGenerator[] = [
+					container().opacity(1, fadeInDuration)
+				];
+				
+				// 添加回调动画（如果有）
+				if (script.callback) {
+					const result = script.callback();
+					if (result && typeof result[Symbol.iterator] === 'function') {
+						animations.push(result as ThreadGenerator);
+					}
+				}
+				
+				// 执行字幕淡入和回调动画
+				yield* all(...animations);
+
+				// 显示持续时间（根据文本长度调整）
+				const duration = Math.max(minDisplayDuration, script.text.length * charsPerSecond);
+				yield* container().opacity(1, duration);
+
+				// 淡出
+				yield* container().opacity(0, fadeOutDuration);
+			}
+		})(),
+		// 进度条动画（如果存在）
+		...(progressAnimation ? [progressAnimation] : [])
+	);
 }
 
