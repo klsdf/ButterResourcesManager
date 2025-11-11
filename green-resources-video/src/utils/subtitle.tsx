@@ -1,6 +1,7 @@
 import { Txt, Layout, Rect } from '@motion-canvas/2d';
 import { createRef, ThreadGenerator, all } from '@motion-canvas/core';
 import { VideoScript } from '../data/VideoScript';
+import { createSegmentedProgressBar, ProgressSegment } from './progressBar';
 
 export type SubtitleItem = string | VideoScript;
 
@@ -17,6 +18,8 @@ export interface SubtitleOptions {
 	backgroundColor?: string;
 	backgroundOpacity?: number;
 	borderRadius?: number;
+	showProgressBar?: boolean;
+	progressSegments?: ProgressSegment[];
 }
 
 export function* showSubtitles(
@@ -37,6 +40,8 @@ export function* showSubtitles(
 		backgroundColor = '#000000',
 		backgroundOpacity = 0.6,
 		borderRadius = 8,
+		showProgressBar = false,
+		progressSegments = [],
 	} = options;
 
 	const subtitle = createRef<Txt>();
@@ -51,6 +56,7 @@ export function* showSubtitles(
 		justifyContent="center"
 		opacity={0}
 		padding={padding}
+		zIndex={300}
 	  >
 		<Rect
 		  ref={background}
@@ -76,10 +82,13 @@ export function* showSubtitles(
 	let subtitleElement;
 
 	if (position === 'bottom') {
+		// 字幕在底部，但要在进度条上方，所以需要留出空间
 		subtitleElement = (
 			<Layout layout={true} direction="column" width="100%" height="100%">
 				<Layout grow={1} />
 				{createSubtitleContainer()}
+				{/* 为进度条预留空间（大约 150px） */}
+				<Layout height={150} />
 			</Layout>
 		);
 	} else if (position === 'top') {
@@ -100,13 +109,28 @@ export function* showSubtitles(
 
 	view.add(subtitleElement);
 
+	// 创建进度条（如果需要）
+	let progressBar: ReturnType<typeof createSegmentedProgressBar> | null = null;
+	if (showProgressBar && progressSegments.length > 0) {
+		progressBar = createSegmentedProgressBar(view, {
+			segments: progressSegments,
+			totalItems: texts.length,
+		});
+	}
+
 	// 逐句显示字幕
-	for (const item of texts) {
+	for (let index = 0; index < texts.length; index++) {
+		const item = texts[index];
 		// 处理 VideoScript 或字符串
 		const script: VideoScript = typeof item === 'string' 
 			? { text: item } 
 			: item;
 		
+		// 更新进度条
+		if (progressBar) {
+			progressBar.updateProgress(index);
+		}
+
 		// 淡入
 		subtitle().text(script.text);
 		

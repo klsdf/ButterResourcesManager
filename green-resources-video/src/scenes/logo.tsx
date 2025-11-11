@@ -6,7 +6,7 @@ export default makeScene2D(function* (view) {
     const rectRef = createRef<Rect>();
     const imgRef = createRef<Img>();
 
-    view.add(<Img ref={imgRef} src={'/imgs/logo.png'} scale={1.5} position={[0, 0]} />)
+    view.add(<Img ref={imgRef} src={'/imgs/hat-soft.png'} scale={1.5} position={[0, 0]} />)
     view.add(<Rect ref={rectRef} size={view.size()} fill={'black'} position={[0, 0]} />)
     // view.add(<Rect ref={rectRef} size={[view.width(), view.height()]} fill={'black'} />)
     // yield* slideTransition(Direction.Right,3)

@@ -37,6 +37,16 @@ export default makeScene2D(function* (view) {
     { text: '从4TB移动硬盘开始……到16TB企业级硬盘盒……再到36TB的raid硬盘柜……最后是72TB的nas，我已经历许多' }
   ];
 
-  // 使用封装好的字幕显示函数
-  yield* showSubtitles(view, subtitles);
+  // 定义进度条分段
+  const progressSegments = [
+    { title: '开场介绍', startIndex: 0, endIndex: 3, color: '#4CAF50' },
+    { title: '资源收集', startIndex: 3, endIndex: 6, color: '#2196F3' },
+    { title: '存储历程', startIndex: 6, endIndex: 10, color: '#FF9800' },
+  ];
+
+  // 使用封装好的字幕显示函数，启用进度条
+  yield* showSubtitles(view, subtitles, {
+    showProgressBar: true,
+    progressSegments: progressSegments,
+  });
 });
