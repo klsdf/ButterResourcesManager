@@ -1437,6 +1437,146 @@ ipcMain.handle('get-system-info', () => {
   }
 })
 
+// 获取所有物理磁盘信息（包括类型：SSD/HDD）
+ipcMain.handle('get-disk-info', async () => {
+  try {
+    if (process.platform !== 'win32') {
+      return { success: false, error: '此功能仅在 Windows 系统上可用' }
+    }
+
+    return new Promise((resolve) => {
+      // 使用 PowerShell 命令获取磁盘信息
+      const powershell = spawn('powershell', [
+        '-Command',
+        'Get-PhysicalDisk | Select-Object DeviceID, FriendlyName, MediaType, Size, BusType | ConvertTo-Json -Depth 10'
+      ])
+
+      let output = ''
+      let errorOutput = ''
+
+      powershell.stdout.on('data', (data) => {
+        output += data.toString()
+      })
+
+      powershell.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      powershell.on('close', (code) => {
+        if (code !== 0) {
+          console.error('获取磁盘信息失败:', errorOutput)
+          resolve({ success: false, error: errorOutput || '获取磁盘信息失败' })
+          return
+        }
+
+        try {
+          // 解析 PowerShell 输出的 JSON
+          const disks = JSON.parse(output.trim())
+          // 如果是单个对象，转换为数组
+          const diskArray = Array.isArray(disks) ? disks : [disks]
+          
+          // 格式化磁盘信息
+          const formattedDisks = diskArray.map(disk => ({
+            deviceId: disk.DeviceID,
+            friendlyName: disk.FriendlyName || '未知磁盘',
+            mediaType: disk.MediaType || 'Unknown', // SSD, HDD, 或其他
+            size: disk.Size || 0,
+            busType: disk.BusType || 'Unknown',
+            sizeGB: disk.Size ? Math.round(disk.Size / (1024 * 1024 * 1024)) : 0
+          }))
+
+          resolve({ success: true, disks: formattedDisks })
+        } catch (parseError) {
+          console.error('解析磁盘信息失败:', parseError, '原始输出:', output)
+          resolve({ success: false, error: '解析磁盘信息失败: ' + parseError.message })
+        }
+      })
+    })
+  } catch (error) {
+    console.error('获取磁盘信息异常:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 根据文件路径获取所在磁盘的类型（SSD/HDD）
+ipcMain.handle('get-disk-type-by-path', async (event, filePath) => {
+  try {
+    if (process.platform !== 'win32') {
+      return { success: false, error: '此功能仅在 Windows 系统上可用' }
+    }
+
+    if (!filePath) {
+      return { success: false, error: '文件路径不能为空' }
+    }
+
+    // 从文件路径提取盘符（如 C:, D:）
+    // 支持多种格式：C:, C:\, C:\path, C:/path
+    const driveMatch = filePath.match(/^([A-Za-z]):/)
+    if (!driveMatch) {
+      return { success: false, error: `无法从路径中提取盘符。路径格式: ${filePath}` }
+    }
+    const driveLetter = driveMatch[1] + ':' // 确保格式为 "C:"
+
+    return new Promise((resolve) => {
+      // 使用 PowerShell 命令根据盘符查找对应的物理磁盘
+      // 方法：通过盘符获取分区，再获取磁盘，最后获取物理磁盘信息
+      const driveLetterOnly = driveLetter[0].toUpperCase() // 只取盘符字母，如 'C'
+      const powershell = spawn('powershell', [
+        '-Command',
+        `$partition = Get-Partition -DriveLetter '${driveLetterOnly}' -ErrorAction SilentlyContinue; if ($partition) { $disk = Get-Disk -Number $partition.DiskNumber -ErrorAction SilentlyContinue; if ($disk) { $physicalDisk = Get-PhysicalDisk -UniqueId $disk.UniqueId -ErrorAction SilentlyContinue; if ($physicalDisk) { $physicalDisk | Select-Object DeviceID, FriendlyName, MediaType, Size, BusType | ConvertTo-Json -Depth 10 } } }`
+      ])
+
+      let output = ''
+      let errorOutput = ''
+
+      powershell.stdout.on('data', (data) => {
+        output += data.toString()
+      })
+
+      powershell.stderr.on('data', (data) => {
+        errorOutput += data.toString()
+      })
+
+      powershell.on('close', (code) => {
+        const trimmedOutput = output.trim()
+        if (!trimmedOutput || trimmedOutput === '{}') {
+          // 如果命令失败或返回空对象，返回错误
+          resolve({ success: false, error: '无法获取磁盘类型，可能需要管理员权限或该盘符不存在' })
+          return
+        }
+
+        try {
+          const disk = JSON.parse(trimmedOutput)
+          // 检查是否成功获取到磁盘信息
+          if (!disk.MediaType && !disk.DeviceID) {
+            resolve({ success: false, error: '无法获取磁盘类型信息' })
+            return
+          }
+          
+          const mediaType = disk.MediaType || 'Unknown'
+          
+          resolve({
+            success: true,
+            driveLetter: driveLetter,
+            mediaType: mediaType, // SSD, HDD, 或其他
+            friendlyName: disk.FriendlyName || '未知磁盘',
+            deviceId: disk.DeviceID,
+            size: disk.Size || 0,
+            sizeGB: disk.Size ? Math.round(disk.Size / (1024 * 1024 * 1024)) : 0,
+            busType: disk.BusType || 'Unknown'
+          })
+        } catch (parseError) {
+          console.error('解析磁盘类型失败:', parseError, '原始输出:', output)
+          resolve({ success: false, error: '解析磁盘类型失败: ' + parseError.message })
+        }
+      })
+    })
+  } catch (error) {
+    console.error('获取磁盘类型异常:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 ipcMain.handle('show-notification', (event, title, body) => {
   try {
     // 使用Electron的Notification API显示系统通知

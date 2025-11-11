@@ -52,6 +52,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 系统信息
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   
+  // 磁盘信息
+  getDiskInfo: () => ipcRenderer.invoke('get-disk-info'),
+  getDiskTypeByPath: (filePath) => ipcRenderer.invoke('get-disk-type-by-path', filePath),
+  
   // 通知
   showNotification: (title, body) => ipcRenderer.invoke('show-notification', title, body),
   

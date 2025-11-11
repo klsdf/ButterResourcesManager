@@ -289,6 +289,49 @@ export default {
 
     },
     
+    // 打印磁盘信息（后台异步执行，不阻塞）
+    async printDiskInfo() {
+      try {
+        // 延迟执行，确保应用已经启动完成
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        
+        const drives = ['C:', 'D:', 'E:', 'F:', 'G:']
+        
+        console.log('=== 开始获取磁盘信息（后台执行） ===')
+        
+        // 并行获取所有磁盘信息，提高速度
+        const diskInfoPromises = drives.map(async (drive) => {
+          try {
+            if (window.electronAPI && window.electronAPI.getDiskTypeByPath) {
+              // 确保路径格式正确（盘符后面加反斜杠）
+              const drivePath = drive.endsWith(':') ? drive + '\\' : drive + ':\\'
+              const result = await window.electronAPI.getDiskTypeByPath(drivePath)
+              
+              if (result.success) {
+                console.log(`\n📀 ${drive} 盘信息:`)
+                console.log(`  磁盘名称: ${result.friendlyName}`)
+                console.log(`  磁盘类型: ${result.mediaType}`) // SSD 或 HDD
+                console.log(`  设备ID: ${result.deviceId}`)
+                console.log(`  磁盘大小: ${result.sizeGB} GB`)
+                console.log(`  总线类型: ${result.busType}`)
+              } else {
+                console.log(`\n❌ ${drive} 盘: 无法获取信息 - ${result.error}`)
+              }
+            }
+          } catch (error) {
+            console.error(`获取 ${drive} 盘信息时出错:`, error)
+          }
+        })
+        
+        // 等待所有磁盘信息获取完成（但不阻塞主流程）
+        await Promise.allSettled(diskInfoPromises)
+        
+        console.log('\n=== 磁盘信息获取完成 ===\n')
+      } catch (error) {
+        console.error('获取磁盘信息时出错:', error)
+      }
+    },
+    
     switchView(viewId) {
       this.currentView = viewId
       // 保存当前页面到设置中
@@ -690,6 +733,11 @@ export default {
     }
 
     await this.checkFirstLoginAchievement()
+
+    // 在后台异步打印磁盘信息，不阻塞启动流程
+    this.printDiskInfo().catch(error => {
+      console.error('后台获取磁盘信息失败:', error)
+    })
 
     // 启动游戏运行状态检查
     this.startPeriodicStatusCheck()
