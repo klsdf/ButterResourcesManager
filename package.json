@@ -1,7 +1,7 @@
 {
-  "name": "green-resource-manager",
-  "version": "0.5.9",
-  "description": "A Vue + Electron desktop application",
+  "name": "green-resources-manager",
+  "version": "0.6.0",
+  "description": "一款全能、免费的文件管理器，可以管理你的游戏、漫画、视频、音频、小说、网站等资源。",
   "main": "public/electron.js",
   "homepage": "./",
   "scripts": {
@@ -19,7 +19,7 @@
     "desktop",
     "app"
   ],
-  "author": "Yan",
+  "author": "YanChenXiang",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^24.8.0",
