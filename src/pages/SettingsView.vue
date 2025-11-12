@@ -89,6 +89,34 @@
                 </div>
               </div>
               
+              <div class="setting-item">
+                <label class="setting-label">
+                  <span class="setting-title">安全键</span>
+                  <span class="setting-desc">按下ESC键时快速最小化并打开安全网页</span>
+                </label>
+                <div class="setting-control">
+                  <label class="toggle-switch">
+                    <input type="checkbox" v-model="settings.safetyKeyEnabled" @change="onSafetyKeyChange">
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div>
+              
+              <div class="setting-item" v-if="settings.safetyKeyEnabled">
+                <label class="setting-label">
+                  <span class="setting-title">安全网页URL</span>
+                  <span class="setting-desc">按下ESC键时打开的网页地址</span>
+                </label>
+                <div class="setting-control">
+                  <input 
+                    type="text" 
+                    v-model="settings.safetyKeyUrl" 
+                    placeholder="输入网页URL"
+                    class="setting-input"
+                    style="min-width: 400px;"
+                  >
+                </div>
+              </div>
               
               <div class="setting-item">
                 <label class="setting-label">
@@ -833,9 +861,8 @@ export default {
         autoStart: false,
         minimizeToTray: true,
         disguiseMode: false,
-        sageMode: false,
-        safetyKey: 'Ctrl+Alt+Q',
-        safetyAppPath: '',
+        safetyKeyEnabled: false,
+        safetyKeyUrl: 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466',
         // 存档设置
         saveDataLocation: 'default',
         saveDataPath: '',
@@ -939,6 +966,37 @@ export default {
     
     'settings.saveDataLocation'(newLocation) {
       this.onSaveDataLocationChange()
+    },
+    
+    async 'settings.safetyKeyUrl'(newUrl) {
+      // 当安全键URL变化时，更新全局快捷键设置
+      if (this.settings.safetyKeyEnabled && window.electronAPI && window.electronAPI.setSafetyKey) {
+        try {
+          const result = await window.electronAPI.setSafetyKey(true, newUrl)
+          if (result.success) {
+            console.log('✅ 安全键URL已更新')
+          } else {
+            console.warn('更新安全键URL失败:', result.error)
+          }
+        } catch (error) {
+          console.error('更新安全键URL失败:', error)
+        }
+      }
+      
+      // 触发自定义事件，通知 App.vue
+      if (this.settings.safetyKeyEnabled) {
+        try {
+          const event = new CustomEvent('safety-key-changed', {
+            detail: { 
+              enabled: this.settings.safetyKeyEnabled,
+              url: newUrl
+            }
+          })
+          window.dispatchEvent(event)
+        } catch (error) {
+          console.error('触发安全键URL变化事件失败:', error)
+        }
+      }
     }
   },
   methods: {
@@ -1175,6 +1233,58 @@ export default {
         this.settings.disguiseMode ? '已开启伪装模式，图片封面和标签将随机替换' : '已关闭伪装模式，显示原始封面和标签'
       )
     },
+    
+    async onSafetyKeyChange() {
+      // 安全键设置变化时的处理
+      console.log('安全键设置已更新:', this.settings.safetyKeyEnabled)
+      
+      // 直接更新全局快捷键
+      if (window.electronAPI && window.electronAPI.setSafetyKey) {
+        try {
+          const result = await window.electronAPI.setSafetyKey(
+            this.settings.safetyKeyEnabled, 
+            this.settings.safetyKeyUrl
+          )
+          if (result.success) {
+            console.log('✅ 安全键全局快捷键已', this.settings.safetyKeyEnabled ? '启用' : '禁用')
+          } else {
+            console.warn('设置安全键失败:', result.error)
+            this.showToastNotification(
+              '安全键设置失败', 
+              result.error || '无法注册ESC全局快捷键，可能被其他应用占用'
+            )
+            // 恢复开关状态
+            this.settings.safetyKeyEnabled = !this.settings.safetyKeyEnabled
+            return
+          }
+        } catch (error) {
+          console.error('设置安全键失败:', error)
+          this.showToastNotification('安全键设置失败', error.message)
+          // 恢复开关状态
+          this.settings.safetyKeyEnabled = !this.settings.safetyKeyEnabled
+          return
+        }
+      }
+      
+      // 触发自定义事件，通知 App.vue 更新安全键设置
+      try {
+        const event = new CustomEvent('safety-key-changed', {
+          detail: { 
+            enabled: this.settings.safetyKeyEnabled,
+            url: this.settings.safetyKeyUrl
+          }
+        })
+        window.dispatchEvent(event)
+        console.log('已触发 safety-key-changed 事件')
+      } catch (error) {
+        console.error('触发安全键变化事件失败:', error)
+      }
+      
+      this.showToastNotification(
+        '安全键设置已更新', 
+        this.settings.safetyKeyEnabled ? '已开启安全键功能，按下ESC键将快速最小化应用和游戏窗口并打开安全网页' : '已关闭安全键功能'
+      )
+    },
     async onScreenshotKeyChange() {
       // 实时更新全局快捷键
       try {
@@ -1233,9 +1343,8 @@ export default {
             autoStart: false,
             minimizeToTray: true,
             disguiseMode: false,
-            sageMode: false,
-            safetyKey: 'Ctrl+Alt+Q',
-            safetyAppPath: '',
+            safetyKeyEnabled: false,
+            safetyKeyUrl: 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466',
             // 存档设置
             saveDataLocation: 'default',
             saveDataPath: '',
@@ -1849,6 +1958,14 @@ export default {
       }
       if (this.settings.novelShowProgress === undefined) {
         this.settings.novelShowProgress = true
+      }
+      
+      // 初始化安全键设置（如果未设置）
+      if (this.settings.safetyKeyEnabled === undefined || this.settings.safetyKeyEnabled === null) {
+        this.settings.safetyKeyEnabled = false
+      }
+      if (!this.settings.safetyKeyUrl) {
+        this.settings.safetyKeyUrl = 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466'
       }
       
       // 加载设置后立即应用主题

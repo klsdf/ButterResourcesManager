@@ -173,6 +173,9 @@ export default {
       appUsageTimer: null, // 应用使用时长定时器
       // 文件丢失检测控制
       hasCheckedFileLoss: false, // 是否已经检测过文件丢失（应用启动时检测一次）
+      // 安全键相关
+      safetyKeyEnabled: false,
+      safetyKeyUrl: '',
       // 统一的页面配置
       viewConfig: {
         // 主导航页面
@@ -664,6 +667,36 @@ export default {
         console.warn('加载最后访问页面失败:', error)
       }
       return 'games' // 默认返回游戏页面
+    },
+    
+    // 加载安全键设置
+    async loadSafetyKeySettings() {
+      try {
+        const settings = await saveManager.loadSettings()
+        if (settings) {
+          this.safetyKeyEnabled = settings.safetyKeyEnabled || false
+          this.safetyKeyUrl = settings.safetyKeyUrl || 'https://www.bilibili.com/video/BV1jR4y1M78W/?p=17&share_source=copy_web&vd_source=7de8c277f16e8e03b48a5328dddfe2ce&t=466'
+          this.setupSafetyKeyListener()
+        }
+      } catch (error) {
+        console.warn('加载安全键设置失败:', error)
+      }
+    },
+    
+    // 设置安全键监听
+    async setupSafetyKeyListener() {
+      try {
+        if (window.electronAPI && window.electronAPI.setSafetyKey) {
+          const result = await window.electronAPI.setSafetyKey(this.safetyKeyEnabled, this.safetyKeyUrl)
+          if (result.success) {
+            console.log('✅ 安全键全局快捷键已', this.safetyKeyEnabled ? '启用' : '禁用', '(ESC)')
+          } else {
+            console.warn('设置安全键失败:', result.error)
+          }
+        }
+      } catch (error) {
+        console.error('设置安全键监听失败:', error)
+      }
     }
   },
   async mounted() {
@@ -748,6 +781,27 @@ export default {
     // 开始应用使用时长跟踪
     await this.startAppUsageTracking()
     
+    // 加载安全键设置
+    await this.loadSafetyKeySettings()
+    
+    // 监听安全键设置变化事件
+    window.addEventListener('safety-key-changed', async (event: CustomEvent) => {
+      const { enabled, url } = event.detail
+      this.safetyKeyEnabled = enabled
+      if (url) {
+        this.safetyKeyUrl = url
+      }
+      await this.setupSafetyKeyListener()
+    })
+    
+    // 监听安全键触发事件（来自主进程）
+    if (window.electronAPI && window.electronAPI.onSafetyKeyTriggered) {
+      window.electronAPI.onSafetyKeyTriggered(() => {
+        console.log('收到安全键触发事件（来自主进程）')
+        // 主进程已经处理了最小化和打开网页，这里可以添加额外的UI反馈
+      })
+    }
+    
     // 所有初始化完成，隐藏加载提示
     this.isLoading = false
     console.log('✅ 应用初始化完成')
@@ -761,6 +815,14 @@ export default {
     
     // 停止应用使用时长跟踪
     this.stopAppUsageTracking()
+    
+    // 禁用安全键（清理全局快捷键）
+    if (window.electronAPI && window.electronAPI.setSafetyKey) {
+      // 使用 Promise 而不是 await，因为 beforeUnmount 不能是 async
+      window.electronAPI.setSafetyKey(false, '').catch((error) => {
+        console.error('禁用安全键失败:', error)
+      })
+    }
   }
 }
 </script>

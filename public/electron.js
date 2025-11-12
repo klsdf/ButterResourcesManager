@@ -2339,23 +2339,253 @@ ipcMain.handle('check-global-shortcut-available', async (event, key) => {
 
 // 存储当前注册的快捷键
 let currentGlobalShortcut = null
+// 存储安全键相关设置
+let safetyKeyEnabled = false
+let safetyKeyUrl = ''
 
 
 // 注销全局快捷键
 function unregisterGlobalShortcuts() {
   try {
-    globalShortcut.unregisterAll()
+    // 注销截图快捷键
+    if (currentGlobalShortcut) {
+      globalShortcut.unregister(currentGlobalShortcut)
+      currentGlobalShortcut = null
+    }
+    // 注销安全键
+    if (safetyKeyEnabled) {
+      globalShortcut.unregister('Escape')
+    }
     console.log('所有全局快捷键已注销')
   } catch (error) {
     console.error('注销全局快捷键失败:', error)
   }
 }
 
+// 辅助函数：通过 PID 最小化窗口（Windows）
+async function minimizeWindowByPID(pid) {
+  return new Promise((resolve, reject) => {
+    if (process.platform !== 'win32') {
+      reject(new Error('仅支持 Windows 平台'))
+      return
+    }
+
+    const { exec } = require('child_process')
+    // 使用 PowerShell 通过 PID 找到所有窗口并最小化
+    // 使用 EnumWindows 枚举所有窗口，找到属于该进程的所有可见窗口并最小化
+    const psScript = `
+$targetPid = ${pid}
+$process = Get-Process -Id $targetPid -ErrorAction SilentlyContinue
+if (-not $process) {
+    Write-Output "NO_PROCESS"
+    exit
+}
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32 {
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc enumProc, IntPtr lParam);
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    
+    public static int targetPid = ${pid};
+    public static int minimizedCount = 0;
+    
+    public static bool MinimizeWindowsByPid(IntPtr hWnd, IntPtr lParam) {
+        uint processId;
+        GetWindowThreadProcessId(hWnd, out processId);
+        if ((int)processId == targetPid && IsWindowVisible(hWnd)) {
+            ShowWindow(hWnd, 6); // SW_MINIMIZE = 6
+            minimizedCount++;
+        }
+        return true;
+    }
+    
+    public static int MinimizeAllWindowsByPid() {
+        targetPid = ${pid};
+        minimizedCount = 0;
+        EnumWindows(MinimizeWindowsByPid, IntPtr.Zero);
+        return minimizedCount;
+    }
+}
+"@
+
+$minimizedCount = [Win32]::MinimizeAllWindowsByPid()
+if ($minimizedCount -gt 0) {
+    Write-Output "SUCCESS:$minimizedCount"
+} else {
+    Write-Output "NO_WINDOW"
+}
+`
+    
+    // 将脚本保存到临时文件，避免命令行转义问题
+    const fs = require('fs')
+    const path = require('path')
+    const tempScriptPath = path.join(require('os').tmpdir(), `minimize_${pid}_${Date.now()}.ps1`)
+    
+    try {
+      fs.writeFileSync(tempScriptPath, psScript, 'utf8')
+      
+      exec(`powershell -ExecutionPolicy Bypass -File "${tempScriptPath}"`, { encoding: 'utf8' }, (error, stdout, stderr) => {
+        // 清理临时文件
+        try {
+          if (fs.existsSync(tempScriptPath)) {
+            fs.unlinkSync(tempScriptPath)
+          }
+        } catch (cleanupError) {
+          // 忽略清理错误
+        }
+        
+        if (error) {
+          console.warn(`最小化窗口失败 (PID: ${pid}):`, error.message)
+          if (error.code === 1) {
+            resolve(false)
+            return
+          }
+          reject(error)
+          return
+        }
+        
+        const output = stdout.trim()
+        if (output.startsWith('SUCCESS:')) {
+          const count = parseInt(output.split(':')[1]) || 0
+          console.log(`成功最小化 ${count} 个窗口 (PID: ${pid})`)
+          resolve(count > 0)
+        } else if (output === 'NO_WINDOW') {
+          console.log(`进程 ${pid} 没有可见窗口`)
+          resolve(false)
+        } else if (output === 'NO_PROCESS') {
+          console.log(`进程 ${pid} 不存在`)
+          resolve(false)
+        } else {
+          // 如果没有输出，也尝试返回 true（可能命令执行成功但没有输出）
+          resolve(true)
+        }
+      })
+    } catch (writeError) {
+      console.error(`写入临时脚本失败 (PID: ${pid}):`, writeError)
+      reject(writeError)
+    }
+  })
+}
+
+// 最小化所有正在运行的游戏窗口
+async function minimizeAllGameWindows() {
+  try {
+    console.log('开始最小化所有游戏窗口...')
+    console.log(`当前 gameProcesses 中有 ${gameProcesses.size} 个游戏进程`)
+    
+    if (gameProcesses.size === 0) {
+      console.log('⚠️ 没有正在运行的游戏进程')
+      return { success: true, minimizedCount: 0 }
+    }
+    
+    const minimizedPids = []
+    const failedPids = []
+    
+    // 遍历所有游戏进程
+    for (const [pid, gameInfo] of gameProcesses.entries()) {
+      try {
+        console.log(`尝试最小化游戏窗口 (PID: ${pid}, 游戏: ${gameInfo.gameName || '未知'})`)
+        
+        // 首先检查进程是否还存在
+        const { exec } = require('child_process')
+        const checkProcess = await new Promise((resolve) => {
+          exec(`powershell -Command "Get-Process -Id ${pid} -ErrorAction SilentlyContinue"`, (error) => {
+            resolve(!error)
+          })
+        })
+        
+        if (!checkProcess) {
+          console.log(`⚠️ 进程 ${pid} 已不存在，从列表中移除`)
+          gameProcesses.delete(pid)
+          continue
+        }
+        
+        const success = await minimizeWindowByPID(pid)
+        if (success) {
+          minimizedPids.push(pid)
+          console.log(`✅ 已最小化游戏窗口 (PID: ${pid}, 游戏: ${gameInfo.gameName || '未知'})`)
+        } else {
+          failedPids.push(pid)
+          console.log(`⚠️ 无法最小化游戏窗口 (PID: ${pid})，可能没有可见窗口`)
+        }
+      } catch (error) {
+        failedPids.push(pid)
+        console.warn(`最小化游戏窗口失败 (PID: ${pid}):`, error.message)
+      }
+    }
+    
+    console.log(`最小化完成: 成功 ${minimizedPids.length} 个, 失败 ${failedPids.length} 个`)
+    return { success: true, minimizedCount: minimizedPids.length }
+  } catch (error) {
+    console.error('最小化游戏窗口时出错:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// 处理安全键触发
+async function handleSafetyKeyTrigger() {
+  try {
+    console.log('🔒 安全键触发: ESC')
+    
+    // 检查是否有游戏正在运行
+    const hasRunningGames = gameProcesses.size > 0
+    
+    // 检查应用窗口是否处于焦点状态
+    const isAppFocused = mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()
+    
+    // 只有当游戏正在运行或应用窗口处于焦点时才执行
+    if (!hasRunningGames && !isAppFocused) {
+      console.log('⚠️ 安全键触发但条件不满足：无运行中的游戏且应用窗口未聚焦，忽略操作')
+      return
+    }
+    
+    console.log('✅ 安全键条件满足：', {
+      hasRunningGames,
+      isAppFocused
+    })
+    
+    // 最小化主窗口
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.minimize()
+      console.log('✅ 主窗口已最小化')
+    }
+    
+    // 最小化所有游戏窗口
+    if (hasRunningGames) {
+      await minimizeAllGameWindows()
+    }
+    
+    // 打开安全网页
+    if (safetyKeyUrl) {
+      await shell.openExternal(safetyKeyUrl)
+      console.log('✅ 安全网页已打开:', safetyKeyUrl)
+    }
+    
+    // 通知渲染进程
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('safety-key-triggered')
+    }
+  } catch (error) {
+    console.error('执行安全键操作失败:', error)
+  }
+}
+
 // 更新全局快捷键
 function updateGlobalShortcut(newKey) {
   try {
-    // 先注销所有快捷键
-    globalShortcut.unregisterAll()
+    // 只注销截图快捷键，保留安全键
+    if (currentGlobalShortcut) {
+      globalShortcut.unregister(currentGlobalShortcut)
+    }
     currentGlobalShortcut = null
     
     // 注册新的快捷键
@@ -2380,6 +2610,38 @@ function updateGlobalShortcut(newKey) {
     return { success: true, key: null }
   } catch (error) {
     console.error('更新全局快捷键失败:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+// 更新安全键设置
+function updateSafetyKey(enabled, url) {
+  try {
+    safetyKeyEnabled = enabled
+    safetyKeyUrl = url || ''
+    
+    // 先注销 ESC 快捷键（如果已注册）
+    globalShortcut.unregister('Escape')
+    
+    if (enabled) {
+      // 注册 ESC 全局快捷键
+      const registered = globalShortcut.register('Escape', () => {
+        handleSafetyKeyTrigger()
+      })
+      
+      if (registered) {
+        console.log('✅ 安全键 (ESC) 全局快捷键注册成功')
+        return { success: true }
+      } else {
+        console.log('⚠️ 安全键 (ESC) 全局快捷键注册失败，可能被其他应用占用')
+        return { success: false, error: 'ESC 快捷键被其他应用占用' }
+      }
+    } else {
+      console.log('安全键已禁用')
+      return { success: true }
+    }
+  } catch (error) {
+    console.error('更新安全键设置失败:', error)
     return { success: false, error: error.message }
   }
 }
@@ -2979,9 +3241,22 @@ ipcMain.handle('get-minimize-to-tray', async () => {
   }
 })
 
+// IPC 处理程序 - 设置安全键
+ipcMain.handle('set-safety-key', async (event, enabled, url) => {
+  try {
+    const result = updateSafetyKey(enabled, url)
+    return result
+  } catch (error) {
+    console.error('设置安全键失败:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // 应用退出时注销快捷键和销毁托盘
 app.on('will-quit', () => {
   unregisterGlobalShortcuts()
+  // 注销安全键
+  globalShortcut.unregister('Escape')
   if (tray) {
     tray.destroy()
     tray = null

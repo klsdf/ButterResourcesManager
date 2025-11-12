@@ -121,7 +121,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateChecking: (callback) => ipcRenderer.on('update-checking', callback),
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', callback),
   onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', callback),
-  onUpdateError: (callback) => ipcRenderer.on('update-error', callback)
+  onUpdateError: (callback) => ipcRenderer.on('update-error', callback),
+  
+  // 安全键功能
+  setSafetyKey: (enabled, url) => ipcRenderer.invoke('set-safety-key', enabled, url),
+  onSafetyKeyTriggered: (callback) => ipcRenderer.on('safety-key-triggered', callback)
 })
 
 // 监听来自主进程的消息
