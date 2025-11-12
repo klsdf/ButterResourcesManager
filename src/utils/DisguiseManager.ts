@@ -12,59 +12,8 @@ class DisguiseManager {
   private appRootPath: string | null = null // 缓存应用根目录路径
 
   constructor() {
-    // 伪装文字数组
-    this.disguiseTexts = [
-      '大学物理',
-      '大学数学',
-      '高等数学',
-      '线性代数',
-      '概率论与数理统计',
-      '大学英语',
-      '计算机基础',
-      '数据结构与算法',
-      '操作系统原理',
-      '计算机网络',
-      '数据库原理',
-      '软件工程',
-      '人工智能导论',
-      '机器学习基础',
-      '深度学习入门',
-      '数字图像处理',
-      '计算机图形学',
-      '编译原理',
-      '计算机组成原理',
-      '离散数学',
-      '微积分',
-      '复变函数',
-      '实变函数',
-      '泛函分析',
-      '拓扑学',
-      '微分几何',
-      '数论基础',
-      '代数几何',
-      '组合数学',
-      '运筹学',
-      '统计学原理',
-      '计量经济学',
-      '宏观经济学',
-      '微观经济学',
-      '管理学原理',
-      '市场营销学',
-      '财务管理',
-      '会计学原理',
-      '审计学',
-      '税法',
-      '经济法',
-      '国际金融',
-      '投资学',
-      '保险学',
-      '银行学',
-      '证券投资分析',
-      '金融工程',
-      '风险管理',
-      '公司金融',
-      '行为金融学'
-    ]
+    // 初始化时使用默认伪装文字，后续在 initialize() 中可能会从文件读取
+    this.disguiseTexts = this.getDefaultDisguiseTexts()
   }
 
   /**
@@ -102,13 +51,39 @@ class DisguiseManager {
   }
 
   /**
-   * 初始化伪装图片列表
-   * 从根目录的disguise文件夹中加载所有图片文件
+   * 获取默认伪装文字列表
+   * @returns {string[]} 默认伪装文字数组
    */
-  async initialize() {
-    if (this.isInitialized) {
-      console.log('DisguiseManager已初始化，当前图片数量:', this.disguiseImages.length)
+  getDefaultDisguiseTexts(): string[] {
+    return [
+      '神秘内容',
+      '神秘内容2',
+      '神秘内容3',
+      '神秘内容4',
+      '神秘内容5',
+      '神秘内容6',
+      '神秘内容7',
+      '神秘内容8',
+      '神秘内容9',
+      '神秘内容10',
+    ]
+  }
+
+  /**
+   * 初始化伪装图片列表和伪装文字列表
+   * 从根目录的disguise文件夹中加载所有图片文件和disguise.txt文件
+   * @param {boolean} forceReload - 是否强制重新加载（即使已初始化）
+   */
+  async initialize(forceReload = false) {
+    if (this.isInitialized && !forceReload) {
+      console.log('DisguiseManager已初始化，当前图片数量:', this.disguiseImages.length, '文字数量:', this.disguiseTexts.length)
       return this.disguiseImages.length > 0
+    }
+    
+    if (forceReload) {
+      console.log('🔄 强制重新加载DisguiseManager...')
+      this.isInitialized = false
+      this.disguiseTexts = [] // 清空文字列表，准备重新加载
     }
 
     console.log('开始初始化DisguiseManager...')
@@ -121,33 +96,61 @@ class DisguiseManager {
         const result = await window.electronAPI.readDisguiseImages()
         console.log('读取disguise文件夹结果:', result)
         
-        if (result.success && result.images) {
-          this.disguiseImages = result.images
-          console.log(`✅ 从根目录disguise文件夹加载了 ${this.disguiseImages.length} 张伪装图片:`, this.disguiseImages)
+        if (result.success) {
+          // 加载伪装图片
+          if (result.images) {
+            this.disguiseImages = result.images
+            console.log(`✅ 从根目录disguise文件夹加载了 ${this.disguiseImages.length} 张伪装图片:`, this.disguiseImages)
+          } else {
+            this.disguiseImages = []
+            console.log('📁 disguise文件夹已自动创建，但其中没有图片文件')
+          }
+          
+          // 加载伪装文字
+          if (result.texts && result.texts.length > 0) {
+            this.disguiseTexts = result.texts
+            console.log(`✅ 从disguise.txt加载了 ${this.disguiseTexts.length} 条伪装文字:`, this.disguiseTexts)
+          } else {
+            // 如果没有读取到文字，使用默认文字
+            if (this.disguiseTexts.length === 0) {
+              this.disguiseTexts = this.getDefaultDisguiseTexts()
+              console.log(`📝 disguise.txt不存在或为空，使用默认的 ${this.disguiseTexts.length} 条伪装文字`)
+            } else {
+              console.log(`📝 disguise.txt不存在或为空，保持现有的 ${this.disguiseTexts.length} 条伪装文字`)
+            }
+          }
         } else {
           console.warn('❌ 读取disguise文件夹失败:', result.error)
-          // 如果没有图片，设置为空数组，后续会使用默认图片
+          // 如果读取失败，设置为空数组，后续会使用默认图片
           this.disguiseImages = []
-          console.log('📁 disguise文件夹已自动创建，但其中没有图片文件')
+          // 使用默认文字
+          this.disguiseTexts = this.getDefaultDisguiseTexts()
+          console.log(`📝 使用默认的 ${this.disguiseTexts.length} 条伪装文字`)
         }
       } else {
         // 在浏览器环境中的降级处理
         console.warn('❌ 当前环境不支持读取disguise文件夹，electronAPI:', !!window.electronAPI, 'readDisguiseImages:', !!(window.electronAPI && window.electronAPI.readDisguiseImages))
         // 设置为空数组，后续会使用默认图片
         this.disguiseImages = []
-        console.log('✅ 降级处理：设置为空数组，将使用默认图片')
+        // 使用默认文字
+        this.disguiseTexts = this.getDefaultDisguiseTexts()
+        console.log('✅ 降级处理：设置为空数组，将使用默认图片和文字')
       }
     } catch (error) {
       console.error('❌ 初始化伪装图片失败:', error)
       // 即使出错也设置为空数组，后续会使用默认图片
       this.disguiseImages = []
-      console.log('✅ 错误处理：设置为空数组，将使用默认图片')
+      // 使用默认文字
+      this.disguiseTexts = this.getDefaultDisguiseTexts()
+      console.log('✅ 错误处理：设置为空数组，将使用默认图片和文字')
     }
 
     this.isInitialized = true
-    console.log('DisguiseManager初始化完成，图片数量:', this.disguiseImages.length)
+    console.log('DisguiseManager初始化完成，图片数量:', this.disguiseImages.length, '文字数量:', this.disguiseTexts.length)
+    console.log('当前伪装文字列表:', this.disguiseTexts)
     return this.disguiseImages.length > 0
   }
+  
 
   /**
    * 获取随机伪装图片
@@ -190,19 +193,30 @@ class DisguiseManager {
    * 获取随机伪装文字
    * @returns {string} 随机选择的伪装文字
    */
-  getRandomDisguiseText() {
+  async getRandomDisguiseText() {
+    // 确保已初始化
+    await this.initialize()
+    
+    if (this.disguiseTexts.length === 0) {
+      console.warn('⚠️ 伪装文字列表为空，使用默认文字')
+      this.disguiseTexts = this.getDefaultDisguiseTexts()
+    }
+    
     const randomIndex = Math.floor(Math.random() * this.disguiseTexts.length)
     const selectedText = this.disguiseTexts[randomIndex]
-    console.log(`✅ 随机选择伪装文字: ${selectedText} (索引: ${randomIndex})`)
+    console.log(`✅ 随机选择伪装文字: ${selectedText} (索引: ${randomIndex}, 总数量: ${this.disguiseTexts.length})`)
     return selectedText
   }
 
   /**
    * 获取标签的全局伪装文字（确保同一标签在不同地方显示相同的伪装）
    * @param {string} tagName - 原始标签名称
-   * @returns {string} 伪装后的标签名称
+   * @returns {Promise<string>} 伪装后的标签名称
    */
-  getDisguiseTag(tagName: string): string {
+  async getDisguiseTag(tagName: string): Promise<string> {
+    // 确保已初始化
+    await this.initialize()
+    
     // 检查全局缓存
     if (this.globalTagCache.has(tagName)) {
       const cached = this.globalTagCache.get(tagName)!
@@ -211,7 +225,7 @@ class DisguiseManager {
     }
     
     // 生成新的伪装标签
-    const disguiseText = this.getRandomDisguiseText()
+    const disguiseText = await this.getRandomDisguiseText()
     this.globalTagCache.set(tagName, disguiseText)
     console.log(`[DisguiseManager] 为标签 "${tagName}" 生成全局伪装: "${disguiseText}"`)
     return disguiseText
@@ -250,10 +264,9 @@ class DisguiseManager {
    * 在disguise文件夹内容变化时调用
    */
   async reload() {
-    this.isInitialized = false
     this.disguiseCache.clear()
     this.globalTagCache.clear()
-    await this.initialize()
+    await this.initialize(true) // 使用 forceReload 强制重新加载
     console.log('伪装图片列表已重新加载')
   }
 }

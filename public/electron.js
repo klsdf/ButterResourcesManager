@@ -2901,15 +2901,38 @@ ipcMain.handle('read-disguise-images', async () => {
     
     console.log(`✅ 找到 ${imageFiles.length} 张伪装图片:`, imageFiles)
     
+    // 尝试读取 disguise.txt 文件
+    let disguiseTexts = []
+    const disguiseTextPath = path.join(disguiseDir, 'disguise.txt')
+    try {
+      if (fs.existsSync(disguiseTextPath)) {
+        console.log('发现 disguise.txt 文件，正在读取...')
+        const textContent = fs.readFileSync(disguiseTextPath, 'utf8')
+        // 按行分割，过滤空行和空白字符
+        disguiseTexts = textContent
+          .split(/\r?\n/)
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+        console.log(`✅ 从 disguise.txt 读取了 ${disguiseTexts.length} 条伪装文字`)
+      } else {
+        console.log('disguise.txt 文件不存在，将使用默认伪装文字')
+      }
+    } catch (textError) {
+      console.warn('读取 disguise.txt 失败:', textError.message)
+      console.log('将使用默认伪装文字')
+    }
+    
     return { 
       success: true, 
       images: imageFiles,
+      texts: disguiseTexts, // 返回读取到的文字列表（可能为空）
       directory: disguiseDir,
-      hasImages: imageFiles.length > 0
+      hasImages: imageFiles.length > 0,
+      hasTexts: disguiseTexts.length > 0
     }
   } catch (error) {
     console.error('❌ 读取伪装图片失败:', error)
-    return { success: false, error: error.message, images: [] }
+    return { success: false, error: error.message, images: [], texts: [] }
   }
 })
 

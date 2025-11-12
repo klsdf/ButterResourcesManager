@@ -260,10 +260,16 @@ export default {
       
       if (disguiseModeEnabled) {
         // 为每个标签使用全局伪装方法（确保在所有地方显示一致）
+        // 使用缓存，如果缓存中没有则异步加载
         const disguisedTags = this.item.tags.map(tag => {
-          const disguiseTag = disguiseManager.getDisguiseTag(tag)
-          console.log(`[displayTags] 标签 "${tag}" 的伪装文字: "${disguiseTag}"`)
-          return disguiseTag
+          // 检查标签缓存
+          if (this.disguiseTagCache[tag]) {
+            return this.disguiseTagCache[tag]
+          }
+          
+          // 异步加载标签伪装（不阻塞渲染）
+          this.loadDisguiseTag(tag)
+          return tag // 先返回原始标签，等异步加载完成后再更新
         })
         
         console.log(`[displayTags] 最终伪装标签:`, disguisedTags)
@@ -569,7 +575,7 @@ export default {
     async loadDisguiseText(itemId) {
       console.log('MediaCard: 开始加载伪装文字，项目ID:', itemId)
       try {
-        const disguiseText = disguiseManager.getRandomDisguiseText()
+        const disguiseText = await disguiseManager.getRandomDisguiseText()
         console.log('MediaCard: 获取到伪装文字:', disguiseText)
         // 使用Vue的响应式更新
         this.$set ? this.$set(this.disguiseTextCache, itemId, disguiseText) : (this.disguiseTextCache[itemId] = disguiseText)
@@ -578,6 +584,25 @@ export default {
         console.log('MediaCard: 伪装文字已更新到缓存')
       } catch (error) {
         console.error('MediaCard: 加载伪装文字失败:', error)
+      }
+    },
+    
+    /**
+     * 异步加载标签伪装
+     * @param {string} tagName - 标签名称
+     */
+    async loadDisguiseTag(tagName) {
+      console.log('MediaCard: 开始加载标签伪装，标签:', tagName)
+      try {
+        const disguiseTag = await disguiseManager.getDisguiseTag(tagName)
+        console.log('MediaCard: 获取到标签伪装:', disguiseTag)
+        // 使用Vue的响应式更新
+        this.$set ? this.$set(this.disguiseTagCache, tagName, disguiseTag) : (this.disguiseTagCache[tagName] = disguiseTag)
+        // 强制更新组件
+        this.$forceUpdate()
+        console.log('MediaCard: 标签伪装已更新到缓存')
+      } catch (error) {
+        console.error('MediaCard: 加载标签伪装失败:', error)
       }
     },
     

@@ -84,7 +84,8 @@ export default {
   emits: ['filter-select', 'filter-exclude', 'filter-clear'],
   data() {
     return {
-      disguiseModeState: false // 伪装模式状态
+      disguiseModeState: false, // 伪装模式状态
+      disguiseNameCache: {} // 伪装名称缓存
     }
   },
   methods: {
@@ -104,11 +105,37 @@ export default {
      */
     getDisplayName(originalName) {
       if (this.disguiseModeState) {
-        const disguiseName = disguiseManager.getDisguiseTag(originalName)
-        console.log(`[FilterSidebar] 标签伪装: "${originalName}" -> "${disguiseName}"`)
-        return disguiseName
+        // 检查缓存
+        if (this.disguiseNameCache && this.disguiseNameCache[originalName]) {
+          return this.disguiseNameCache[originalName]
+        }
+        
+        // 异步加载（不阻塞渲染）
+        this.loadDisguiseName(originalName)
+        return originalName // 先返回原始名称，等异步加载完成后再更新
       }
       return originalName
+    },
+    
+    /**
+     * 异步加载名称伪装
+     * @param {string} originalName - 原始名称
+     */
+    async loadDisguiseName(originalName) {
+      try {
+        const disguiseName = await disguiseManager.getDisguiseTag(originalName)
+        // 初始化缓存对象（如果不存在）
+        if (!this.disguiseNameCache) {
+          this.disguiseNameCache = {}
+        }
+        // 使用Vue的响应式更新
+        this.$set ? this.$set(this.disguiseNameCache, originalName, disguiseName) : (this.disguiseNameCache[originalName] = disguiseName)
+        // 强制更新组件
+        this.$forceUpdate()
+        console.log(`[FilterSidebar] 标签伪装已加载: "${originalName}" -> "${disguiseName}"`)
+      } catch (error) {
+        console.error('[FilterSidebar] 加载名称伪装失败:', error)
+      }
     },
     /**
      * 更新伪装模式状态
