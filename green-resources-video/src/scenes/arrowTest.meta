@@ -1,0 +1,30 @@
+{
+  "version": 0,
+  "timeEvents": [
+    {
+      "name": "start",
+      "targetTime": 0
+    },
+    {
+      "name": "branch1",
+      "targetTime": 0.5
+    },
+    {
+      "name": "branch2",
+      "targetTime": 1
+    },
+    {
+      "name": "branch3",
+      "targetTime": 1.5
+    },
+    {
+      "name": "branch4",
+      "targetTime": 2
+    },
+    {
+      "name": "end",
+      "targetTime": 2.5
+    }
+  ],
+  "seed": 2322222072
+}

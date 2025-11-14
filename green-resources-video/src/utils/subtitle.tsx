@@ -1,6 +1,6 @@
 import { Txt, Layout, Rect } from '@motion-canvas/2d';
-import { createRef, ThreadGenerator, all } from '@motion-canvas/core';
-import { VideoScript } from '../data/VideoScript';
+import { createRef, ThreadGenerator, all, waitUntil } from '@motion-canvas/core';
+import { VideoScript } from '../interface/VideoScript';
 import { createSegmentedProgressBar, ProgressSegment } from './progressBar';
 
 export type SubtitleItem = string | VideoScript;
@@ -50,15 +50,18 @@ export function* showSubtitles(
 
 	const createSubtitleContainer = () => (
 		<Layout
+		key="SubtitleContainer"
 		ref={container}
 		layout
 		alignItems="center"
 		justifyContent="center"
 		opacity={0}
 		padding={padding}
-		zIndex={300}
+		zIndex={9999}
+		composite={true}
 	  >
 		<Rect
+		  key="SubtitleBackground"
 		  ref={background}
 		  fill={backgroundColor}
 		  opacity={backgroundOpacity}
@@ -67,6 +70,7 @@ export function* showSubtitles(
 		  layout
 		>
 		  <Txt
+			key="SubtitleText"
 			ref={subtitle}
 			text=""
 			fontSize={fontSize}
@@ -84,24 +88,24 @@ export function* showSubtitles(
 	if (position === 'bottom') {
 		// 字幕在底部，但要在进度条上方，所以需要留出空间
 		subtitleElement = (
-			<Layout layout={true} direction="column" width="100%" height="100%">
-				<Layout grow={1} />
+			<Layout key="SubtitleWrapper" layout={true} direction="column" width="100%" height="100%" zIndex={10000} composite={true}>
+				<Layout key="SubtitleSpacerTop" grow={1} />
 				{createSubtitleContainer()}
-				{/* 为进度条预留空间（大约 150px） */}
-				<Layout height={150} />
+				{/* 为进度条预留空间（大约 40px） */}
+				<Layout key="SubtitleSpacerBottom" height={40} />
 			</Layout>
 		);
 	} else if (position === 'top') {
 		subtitleElement = (
-			<Layout layout={true} direction="column" width="100%" height="100%">
+			<Layout key="SubtitleWrapper" layout={true} direction="column" width="100%" height="100%" zIndex={10000} composite={true}>
 				{createSubtitleContainer()}
-				<Layout grow={1} />
+				<Layout key="SubtitleSpacerBottom" grow={1} />
 			</Layout>
 		);
 	} else {
 		// center
 		subtitleElement = (
-			<Layout layout={true} direction="column" width="100%" height="100%" alignItems="center" justifyContent="center">
+			<Layout key="SubtitleWrapper" layout={true} direction="column" width="100%" height="100%" alignItems="center" justifyContent="center" zIndex={10000} composite={true}>
 				{createSubtitleContainer()}
 			</Layout>
 		);
@@ -145,8 +149,12 @@ export function* showSubtitles(
 					? { text: item } 
 					: item;
 				
-				// 淡入
+				// 设置字幕文本
 				subtitle().text(script.text);
+				
+				// 等待时间事件（用于与音频对齐）- 使用字幕文本的前7个字作为事件名称
+				const eventName = script.text.substring(0, 7);
+				yield* waitUntil(eventName);
 				
 				// 并行执行回调动画（如果有）和字幕淡入
 				const animations: ThreadGenerator[] = [

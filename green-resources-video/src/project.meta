@@ -1,7 +1,7 @@
 {
   "version": 0,
   "shared": {
-    "background": null,
+    "background": "rgb(255,255,255)",
     "range": [
       0,
       null
@@ -10,7 +10,7 @@
       "x": 1920,
       "y": 1080
     },
-    "audioOffset": 0
+    "audioOffset": -0.7721268629233782
   },
   "preview": {
     "fps": 30,

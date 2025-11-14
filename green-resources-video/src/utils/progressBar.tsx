@@ -18,16 +18,12 @@ export interface ProgressSegment {
 }
 
 export interface ProgressBarOptions {
-	segments: ProgressSegment[];
-	totalItems: number;
+	segments: ProgressSegment[];      // 分段色块
+	totalItems: number;               // 总项数
 	height?: number;                // 底部色块高度
-	progressHeight?: number;        // 顶部进度条高度
 	padding?: number;               // 容器内边距
-	titleFontSize?: number;
-	titleColor?: string;
-	progressColor?: string;
-	trackColor?: string;
-	position?: 'top' | 'bottom';    // 整体位置
+	titleFontSize?: number;         // 标题字体大小
+	titleColor?: string;             // 标题字体颜色
 }
 
 /**
@@ -38,14 +34,10 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 	const {
 		segments,
 		totalItems,
-		height = 60,
-		progressHeight = 8,
+		height = 35,
 		padding = 16,
 		titleFontSize = 18,
 		titleColor = '#ffffff',
-		progressColor = '#ff8a65',
-		trackColor = '#333333',
-		position = 'bottom',
 	} = options;
 
 	// 外层容器引用：包含整个进度条组件（进度条 + 分段色块）
@@ -69,6 +61,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 	// 外层容器
 	const component = (
 		<Layout
+			key="ProgressBarContainer"
 			ref={containerRef}
 			layout={false}
 			width="100%"
@@ -77,6 +70,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 		>
 			{/* 分段区域Layout - 作为参考宽度 */}
 			<Layout 
+				key="ProgressBarSegments"
 				ref={segmentsLayoutRef}
 				layout 
 				direction="row" 
@@ -88,6 +82,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 					const spanPercent = ((seg.endIndex - seg.startIndex + 1) / totalItems) * 100;
 					return (
 						<Rect
+							key={`ProgressBarSegment-${idx}-${seg.title}`}
 							fill={seg.color ?? '#666'}
 							width={`${spanPercent}%`}
 							height="100%"
@@ -97,6 +92,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 							justifyContent="center"
 						>
 							<Txt
+								key={`ProgressBarSegmentTitle-${idx}-${seg.title}`}
 								ref={titleRefs[idx]}
 								text={seg.title}
 								fontSize={titleFontSize}
@@ -113,6 +109,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 			{/* 进度条背景轨道 - 使用与分段Layout相同的宽度和位置 */}
 			{/*  
 			<Rect
+				key="ProgressBarTrack"
 				ref={progressTrackRef}
 				fill={trackColor}
 				width={() => segmentsLayoutRef().width()}
@@ -128,6 +125,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 			
 			{/* 进度条前景 - 位置和高度与色块一样，从左到右增长 */}
 			<Rect
+				key="ProgressBarForeground"
 				ref={progressRef}
 				fill="#000000"
 				opacity={0.5}
@@ -143,12 +141,7 @@ export function createSegmentedProgressBar(view: Layout, options: ProgressBarOpt
 	view.add(component);
 
 	// 设置位置
-	// 容器中心点：考虑padding和色块高度
-	if (position === 'top') {
-		containerRef().position.y(() => -view.height() / 2 + padding + height / 2);
-	} else {
-		containerRef().position.y(() => view.height() / 2 - padding - height / 2);
-	}
+	containerRef().position.y(() => view.height()/2 - padding);
 
 	// 让进度条在整个动画过程中持续平滑增长
 	// totalDuration: 整个动画的总时长（秒）
